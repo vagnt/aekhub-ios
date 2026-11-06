@@ -76,6 +76,7 @@ jobs:
             ${{ env.LITE }}
 
       - name: Release
+        continue-on-error: true
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ios-build-${{ github.run_number }}
