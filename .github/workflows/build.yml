@@ -118,7 +118,9 @@ jobs:
           git add -A && git commit -qm "AEK Hub $VER (build ${{ github.run_number }})" && git push -q origin HEAD:main || echo "τίποτα νέο"
 
   # 📸 Screenshots από προσομοιωτή (iPhone + iPad): έλεγχος εμφάνισης χωρίς συσκευή
+  # Screenshots: ΜΟΝΟ όταν ζητηθούν («[screens]» ή «[appstore]» στο commit, ή χειροκίνητα) — τα λεπτά macOS κοστίζουν ×10
   screens:
+    if: contains(github.event.head_commit.message, '[screens]') || contains(github.event.head_commit.message, '[appstore]') || github.event_name == 'workflow_dispatch'
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
