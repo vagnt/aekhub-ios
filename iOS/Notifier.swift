@@ -59,6 +59,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         var state = (try? JSONDecoder().decode([String: St].self, from: d.data(forKey: "n_state") ?? Data())) ?? [:]
         let first = state.isEmpty
         for m in items {
+            if m.live || m.finished { LiveActivities.shared.update(m) }
             let key = String(m.id)
             let now = St(st: m.status, h: m.scoreHome, a: m.scoreAway, live: m.live)
             defer { state[key] = now }

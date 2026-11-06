@@ -45,6 +45,7 @@ final class Prefs: ObservableObject {
     @Published var spoiler: Bool { didSet { d.set(spoiler, forKey: "n_spoiler") } }
     @Published var matchAlerts: Set<Int> { didSet { d.set(Array(matchAlerts), forKey: "n_alerts") } }
     @Published var stats: Bool { didSet { d.set(stats, forKey: "stats_on") } }
+    @Published var liveActivities: Bool { didSet { d.set(liveActivities, forKey: "n_la"); if !liveActivities { LiveActivities.shared.endAll() } } }
     @Published var saved: [PostCard] { didSet { saveSaved() } }
     @Published var introDone: Bool { didSet { d.set(introDone, forKey: "intro_done") } }
 
@@ -61,6 +62,7 @@ final class Prefs: ObservableObject {
         spoiler = d.bool(forKey: "n_spoiler")
         matchAlerts = Set((d.array(forKey: "n_alerts") as? [Int]) ?? [])
         stats = d.object(forKey: "stats_on") as? Bool ?? true
+        liveActivities = d.object(forKey: "n_la") as? Bool ?? true
         introDone = d.bool(forKey: "intro_done")
         saved = []
         saved = loadSaved()

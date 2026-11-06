@@ -4,14 +4,14 @@ name: AEKHub
 options:
   bundleIdPrefix: gr.aekhub
   deploymentTarget:
-    iOS: "16.0"
+    iOS: "16.2"
     watchOS: "9.0"
   createIntermediateGroups: true
   developmentLanguage: el
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.2.0"
+    MARKETING_VERSION: "0.3.0"
     CURRENT_PROJECT_VERSION: "1"
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: ""
@@ -64,6 +64,7 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         ITSAppUsesNonExemptEncryption: false
+        NSSupportsLiveActivities: true
         # Έλεγχος αγώνων στο παρασκήνιο (τοπικές ειδοποιήσεις χωρίς push) — το iOS αποφασίζει πόσο συχνά
         UIBackgroundModes: [fetch]
         BGTaskSchedulerPermittedIdentifiers: [gr.aekhub.app.refresh]
@@ -118,6 +119,7 @@ targets:
     dependencies:
       - target: AEKHubWatchWidgets
         embed: true
+    scheme: {}
 
   # Widgets iPhone/iPad (οθόνη αφετηρίας + οθόνη κλειδώματος)
   AEKHubWidgets:

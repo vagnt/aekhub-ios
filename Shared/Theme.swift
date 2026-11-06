@@ -1,21 +1,23 @@
 import SwiftUI
 
-/// Τα χρώματα του aekhub.gr (ίδια με το Android)
+/// Design system «iOS 26 · Liquid Glass» (το σχέδιο του χρήστη) — ίδια χρώματα με το Android/site.
 enum C {
-    static let ink = Color(hex: 0x0B0B0A)
-    static let ink2 = Color(hex: 0x10100E)
-    static let panel = Color(hex: 0x151513)
-    static let panel2 = Color(hex: 0x1C1B18)
-    static let panel3 = Color(hex: 0x242320)
-    static let line = Color(hex: 0x2A2924)
-    static let line2 = Color(hex: 0x37352F)
-    static let text = Color(hex: 0xF3F1E9)
+    static let ink = Color(hex: 0x0B0B0A)       // Μαύρο
+    static let ink2 = Color(hex: 0x0E0E0D)
+    static let panel = Color(hex: 0x151514)     // Επιφάνεια
+    static let panel2 = Color(hex: 0x1E1E1C)    // Επιφάνεια 2
+    static let panel3 = Color(hex: 0x262624)
+    static let line = Color(hex: 0x2C2C29)      // Γραμμή
+    static let line2 = Color(hex: 0x3A3935)
+    static let text = Color(hex: 0xF3F1E9)      // Κείμενο
     static let text2 = Color(hex: 0xCFCBBE)
-    static let muted = Color(hex: 0x8E8A7C)
-    static let gold = Color(hex: 0xF9CF1C)
-    static let live = Color(hex: 0xFF4B3E)
-    static let win = Color(hex: 0x1A9B54)
-    static let loss = Color(hex: 0xD63638)
+    static let muted = Color(hex: 0x9A968A)     // Σιγαστό
+    static let gold = Color(hex: 0xF9CF1C)      // Κίτρινο ΑΕΚ
+    static let gold2 = Color(hex: 0xE0B400)
+    static let live = Color(hex: 0xFF453A)      // Live
+    static let win = Color(hex: 0x34C759)       // Θετικό
+    static let loss = Color(hex: 0xFF453A)
+    static let goldGrad = LinearGradient(colors: [Color(hex: 0xFFE14D), Color(hex: 0xF2C200)], startPoint: .top, endPoint: .bottom)
 }
 
 extension Color {
@@ -28,25 +30,49 @@ extension Color {
     }
 }
 
-/// Γραμματοσειρές: Manrope (κείμενο) και Sofia Sans Extra Condensed (τίτλοι/σκορ), όπως στο site/Android.
-/// Στο ρολόι: του συστήματος (πιο ευανάγνωστες στη μικρή οθόνη).
+/// Τίτλοι: στενή γραμματοσειρά της μάρκας (Sofia Sans Extra Condensed 800/900)· όλα τα υπόλοιπα: σύστημα (SF Pro).
 enum F {
-    enum W { case medium, bold, extra }
-    static func body(_ size: CGFloat, _ w: W = .medium) -> Font {
-        #if os(watchOS)
-        return .system(size: size, weight: w == .medium ? .medium : (w == .bold ? .semibold : .bold))
-        #else
-        let n: String
-        switch w { case .medium: n = "ManropeExtraLight-Medium"; case .bold: n = "ManropeExtraLight-Bold"; case .extra: n = "ManropeExtraLight-ExtraBold" }
-        return .custom(n, size: size, relativeTo: .body)
-        #endif
+    enum W { case regular, medium, semibold, bold, heavy }
+    static func body(_ size: CGFloat, _ w: W = .regular) -> Font {
+        let wt: Font.Weight
+        switch w { case .regular: wt = .regular; case .medium: wt = .medium; case .semibold: wt = .semibold; case .bold: wt = .bold; case .heavy: wt = .heavy }
+        return .system(size: size, weight: wt)
     }
-    static func disp(_ size: CGFloat, black: Bool = false) -> Font {
+    /// Στενή γραμματοσειρά (τίτλοι, σκορ, ώρες)
+    static func disp(_ size: CGFloat, black: Bool = true) -> Font {
         #if os(watchOS)
         return .system(size: size, weight: .heavy).width(.condensed)
         #else
         return .custom(black ? "SofiaSansExtraCondensed-Black" : "SofiaSansExtraCondensed-ExtraBold", fixedSize: size)
         #endif
+    }
+    /// Ετικέτα: κεφαλαία, bold, +8% απόσταση
+    static func tag(_ size: CGFloat = 11) -> Font { .system(size: size, weight: .bold) }
+}
+
+// MARK: - Liquid Glass (iOS 26) με εναλλακτικό υλικό για παλιότερα iOS
+
+extension View {
+    /// Γυαλί σε σχήμα κάψουλας/κύκλου/στρογγυλεμένου: μόνο για πλοήγηση, κουμπιά πάνω από εικόνα, φύλλα.
+    @ViewBuilder func glass<S: Shape>(_ shape: S, tint: Color? = nil, interactive: Bool = false) -> some View {
+        #if os(iOS) && compiler(>=6.2)
+        if #available(iOS 26.0, *) {
+            self.glassEffect(tint.map { Glass.regular.tint($0).interactive(interactive) } ?? Glass.regular.interactive(interactive), in: shape)
+        } else { self.glassFallback(shape, tint: tint) }
+        #else
+        self.glassFallback(shape, tint: tint)
+        #endif
+    }
+    @ViewBuilder func glassFallback<S: Shape>(_ shape: S, tint: Color?) -> some View {
+        self.background(shape.fill(.ultraThinMaterial))
+            .background(shape.fill((tint ?? C.panel2).opacity(tint == nil ? 0.55 : 0.85)))
+            .overlay(shape.stroke(LinearGradient(colors: [.white.opacity(0.22), .white.opacity(0.04)], startPoint: .top, endPoint: .bottom), lineWidth: 1))
+            .clipShape(shape)
+    }
+    /// Κάρτα περιεχομένου (όχι γυαλί): στέρεη επιφάνεια με λεπτό περίγραμμα, ακτίνα 28
+    func card(_ r: CGFloat = 24, fill: Color = C.panel) -> some View {
+        self.background(RoundedRectangle(cornerRadius: r, style: .continuous).fill(fill))
+            .overlay(RoundedRectangle(cornerRadius: r, style: .continuous).stroke(C.line, lineWidth: 1))
     }
 }
 
@@ -65,14 +91,17 @@ struct NetImage: View {
     }
 }
 
-/// Λογότυπο ομάδας (μικρό, μέσω CDN)
+/// Λογότυπο ομάδας (CDN, μικρό)· αν λείπει → κύκλος με τα αρχικά
 struct TeamLogo: View {
     let url: String
     var size: CGFloat = 28
+    var name: String = ""
     var body: some View {
         AsyncImage(url: Img.url(url, w: 160)) { ph in
             if case .success(let img) = ph { img.resizable().scaledToFit() }
-            else { Circle().fill(C.panel3) }
+            else {
+                Circle().fill(C.panel3).overlay(Text(String(name.upperGr.prefix(3))).font(.system(size: max(8, size / 3.4), weight: .heavy)).foregroundStyle(C.text2))
+            }
         }
         .frame(width: size, height: size)
     }
@@ -84,7 +113,18 @@ struct LiveDot: View {
     @State private var on = false
     var body: some View {
         Circle().fill(C.live).frame(width: size, height: size)
-            .opacity(on ? 0.35 : 1)
-            .onAppear { withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) { on = true } }
+            .overlay(Circle().stroke(C.live.opacity(0.35), lineWidth: 3).scaleEffect(on ? 1.9 : 1).opacity(on ? 0 : 1))
+            .onAppear { withAnimation(.easeOut(duration: 1.2).repeatForever(autoreverses: false)) { on = true } }
+    }
+}
+
+/// Κεκλιμένη κίτρινη ετικέτα (όπως στο Android: «ΤΕΛΕΥΤΑΙΑ ΝΕΑ», πανό διοργάνωσης)
+struct SlantShape: Shape {
+    var k: CGFloat = 10
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: r.minX + k, y: r.minY)); p.addLine(to: CGPoint(x: r.maxX, y: r.minY))
+        p.addLine(to: CGPoint(x: r.maxX - k, y: r.maxY)); p.addLine(to: CGPoint(x: r.minX, y: r.maxY)); p.closeSubpath()
+        return p
     }
 }

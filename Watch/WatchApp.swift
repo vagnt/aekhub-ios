@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// AEK Hub για Apple Watch: live/επόμενος αγώνας με αντίστροφη μέτρηση, αγώνες, τελευταία νέα.
+/// AEK Hub για Apple Watch (σχέδιο watchOS 26): live/επόμενος, αγώνες, βαθμολογία, νέα.
 @main
 struct AEKHubWatchApp: App {
     var body: some Scene {
@@ -11,6 +11,8 @@ struct AEKHubWatchApp: App {
     }
 }
 
+enum WRoute: Hashable { case match(Int), post(PostCard), standings }
+
 struct WatchHome: View {
     @State private var home: HomeData? = Api.shared.peek(Api.pHome).map(HomeData.init)
     @State private var list: MatchList? = Api.shared.peek(Api.pMatches()).map(MatchList.init)
@@ -18,50 +20,53 @@ struct WatchHome: View {
 
     var body: some View {
         List {
-            if let m = home?.liveHero?.match ?? home?.next {
-                NavigationLink(value: m.id) { WatchHero(m: m) }
-                    .listRowBackground(RoundedRectangle(cornerRadius: 14).fill(m.live ? C.live.opacity(0.25) : C.panel2))
+            if let m = home?.liveHero?.match ?? list?.items.first(where: { $0.live }) ?? home?.next {
+                NavigationLink(value: WRoute.match(m.id)) { WatchHero(m: m) }
+                    .listRowBackground(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(m.live ? C.live.opacity(0.18) : C.panel))
             }
 
-            let live = (list?.items ?? []).filter { $0.live }
             let today = Fmt.ymdString(Date())
-            let recent = (list?.items ?? []).filter { $0.finished && $0.date <= today }.sorted { ($0.date, $0.time) > ($1.date, $1.time) }.prefix(4)
-            let next = (list?.items ?? []).filter { $0.upcoming && $0.date >= today }.sorted { ($0.date, $0.time) < ($1.date, $1.time) }.prefix(5)
+            let all = list?.items ?? []
+            let next = all.filter { ($0.upcoming && $0.date >= today) || $0.live }.sorted { ($0.date, $0.time) < ($1.date, $1.time) }.prefix(6)
+            let recent = all.filter { $0.finished && $0.date <= today }.sorted { ($0.date, $0.time) > ($1.date, $1.time) }.prefix(4)
 
-            if !live.isEmpty {
-                Section("Live τώρα") { ForEach(live) { m in NavigationLink(value: m.id) { WatchMatchRow(m: m) } } }
-            }
             if !next.isEmpty {
-                Section("Επόμενοι") { ForEach(Array(next)) { m in NavigationLink(value: m.id) { WatchMatchRow(m: m) } } }
+                Section { ForEach(Array(next)) { m in NavigationLink(value: WRoute.match(m.id)) { WatchMatchRow(m: m) }.listRowBackground(rowBG) } }
+                header: { head("Αγώνες", Fmt.shortDay(today)) }
             }
             if !recent.isEmpty {
-                Section("Αποτελέσματα") { ForEach(Array(recent)) { m in NavigationLink(value: m.id) { WatchMatchRow(m: m) } } }
+                Section { ForEach(Array(recent)) { m in NavigationLink(value: WRoute.match(m.id)) { WatchMatchRow(m: m) }.listRowBackground(rowBG) } }
+                header: { head("Αποτελέσματα", "") }
             }
+            NavigationLink(value: WRoute.standings) {
+                Label("Βαθμολογία", systemImage: "list.number").font(.system(size: 15, weight: .semibold))
+            }.listRowBackground(rowBG)
             if let h = home {
                 let posts = ([h.featured].compactMap { $0 } + h.top).prefix(8)
-                Section("Νέα") {
+                Section {
                     ForEach(Array(posts)) { p in
-                        NavigationLink(value: p) {
+                        NavigationLink(value: WRoute.post(p)) {
                             VStack(alignment: .leading, spacing: 3) {
+                                if !p.category.isEmpty { Text(p.category.upperGr).font(.system(size: 10, weight: .bold)).foregroundStyle(C.gold) }
                                 Text(p.title).font(.system(size: 14, weight: .semibold)).lineLimit(4)
-                                Text(Fmt.ago(p.date)).font(.system(size: 11)).foregroundStyle(C.muted)
                             }.padding(.vertical, 2)
-                        }
+                        }.listRowBackground(rowBG)
                     }
-                }
+                } header: { head("Νέα", "") }
             }
             if home == nil && list == nil {
-                if error {
-                    VStack(spacing: 6) {
-                        Text("Χωρίς σύνδεση").font(.headline)
-                        Button("Ξανά") { Task { await load() } }
-                    }
-                } else { ProgressView() }
+                if error { VStack(spacing: 6) { Text("Χωρίς σύνδεση").font(.headline); Button("Ξανά") { Task { await load() } } } }
+                else { ProgressView() }
             }
         }
         .navigationTitle("AEK Hub")
-        .navigationDestination(for: Int.self) { WatchMatchView(id: $0) }
-        .navigationDestination(for: PostCard.self) { WatchPostView(card: $0) }
+        .navigationDestination(for: WRoute.self) { r in
+            switch r {
+            case .match(let id): WatchMatchView(id: id)
+            case .post(let p): WatchPostView(card: p)
+            case .standings: WatchStandingsView()
+            }
+        }
         .task {
             await load()
             while !Task.isCancelled {
@@ -70,6 +75,11 @@ struct WatchHome: View {
                 await load()
             }
         }
+    }
+
+    var rowBG: some View { RoundedRectangle(cornerRadius: 18, style: .continuous).fill(C.panel2) }
+    func head(_ t: String, _ r: String) -> some View {
+        HStack { Text(t.upperGr).font(.system(size: 17, weight: .heavy).width(.condensed)).foregroundStyle(C.gold); Spacer(); Text(r).font(.system(size: 12, weight: .semibold)).foregroundStyle(C.text2) }
     }
 
     func load() async {
@@ -82,59 +92,78 @@ struct WatchHome: View {
     }
 }
 
-/// Η μεγάλη κάρτα: live σκορ ή αντίστροφη μέτρηση
+/// Live σκορ ή αντίστροφη μέτρηση (σχέδιο «Live · Smart Stack»)
 struct WatchHero: View {
     let m: MatchCard
     var body: some View {
-        VStack(spacing: 4) {
-            Text(m.live ? "LIVE" : "ΕΠΟΜΕΝΟΣ").font(.system(size: 11, weight: .heavy)).foregroundStyle(m.live ? C.live : C.gold)
-            HStack {
-                TeamLogo(url: m.homeLogo, size: 30)
-                Spacer()
-                if m.live || m.hasScore {
-                    Text("\(m.scoreHome)–\(m.scoreAway)").font(.system(size: 28, weight: .heavy).width(.condensed)).monospacedDigit()
-                } else {
-                    Text(m.time).font(.system(size: 22, weight: .heavy).width(.condensed))
-                }
-                Spacer()
-                TeamLogo(url: m.awayLogo, size: 30)
-            }
-            Text("\(m.home) – \(m.away)").font(.system(size: 12, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
+        VStack(spacing: 5) {
             if m.live {
                 TimelineView(.periodic(from: .now, by: 15)) { ctx in
-                    Text(liveMinute(m.clock, fallback: m.minute.isEmpty ? m.statusLabel : m.minute, now: ctx.date)).font(.system(size: 12, weight: .bold)).foregroundStyle(C.live)
+                    HStack(spacing: 4) {
+                        Circle().fill(C.live).frame(width: 7, height: 7)
+                        Text("LIVE · " + liveMinute(m.clock, fallback: m.minute.isEmpty ? m.statusLabel : m.minute, now: ctx.date)).font(.system(size: 13, weight: .heavy)).foregroundStyle(C.live)
+                    }
                 }
+            } else {
+                Text(m.finished ? "ΤΕΛΙΚΟ" : "ΕΠΟΜΕΝΟΣ").font(.system(size: 11, weight: .heavy)).foregroundStyle(C.gold)
+            }
+            HStack(spacing: 6) {
+                TeamLogo(url: m.homeLogo, size: 30, name: m.home)
+                if m.live || m.hasScore {
+                    HStack(spacing: 3) {
+                        Text(m.scoreHome).foregroundStyle(m.aek == "home" ? C.gold : C.text)
+                        Text("–").foregroundStyle(C.muted).font(.system(size: 20))
+                        Text(m.scoreAway).foregroundStyle(m.aek == "away" ? C.gold : C.text)
+                    }.font(.system(size: 36, weight: .heavy).width(.condensed)).monospacedDigit()
+                } else {
+                    Text(m.time).font(.system(size: 30, weight: .heavy).width(.condensed)).foregroundStyle(C.gold)
+                }
+                TeamLogo(url: m.awayLogo, size: 30, name: m.away)
+            }
+            Text(m.competition).font(.system(size: 11)).foregroundStyle(C.text2).lineLimit(1)
+            if m.live {
+                GeometryReader { g in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.white.opacity(0.15))
+                        Capsule().fill(C.gold).frame(width: g.size.width * progress)
+                    }
+                }.frame(height: 4).padding(.horizontal, 12)
             } else if let ko = m.kickoffDate, ko > Date() {
                 Text(ko, style: .relative).font(.system(size: 12, weight: .bold)).foregroundStyle(C.gold).multilineTextAlignment(.center)
-                Text(Fmt.shortDay(m.date)).font(.system(size: 11)).foregroundStyle(C.muted)
             }
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
+    }
+    var progress: CGFloat {
+        let mn = Double(liveMinute(m.clock, fallback: m.minute).filter(\.isNumber).prefix(3)) ?? 0
+        return CGFloat(min(1, mn / (m.sport.contains("football") ? 90 : 40)))
     }
 }
 
+/// «ΑΕΚ – ΡΕΑΛ 19:45» (σχέδιο «Αγώνες»)
 struct WatchMatchRow: View {
     let m: MatchCard
     var body: some View {
-        HStack(spacing: 6) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(m.home).lineLimit(1)
-                Text(m.away).lineLimit(1)
-            }.font(.system(size: 13, weight: .semibold))
+        HStack(spacing: 8) {
+            TeamLogo(url: m.aek == "away" ? m.awayLogo : m.homeLogo, size: 22, name: "ΑΕΚ")
+            VStack(alignment: .leading, spacing: 1) {
+                Text("\(short(m.home)) – \(short(m.away))").font(.system(size: 14, weight: .heavy).width(.condensed)).lineLimit(1)
+                Text(Sports.label(m.sport)).font(.system(size: 10)).foregroundStyle(C.muted).lineLimit(1)
+            }
             Spacer(minLength: 2)
-            if m.upcoming && !m.hasScore {
-                VStack(alignment: .trailing, spacing: 1) {
-                    Text(m.time).font(.system(size: 13, weight: .bold)).foregroundStyle(C.gold)
+            VStack(alignment: .trailing, spacing: 1) {
+                if m.upcoming && !m.hasScore {
+                    Text(m.time).font(.system(size: 15, weight: .heavy).width(.condensed)).foregroundStyle(C.gold)
                     Text(Fmt.shortDay(m.date)).font(.system(size: 10)).foregroundStyle(C.muted)
+                } else {
+                    Text("\(m.scoreHome)–\(m.scoreAway)").font(.system(size: 16, weight: .heavy).width(.condensed)).monospacedDigit().foregroundStyle(m.live ? C.gold : C.text)
+                    if m.live { Text("LIVE").font(.system(size: 9, weight: .heavy)).foregroundStyle(C.live) }
                 }
-            } else {
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(m.scoreHome); Text(m.scoreAway)
-                }.font(.system(size: 15, weight: .heavy)).monospacedDigit().foregroundStyle(m.live ? C.gold : C.text)
             }
         }
     }
+    func short(_ n: String) -> String { n.upperGr.split(separator: " ").first.map(String.init) ?? n.upperGr }
 }
 
 struct WatchMatchView: View {
@@ -148,7 +177,6 @@ struct WatchMatchView: View {
             if let d {
                 let c = d.card
                 VStack(spacing: 8) {
-                    Text(c.competition).font(.system(size: 11)).foregroundStyle(C.muted).lineLimit(1)
                     WatchHero(m: c)
                     if !d.scorersHome.isEmpty || !d.scorersAway.isEmpty {
                         HStack(alignment: .top) {
@@ -157,17 +185,19 @@ struct WatchMatchView: View {
                             VStack(alignment: .trailing) { ForEach(d.scorersAway, id: \.self) { Text($0) } }
                         }.font(.system(size: 11)).foregroundStyle(C.text2)
                     }
-                    let evs = d.groups.isEmpty ? d.events : d.groups.flatMap(\.events)
+                    let evs = (d.groups.isEmpty ? d.events : d.groups.flatMap(\.events)).filter { $0.type != "point" }
                     ForEach(Array(evs.prefix(25).enumerated()), id: \.offset) { _, e in
                         HStack(alignment: .top, spacing: 6) {
-                            Text(e.minute).font(.system(size: 11, weight: .bold)).foregroundStyle(C.gold).frame(width: 30, alignment: .trailing)
+                            Text(e.minute).font(.system(size: 13, weight: .heavy).width(.condensed)).foregroundStyle(C.gold).frame(width: 30, alignment: .leading)
                             Text(eventIconW(e.type)).font(.system(size: 11))
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(e.label).font(.system(size: 12, weight: .semibold))
                                 if !e.text.isEmpty { Text(e.text).font(.system(size: 11)).foregroundStyle(C.text2) }
                             }
                             Spacer(minLength: 0)
+                            if !e.score.isEmpty { Text(e.score).font(.system(size: 11)).foregroundStyle(C.muted) }
                         }
+                        .padding(8).background(RoundedRectangle(cornerRadius: 12).fill(C.panel2))
                     }
                     if !c.venue.isEmpty { Text(c.venue).font(.system(size: 10)).foregroundStyle(C.muted).multilineTextAlignment(.center) }
                 }
@@ -183,6 +213,37 @@ struct WatchMatchView: View {
         }
     }
     func load() async { if let x = try? await Api.shared.match(id) { d = x } }
+}
+
+/// Βαθμολογία (το πρωτάθλημα με την ΑΕΚ)
+struct WatchStandingsView: View {
+    @State private var items: [Standing] = Api.shared.peek(Api.pStandings)?["items"].list(Standing.init) ?? []
+    @State private var sel = 0
+    var body: some View {
+        let s = items.first { $0.id == sel } ?? items.first { $0.rows.contains { $0.aek } } ?? items.first
+        ScrollView {
+            if let s {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack { Text(s.title.upperGr).font(.system(size: 15, weight: .heavy).width(.condensed)).foregroundStyle(C.gold).lineLimit(1); Spacer(); Text("Β").font(.system(size: 11, weight: .bold)).foregroundStyle(C.muted) }
+                    ForEach(s.rows, id: \.self) { r in
+                        HStack(spacing: 6) {
+                            Text("\(r.pos)").font(.system(size: 13)).foregroundStyle(C.text2).frame(width: 18, alignment: .trailing)
+                            Text(r.name.upperGr).font(.system(size: 14, weight: .heavy).width(.condensed)).foregroundStyle(r.aek ? C.gold : C.text).lineLimit(1)
+                            Spacer()
+                            Text(r.points).font(.system(size: 14, weight: .bold)).monospacedDigit()
+                        }
+                        .padding(.vertical, 4).padding(.horizontal, 6)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(r.aek ? C.gold.opacity(0.18) : .clear))
+                    }
+                    if items.count > 1 {
+                        Picker("Διοργάνωση", selection: $sel) { ForEach(items) { Text($0.title).tag($0.id) } }.padding(.top, 8)
+                    }
+                }
+            } else { ProgressView() }
+        }
+        .navigationTitle("Βαθμολογία")
+        .task { if let l = try? await Api.shared.standings() { items = l } }
+    }
 }
 
 func eventIconW(_ t: String) -> String {
@@ -203,9 +264,10 @@ struct WatchPostView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
-                NetImage(url: card.image, w: 400).frame(height: 90).frame(maxWidth: .infinity).clipped().clipShape(RoundedRectangle(cornerRadius: 8))
+                NetImage(url: card.image, w: 400).frame(height: 90).frame(maxWidth: .infinity).clipped().clipShape(RoundedRectangle(cornerRadius: 12))
+                if !card.category.isEmpty { Text(card.category.upperGr).font(.system(size: 10, weight: .bold)).foregroundStyle(C.gold) }
                 Text(card.title).font(.system(size: 15, weight: .bold))
-                Text(Fmt.ago(card.date)).font(.system(size: 11)).foregroundStyle(C.muted)
+                Text(Fmt.postDate(card.date, withYear: false)).font(.system(size: 11)).foregroundStyle(C.muted)
                 if let p = post { Text(p.html.plainText).font(.system(size: 13)) }
                 else if !card.excerpt.isEmpty { Text(card.excerpt).font(.system(size: 13)).foregroundStyle(C.text2); ProgressView() }
             }

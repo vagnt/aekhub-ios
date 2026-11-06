@@ -46,13 +46,13 @@ struct CalendarSheet: View {
         .preferredColorScheme(.dark)
     }
 
-    func label(_ t: String) -> some View { Text(t).font(F.body(11, .extra)).foregroundStyle(C.gold) }
+    func label(_ t: String) -> some View { Text(t).font(F.body(11, .bold)).foregroundStyle(C.gold) }
     func go(_ icon: String, _ t: String, _ sub: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: icon).foregroundStyle(C.gold).frame(width: 38, height: 38).background(Circle().fill(C.panel3))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(t).font(F.body(14, .extra)).foregroundStyle(C.text)
+                    Text(t).font(F.body(14, .bold)).foregroundStyle(C.text)
                     Text(sub).font(F.body(12, .medium)).foregroundStyle(C.muted)
                 }
                 Spacer()
@@ -74,7 +74,7 @@ struct FlowChips: View {
                 Button { tap(it.0) } label: {
                     HStack(spacing: 6) {
                         if !it.2.isEmpty { Circle().fill(Color(hexString: it.2) ?? C.gold).frame(width: 8, height: 8) }
-                        Text(it.1).font(F.body(13, on ? .extra : .bold)).foregroundStyle(on ? C.ink : C.text)
+                        Text(it.1).font(F.body(13, on ? .bold : .bold)).foregroundStyle(on ? C.ink : C.text)
                     }
                     .padding(.horizontal, 12).padding(.vertical, 7)
                     .background(Capsule().fill(on ? C.gold : C.panel2)).overlay(Capsule().stroke(on ? C.gold : C.line))

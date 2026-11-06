@@ -12,6 +12,7 @@ struct AEKWidgets: WidgetBundle {
         ScheduleWidget()
         NewsWidget()
         StandingsWidget()
+        LiveMatchWidget()
     }
 }
 
@@ -160,28 +161,27 @@ struct MatchWidgetView: View {
 
     func small(_ m: MatchCard) -> some View {
         VStack(spacing: 6) {
-            Text(m.live ? "LIVE" : (m.finished ? "ΤΕΛΙΚΟ" : "ΕΠΟΜΕΝΟΣ")).font(F.body(10, .extra)).foregroundStyle(m.live ? C.live : C.gold)
+            Text(m.live ? "● LIVE · \(statusText(m))" : (m.finished ? "ΤΕΛΙΚΟ" : "ΕΠΟΜΕΝΟΣ ΑΓΩΝΑΣ")).font(F.tag(10)).tracking(0.8).foregroundStyle(m.live ? C.live : C.gold).lineLimit(1)
             HStack {
-                LogoImg(img: e.homeImg, size: 36)
+                LogoImg(img: e.homeImg, size: 40)
                 Spacer()
-                LogoImg(img: e.awayImg, size: 36)
+                if !(m.live || m.hasScore) { Text("VS").font(F.body(12, .bold)).foregroundStyle(C.muted) }
+                Spacer()
+                LogoImg(img: e.awayImg, size: 40)
             }
             if m.live || m.hasScore {
-                Text("\(m.scoreHome)–\(m.scoreAway)").font(F.disp(32, black: true)).foregroundStyle(m.live ? C.gold : C.text)
-                Text(statusText(m)).font(F.body(11, .extra)).foregroundStyle(m.live ? C.live : C.muted)
+                Text("\(m.scoreHome)–\(m.scoreAway)").font(F.disp(38)).foregroundStyle(m.live ? C.gold : C.text).monospacedDigit()
             } else {
-                Text(m.time).font(F.disp(28, black: true)).foregroundStyle(C.text)
-                if let ko = m.kickoffDate, ko > Date() {
-                    Text(ko, style: .relative).font(F.body(10, .bold)).foregroundStyle(C.gold).multilineTextAlignment(.center).lineLimit(1)
-                } else { Text(Fmt.shortDay(m.date)).font(F.body(11, .bold)).foregroundStyle(C.text2) }
+                Text(m.time).font(F.disp(38)).foregroundStyle(C.gold)
+                Text(Fmt.dayHeader(m.date).capitalized(with: Fmt.gr)).font(F.body(11)).foregroundStyle(C.muted).lineLimit(1).minimumScaleFactor(0.7)
             }
-        }.padding(2)
+        }
     }
 
     func medium(_ m: MatchCard) -> some View {
         VStack(spacing: 8) {
             HStack {
-                Text(m.live ? "🔴 LIVE" : (m.finished ? "ΤΕΛΙΚΟ" : "ΕΠΟΜΕΝΟΣ ΑΓΩΝΑΣ")).font(F.body(11, .extra)).foregroundStyle(m.live ? C.live : C.gold)
+                Text(m.live ? "🔴 LIVE" : (m.finished ? "ΤΕΛΙΚΟ" : "ΕΠΟΜΕΝΟΣ ΑΓΩΝΑΣ")).font(F.body(11, .bold)).foregroundStyle(m.live ? C.live : C.gold)
                 Spacer()
                 Text(Sports.emoji(m.sport) + " " + m.competition).font(F.body(10, .bold)).foregroundStyle(C.muted).lineLimit(1)
             }
@@ -190,12 +190,12 @@ struct MatchWidgetView: View {
                 VStack(spacing: 3) {
                     if m.live || m.hasScore {
                         Text("\(m.scoreHome)–\(m.scoreAway)").font(F.disp(40, black: true)).foregroundStyle(m.live ? C.gold : C.text)
-                        Text(statusText(m)).font(F.body(11, .extra)).foregroundStyle(m.live ? C.live : C.muted)
+                        Text(statusText(m)).font(F.body(11, .bold)).foregroundStyle(m.live ? C.live : C.muted)
                     } else {
                         Text(Fmt.shortDay(m.date)).font(F.body(11, .bold)).foregroundStyle(C.text2)
                         Text(m.time).font(F.disp(32, black: true)).foregroundStyle(C.text)
                         if let ko = m.kickoffDate, ko > Date(), ko.timeIntervalSinceNow < 86400 * 2 {
-                            Text(ko, style: .timer).font(F.body(12, .extra)).foregroundStyle(C.gold).multilineTextAlignment(.center)
+                            Text(ko, style: .timer).font(F.body(12, .bold)).foregroundStyle(C.gold).multilineTextAlignment(.center)
                         }
                     }
                 }.frame(maxWidth: .infinity)
@@ -249,19 +249,19 @@ struct ScheduleView: View {
     let e: ListEntry
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack { Text("ΠΡΟΓΡΑΜΜΑ").font(F.body(11, .extra)).foregroundStyle(C.gold); Spacer(); Image("Logo").resizable().scaledToFit().frame(height: 14) }
+            HStack { Text("ΠΡΟΓΡΑΜΜΑ").font(F.body(11, .bold)).foregroundStyle(C.gold); Spacer(); Image("Logo").resizable().scaledToFit().frame(height: 14) }
             if e.items.isEmpty { Spacer(); Text("Δεν υπάρχουν προγραμματισμένοι αγώνες.").font(F.body(12, .bold)).foregroundStyle(C.muted); Spacer() }
             ForEach(e.items.prefix(family == .systemLarge ? 8 : 3)) { m in
                 Link(destination: URL(string: "aekhub://match/\(m.id)")!) {
                     HStack(spacing: 8) {
                         Text(Sports.emoji(m.sport)).font(.system(size: 13))
                         VStack(alignment: .leading, spacing: 0) {
-                            Text("\(m.home) – \(m.away)").font(F.body(13, .extra)).foregroundStyle(C.text).lineLimit(1)
+                            Text("\(m.home) – \(m.away)").font(F.body(13, .bold)).foregroundStyle(C.text).lineLimit(1)
                             Text(m.competition).font(F.body(10, .bold)).foregroundStyle(C.muted).lineLimit(1)
                         }
                         Spacer(minLength: 4)
                         VStack(alignment: .trailing, spacing: 0) {
-                            Text(scoreOrTime(m)).font(F.body(13, .extra)).foregroundStyle(m.live ? C.gold : C.text)
+                            Text(scoreOrTime(m)).font(F.body(13, .bold)).foregroundStyle(m.live ? C.gold : C.text)
                             Text(statusText(m)).font(F.body(10, .bold)).foregroundStyle(m.live ? C.live : C.muted)
                         }
                     }
@@ -295,7 +295,7 @@ struct NewsProvider: TimelineProvider {
     }
     func load(_ f: WidgetFamily) async -> NewsEntry {
         let h = (try? await Api.shared.home()) ?? Api.shared.peek(Api.pHome).map(HomeData.init)
-        let posts = Array((([h?.featured].compactMap { $0 }) + (h?.top ?? [])).prefix(f == .systemLarge ? 5 : 3))
+        let posts = Array((([h?.featured].compactMap { $0 }) + (h?.top ?? [])).prefix(f == .systemLarge ? 4 : 3))
         var e = NewsEntry(date: Date(), items: posts)
         for (i, p) in posts.enumerated() where i < 5 {
             if let img = await WImg.load(p.image, w: i == 0 ? 500 : 200) { e.imgs[p.id] = img }
@@ -308,15 +308,32 @@ struct NewsView: View {
     @Environment(\.widgetFamily) var family
     let e: NewsEntry
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack { Image("Logo").resizable().scaledToFit().frame(height: 14); Spacer(); Text("ΤΕΛΕΥΤΑΙΑ ΝΕΑ").font(F.body(10, .extra)).foregroundStyle(C.gold) }
-            ForEach(e.items) { p in
+        VStack(alignment: .leading, spacing: 10) {
+            if family == .systemLarge, let f = e.items.first {
+                Link(destination: URL(string: "aekhub://post/\(f.id)")!) {
+                    ZStack(alignment: .bottomLeading) {
+                        if let img = e.imgs[f.id] { Image(uiImage: img).resizable().scaledToFill() } else { C.panel2 }
+                        LinearGradient(colors: [.clear, .black.opacity(0.9)], startPoint: .top, endPoint: .bottom)
+                        VStack(alignment: .leading, spacing: 6) {
+                            if !f.category.isEmpty {
+                                Text(f.category.upperGr).font(F.tag(10)).foregroundStyle(C.ink).padding(.horizontal, 8).padding(.vertical, 3).background(Capsule().fill(C.gold))
+                            }
+                            Text(f.title.upperGr).font(F.disp(20)).foregroundStyle(.white).lineLimit(2)
+                        }.padding(14)
+                    }
+                    .frame(height: 175).clipped()
+                }
+                .padding(.horizontal, -16).padding(.top, -16)
+            } else {
+                HStack { Image("Logo").resizable().scaledToFit().frame(height: 14); Spacer(); Text("ΤΕΛΕΥΤΑΙΑ ΝΕΑ").font(F.tag(10)).foregroundStyle(C.gold) }
+            }
+            ForEach(family == .systemLarge ? Array(e.items.dropFirst().prefix(3)) : Array(e.items.prefix(3))) { p in
                 Link(destination: URL(string: "aekhub://post/\(p.id)")!) {
-                    HStack(alignment: .top, spacing: 8) {
-                        if let img = e.imgs[p.id] { Image(uiImage: img).resizable().scaledToFill().frame(width: 52, height: 40).clipShape(RoundedRectangle(cornerRadius: 6)) }
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(p.title).font(F.body(12, .extra)).foregroundStyle(C.text).lineLimit(2)
-                            Text(Fmt.ago(p.date)).font(F.body(9, .bold)).foregroundStyle(C.muted)
+                    HStack(alignment: .top, spacing: 10) {
+                        if let img = e.imgs[p.id] { Image(uiImage: img).resizable().scaledToFill().frame(width: 58, height: 44).clipShape(RoundedRectangle(cornerRadius: 10)) }
+                        VStack(alignment: .leading, spacing: 2) {
+                            if !p.category.isEmpty { Text(p.category.upperGr).font(F.tag(9)).foregroundStyle(C.gold).lineLimit(1) }
+                            Text(p.title).font(F.body(13, .semibold)).foregroundStyle(C.text).lineLimit(2)
                         }
                         Spacer(minLength: 0)
                     }
@@ -371,7 +388,7 @@ struct StandView: View {
                         Text(r.played).frame(width: 22).foregroundStyle(r.aek ? C.ink : C.muted)
                         Text(r.points).frame(width: 26).fontWeight(.heavy)
                     }
-                    .font(F.body(12, r.aek ? .extra : .bold))
+                    .font(F.body(12, r.aek ? .bold : .bold))
                     .foregroundStyle(r.aek ? C.ink : C.text)
                     .padding(.vertical, 2).padding(.horizontal, 4)
                     .background(RoundedRectangle(cornerRadius: 4).fill(r.aek ? C.gold : .clear))

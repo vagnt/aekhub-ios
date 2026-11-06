@@ -78,7 +78,7 @@ struct CommentsView: View {
                             CommentRow(c: $c, onReply: { replyTo = c; focus = true })
                             ForEach($c.replies) { $r in CommentRow(c: $r, onReply: { replyTo = c; focus = true }).padding(.leading, 36) }
                         }
-                        if more { Button("Περισσότερα σχόλια") { Task { await load(reset: false) } }.font(F.body(14, .extra)).foregroundStyle(C.gold).frame(maxWidth: .infinity) }
+                        if more { Button("Περισσότερα σχόλια") { Task { await load(reset: false) } }.font(F.body(14, .bold)).foregroundStyle(C.gold).frame(maxWidth: .infinity) }
                         if loading { ProgressView().tint(C.gold).frame(maxWidth: .infinity) }
                     }.padding(16)
                 }
@@ -150,12 +150,12 @@ private struct CommentRow: View {
     @State private var reported = false
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Text(c.ini).font(F.body(14, .extra)).foregroundStyle(.white).frame(width: 34, height: 34)
+            Text(c.ini).font(F.body(14, .bold)).foregroundStyle(.white).frame(width: 34, height: 34)
                 .background(Circle().fill(Color(hexString: c.color) ?? C.panel3))
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
-                    Text(c.name).font(F.body(14, .extra)).foregroundStyle(C.text)
-                    if c.staff { Text("AEK HUB").font(F.body(9, .extra)).foregroundStyle(C.ink).padding(.horizontal, 5).padding(.vertical, 2).background(Capsule().fill(C.gold)) }
+                    Text(c.name).font(F.body(14, .bold)).foregroundStyle(C.text)
+                    if c.staff { Text("AEK HUB").font(F.body(9, .bold)).foregroundStyle(C.ink).padding(.horizontal, 5).padding(.vertical, 2).background(Capsule().fill(C.gold)) }
                     if c.pinned { Image(systemName: "pin.fill").font(.system(size: 10)).foregroundStyle(C.gold) }
                     Spacer()
                     Text(c.date).font(F.body(11, .bold)).foregroundStyle(C.muted)

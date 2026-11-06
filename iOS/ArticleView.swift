@@ -13,57 +13,85 @@ struct ArticleView: View {
     @State private var showComments = false
     @State private var comments = 0
     @EnvironmentObject var prefs: Prefs
+    @Environment(\.dismiss) var dismiss
 
     init(id: Int, card: PostCard?) {
         self.id = id; self.card = card
         _post = State(initialValue: Api.shared.peek(Api.pPost(id)).map(Post.init))
     }
 
+    var link: URL? { (post?.link ?? card?.link).flatMap { URL(string: $0) } }
+
     var body: some View {
-        Group {
-            if let p = post {
-                ArticleWeb(html: ArticleHTML.page(p, size: size), onLink: { openURL = $0 })
-                    .ignoresSafeArea(edges: .bottom)
-            } else if let error {
-                EmptyState(icon: "wifi.exclamationmark", text: error) { Task { await load() } }
-            } else {
-                VStack(spacing: 16) {
-                    if let c = card {
-                        NetImage(url: c.image, w: 1200).frame(height: 230).frame(maxWidth: .infinity).clipped()
-                        Text(c.title).font(F.disp(30, black: true)).foregroundStyle(C.text).padding(.horizontal, 16)
+        ZStack(alignment: .top) {
+            Group {
+                if let p = post {
+                    ArticleWeb(html: ArticleHTML.page(p, size: size), onLink: { openURL = $0 })
+                } else if let error {
+                    EmptyState(icon: "wifi.exclamationmark", text: error) { Task { await load() } }.padding(.top, 120)
+                } else {
+                    VStack(alignment: .leading, spacing: 16) {
+                        if let c = card {
+                            NetImage(url: c.image, w: 1200).frame(height: 360).frame(maxWidth: .infinity).clipped()
+                            Text(c.title.upperGr).font(F.disp(34)).foregroundStyle(C.text).padding(.horizontal, screenPad)
+                        }
+                        ProgressView().tint(C.gold).frame(maxWidth: .infinity)
+                        Spacer()
                     }
-                    ProgressView().tint(C.gold)
-                    Spacer()
                 }
             }
-        }
-        .background(C.ink)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItemGroup(placement: .navigationBarTrailing) {
-                Menu {
-                    Button { size = max(14, size - 1) } label: { Label("Μικρότερα γράμματα", systemImage: "textformat.size.smaller") }
-                    Button { size = min(26, size + 1) } label: { Label("Μεγαλύτερα γράμματα", systemImage: "textformat.size.larger") }
-                } label: { Image(systemName: "textformat.size") }
-                if let c = post?.card ?? card {
-                    Button { prefs.toggleSaved(c) } label: { Image(systemName: prefs.isSaved(id) ? "bookmark.fill" : "bookmark") }
+            .ignoresSafeArea(edges: .top)
+
+            // Πάνω: πίσω · (Aa, 🔖, κοινοποίηση) — γυαλί πάνω από τη φωτογραφία
+            HStack {
+                GlassCircle(icon: "chevron.left") { dismiss() }
+                Spacer()
+                HStack(spacing: 2) {
+                    Menu {
+                        Button { size = max(14, size - 1) } label: { Label("Μικρότερα γράμματα", systemImage: "textformat.size.smaller") }
+                        Button { size = min(26, size + 1) } label: { Label("Μεγαλύτερα γράμματα", systemImage: "textformat.size.larger") }
+                    } label: { Text("Aa").font(.system(size: 17, weight: .bold)).frame(width: 46, height: 44) }
+                    if let c = post?.card ?? card {
+                        Button { prefs.toggleSaved(c) } label: {
+                            Image(systemName: prefs.isSaved(id) ? "bookmark.fill" : "bookmark").font(.system(size: 17, weight: .semibold)).frame(width: 46, height: 44)
+                        }
+                    }
+                    if let u = link { ShareLink(item: u) { Image(systemName: "square.and.arrow.up").font(.system(size: 17, weight: .semibold)).frame(width: 46, height: 44) } }
                 }
-                if let l = post?.link ?? card?.link, let u = URL(string: l) {
-                    ShareLink(item: u) { Image(systemName: "square.and.arrow.up") }
-                }
+                .foregroundStyle(C.ink)
+                .buttonStyle(.plain)
+                .padding(.horizontal, 4)
+                .glass(Capsule(), tint: C.gold)
             }
+            .padding(.horizontal, 16).padding(.top, 4)
         }
+        .background(C.ink.ignoresSafeArea())
+        .toolbar(.hidden, for: .navigationBar)
+        // Κάτω: Σχόλια (γυαλί) + Κοινοποίηση (κίτρινο)
         .safeAreaInset(edge: .bottom) {
             if post != nil {
-                Button { showComments = true } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "bubble.left.and.bubble.right.fill")
-                        Text(comments > 0 ? "Σχόλια (\(comments))" : "Σχόλια").font(F.body(14, .extra))
+                HStack(spacing: 12) {
+                    Button { showComments = true } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "text.bubble").foregroundStyle(C.gold)
+                            Text(comments > 0 ? "Σχόλια (\(comments))" : "Σχόλια").font(F.body(17, .semibold)).foregroundStyle(C.text)
+                        }
+                        .padding(.horizontal, 24).frame(height: 58)
+                        .glass(Capsule(), interactive: true)
+                    }.buttonStyle(.plain)
+                    if let u = link {
+                        ShareLink(item: u) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "square.and.arrow.up")
+                                Text("Κοινοποίηση").font(F.body(17, .semibold))
+                            }
+                            .foregroundStyle(C.ink)
+                            .frame(maxWidth: .infinity).frame(height: 58)
+                            .background(Capsule().fill(C.goldGrad).shadow(color: C.gold.opacity(0.4), radius: 14, y: 4))
+                        }
                     }
-                    .foregroundStyle(C.ink).padding(.horizontal, 18).padding(.vertical, 11)
-                    .background(Capsule().fill(C.gold)).shadow(color: .black.opacity(0.5), radius: 8, y: 3)
                 }
-                .padding(.bottom, 8)
+                .padding(.horizontal, 16).padding(.bottom, 4)
             }
         }
         .sheet(item: $openURL) { SafariView(url: $0).ignoresSafeArea() }
@@ -108,6 +136,7 @@ struct ArticleWeb: UIViewRepresentable {
         w.isOpaque = false
         w.backgroundColor = UIColor(C.ink)
         w.scrollView.backgroundColor = UIColor(C.ink)
+        w.scrollView.contentInsetAdjustmentBehavior = .never
         w.navigationDelegate = context.coordinator
         w.allowsLinkPreview = true
         return w
@@ -156,10 +185,9 @@ enum ArticleHTML {
             if !v.html.isEmpty { video = "<div class='vid'>\(v.html)</div>" }
             else if !v.embed.isEmpty { video = "<div class='vid'><iframe src='\(esc(v.embed))' allow='autoplay; encrypted-media; picture-in-picture; fullscreen' allowfullscreen></iframe></div>" }
         }
-        let hero = video.isEmpty && !p.image.isEmpty
-            ? "<figure class='hero'><img src='\(esc(Img.url(p.image, w: 1400)?.absoluteString ?? p.image))'>" + (p.imageCaption.isEmpty ? "" : "<figcaption>\(p.imageCaption)</figcaption>") + "</figure>"
-            : video
-        let meta = [p.author, Fmt.postDate(p.date), "\(p.minutes)′ ανάγνωση"].filter { !$0.isEmpty }.joined(separator: " · ")
+        let img = Img.url(p.image, w: 1400)?.absoluteString ?? p.image
+        let hero = p.image.isEmpty ? "<div class='hero none'></div>" : "<div class='hero' style=\"background-image:url('\(esc(img))')\"></div>"
+        let ini = p.author.split(separator: " ").prefix(2).compactMap { $0.first.map(String.init) }.joined().uppercased()
         return """
         <!doctype html><html lang="el"><head><meta charset="utf-8">
         <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -167,35 +195,45 @@ enum ArticleHTML {
         \(fontsCSS)
         :root{color-scheme:dark}
         html,body{margin:0;background:#0B0B0A;color:#F3F1E9;-webkit-text-size-adjust:100%}
-        body{font-family:Manrope,-apple-system,sans-serif;font-weight:500;font-size:\(Int(size))px;line-height:1.65;padding-bottom:40px}
-        .wrap{max-width:760px;margin:0 auto;padding:0 18px}
-        .hero{margin:0 0 16px}.hero img{width:100%;display:block;max-height:60vh;object-fit:cover}
-        .hero figcaption{font-size:12px;color:#8E8A7C;padding:6px 18px 0}
-        .vid{position:relative;padding-top:56.25%;margin-bottom:16px;background:#000}.vid iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
-        .cat{display:inline-block;background:#F9CF1C;color:#0B0B0A;font-weight:800;font-size:11px;letter-spacing:.06em;padding:4px 8px;border-radius:4px;text-transform:uppercase}
-        h1.t{font-family:Sofia,-apple-system,sans-serif;font-weight:900;font-size:\(Int(size * 1.9))px;line-height:1.02;margin:12px 0 10px;text-transform:none}
-        .meta{color:#8E8A7C;font-size:13px;font-weight:800;margin-bottom:14px}
-        .lead{font-size:1.06em;color:#CFCBBE;font-weight:800;border-left:3px solid #F9CF1C;padding-left:12px;margin:0 0 18px}
+        body{font-family:-apple-system,system-ui,sans-serif;font-size:\(Int(size))px;line-height:1.6;padding-bottom:120px}
+        .top{position:relative;min-height:62vh;display:flex;flex-direction:column;justify-content:flex-end}
+        .hero{position:absolute;inset:0;background-size:cover;background-position:center 25%}
+        .hero.none{background:#151514}
+        .top:after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(11,11,10,.15) 0%,rgba(11,11,10,.25) 35%,rgba(11,11,10,.85) 70%,#0B0B0A 100%)}
+        .head{position:relative;z-index:2;padding:0 20px 6px}
+        .tags{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+        .cat{background:#F9CF1C;color:#0B0B0A;font-weight:700;font-size:12px;letter-spacing:.08em;padding:6px 11px;border-radius:999px;text-transform:uppercase}
+        .min{font-size:12px;font-weight:600;color:#F3F1E9;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);-webkit-backdrop-filter:blur(12px)}
+        h1.t{font-family:Sofia,-apple-system,sans-serif;font-weight:900;font-size:\(Int(size * 2))px;line-height:1.02;margin:0;text-transform:uppercase}
+        .wrap{max-width:760px;margin:0 auto;padding:0 20px}
+        .lead{font-size:1.02em;color:#CFCBBE;border-left:3px solid #F9CF1C;padding-left:14px;margin:18px 0}
+        .author{display:flex;align-items:center;gap:12px;background:#151514;border:1px solid #2C2C29;border-radius:22px;padding:12px 14px;margin:6px 0 22px}
+        .av{width:44px;height:44px;border-radius:50%;border:2px solid #F9CF1C;color:#F9CF1C;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex:none}
+        .an{font-weight:600;font-size:16px}.ad{color:#9A968A;font-size:13px}
+        .vid{position:relative;padding-top:56.25%;margin:0 0 18px;background:#000;border-radius:18px;overflow:hidden}.vid iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
         a{color:#F9CF1C}
-        h2,h3,h4{font-weight:800;line-height:1.25;margin:1.4em 0 .5em}
-        h2{font-size:1.3em}h3{font-size:1.15em}
-        strong,b{font-weight:800}
-        img{max-width:100%;height:auto;border-radius:10px}
-        figure{margin:16px 0}figcaption{font-size:12px;color:#8E8A7C;margin-top:6px}
-        blockquote{margin:16px 0;padding:4px 0 4px 14px;border-left:3px solid #F9CF1C;color:#CFCBBE}
+        h2,h3,h4{font-weight:700;line-height:1.25;margin:1.4em 0 .5em}
+        h2{font-size:1.25em}h3{font-size:1.12em}
+        strong,b{font-weight:700}
+        img{max-width:100%;height:auto;border-radius:16px}
+        figure{margin:18px 0}figcaption{font-size:13px;color:#9A968A;margin-top:6px}
+        blockquote{margin:18px 0;padding:4px 0 4px 14px;border-left:3px solid #F9CF1C;color:#CFCBBE}
         iframe,video,embed{max-width:100%;border:0}
         .wp-block-embed__wrapper{position:relative}
         .wp-block-embed.is-type-video .wp-block-embed__wrapper{padding-top:56.25%}
         .wp-block-embed.is-type-video iframe{position:absolute;inset:0;width:100%;height:100%}
-        table{width:100%;border-collapse:collapse;font-size:.9em}td,th{border-bottom:1px solid #2A2924;padding:6px}
-        hr{border:0;border-top:1px dashed #37352F;margin:24px 0}
+        table{width:100%;border-collapse:collapse;font-size:.9em}td,th{border-bottom:1px solid #2C2C29;padding:6px}
+        hr{border:0;border-top:1px dashed #3A3935;margin:24px 0}
         </style></head><body>
-        \(hero)
-        <div class="wrap">
-        \(p.category.isEmpty ? "" : "<span class='cat'>\(esc(p.category))</span>")
+        <div class="top">\(hero)
+        <div class="head">
+        <div class="tags">\(p.category.isEmpty ? "" : "<span class='cat'>\(esc(p.category))</span>")<span class="min">\(p.minutes)′ ανάγνωση</span></div>
         <h1 class="t">\(esc(p.title))</h1>
-        <div class="meta">\(esc(meta))</div>
+        </div></div>
+        <div class="wrap">
         \(p.excerpt.isEmpty ? "" : "<p class='lead'>\(esc(p.excerpt))</p>")
+        <div class="author"><div class="av">\(esc(ini.isEmpty ? "AH" : ini))</div><div><div class="an">\(esc(p.author.isEmpty ? "AEK Hub" : p.author))</div><div class="ad">\(esc(Fmt.postDate(p.date)))</div></div></div>
+        \(video)
         \(p.html)
         </div></body></html>
         """

@@ -230,8 +230,9 @@ struct MatchDetail: Identifiable {
     let sponsor: Sponsor?
     let pitch: Pitch?
     let extra: MatchExtra?
+    let bg: String
     init(_ j: J) {
-        card = MatchCard(j); events = j["events"].list(MatchEvent.init); groups = j["groups"].list(EventGroup.init)
+        card = MatchCard(j); bg = j["bg"].str; events = j["events"].list(MatchEvent.init); groups = j["groups"].list(EventGroup.init)
         stats = j["stats"].list(StatRow.init); periods = j["periods"].list(PeriodScore.init)
         lineupHome = j["lineupHome"].list(Player.init); lineupAway = j["lineupAway"].list(Player.init)
         subsHome = j["subsHome"].list(Player.init); subsAway = j["subsAway"].list(Player.init)

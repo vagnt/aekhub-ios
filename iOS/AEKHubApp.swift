@@ -89,7 +89,6 @@ enum Route: Hashable {
     case category(String, String)
     case feed
     case search
-    case notifs
     case saved
 }
 
@@ -103,63 +102,97 @@ extension View {
             case .category(let slug, let name): FeedView(cat: slug, title: name)
             case .feed: FeedView(cat: nil, title: "Ροή ειδήσεων")
             case .search: SearchView()
-            case .notifs: NotifSettingsView()
             case .saved: SavedView()
             }
         }
     }
 }
 
-enum Tab: Hashable { case home, matches, standings, me }
+enum Tab: Hashable, CaseIterable {
+    case home, matches, standings, me
+    var label: String { switch self { case .home: return "Ειδήσεις"; case .matches: return "Αγώνες"; case .standings: return "Βαθμ."; case .me: return "Εγώ" } }
+    var long: String { switch self { case .home: return "Ειδήσεις"; case .matches: return "Αγώνες"; case .standings: return "Βαθμολογίες"; case .me: return "Εγώ" } }
+    var icon: String { switch self { case .home: return "doc.text"; case .matches: return "soccerball"; case .standings: return "chart.bar"; case .me: return "person" } }
+    var iconOn: String { switch self { case .home: return "doc.text.fill"; case .matches: return "soccerball.inverse"; case .standings: return "chart.bar.fill"; case .me: return "person.fill" } }
+}
+
+/// Το swipe «πίσω» να δουλεύει και στις οθόνες χωρίς μπάρα πλοήγησης (αγώνας, άρθρο)
+extension UINavigationController: UIGestureRecognizerDelegate {
+    override open func viewDidLoad() {
+        super.viewDidLoad()
+        interactivePopGestureRecognizer?.delegate = self
+    }
+    public func gestureRecognizerShouldBegin(_ g: UIGestureRecognizer) -> Bool { viewControllers.count > 1 }
+}
 
 struct RootView: View {
     @EnvironmentObject var app: AppState
     @EnvironmentObject var prefs: Prefs
     @Environment(\.scenePhase) var phase
-    @State private var homePath = NavigationPath()
-    @State private var matchesPath = NavigationPath()
-    @State private var standingsPath = NavigationPath()
-    @State private var mePath = NavigationPath()
+    @Environment(\.horizontalSizeClass) var hsc
+    @State private var paths: [Tab: NavigationPath] = [.home: NavigationPath(), .matches: NavigationPath(), .standings: NavigationPath(), .me: NavigationPath()]
     @State private var pinger: Task<Void, Never>?
+    @State private var liveNow: MatchCard?
 
     init() {
-        // Σκούρες μπάρες (καρτέλες & πλοήγηση), όπως στο Android
-        let tb = UITabBarAppearance()
-        tb.configureWithOpaqueBackground()
-        tb.backgroundColor = UIColor(C.ink2)
-        UITabBar.appearance().standardAppearance = tb
-        UITabBar.appearance().scrollEdgeAppearance = tb
         let nb = UINavigationBarAppearance()
-        nb.configureWithOpaqueBackground()
-        nb.backgroundColor = UIColor(C.ink)
-        nb.shadowColor = .clear
-        nb.titleTextAttributes = [.foregroundColor: UIColor(C.text), .font: UIFont(name: "ManropeExtraLight-ExtraBold", size: 16) ?? .boldSystemFont(ofSize: 16)]
-        nb.largeTitleTextAttributes = [.foregroundColor: UIColor(C.text), .font: UIFont(name: "SofiaSansExtraCondensed-Black", size: 34) ?? .boldSystemFont(ofSize: 34)]
+        nb.configureWithTransparentBackground()
+        nb.backgroundColor = UIColor(C.ink).withAlphaComponent(0.92)
+        nb.titleTextAttributes = [.foregroundColor: UIColor(C.text), .font: UIFont.systemFont(ofSize: 17, weight: .semibold)]
+        nb.largeTitleTextAttributes = [.foregroundColor: UIColor(C.text), .font: UIFont(name: "SofiaSansExtraCondensed-Black", size: 40) ?? .boldSystemFont(ofSize: 34)]
         UINavigationBar.appearance().standardAppearance = nb
         UINavigationBar.appearance().scrollEdgeAppearance = nb
         UINavigationBar.appearance().compactAppearance = nb
+        UINavigationBar.appearance().tintColor = UIColor(C.gold)
     }
 
-    var body: some View {
-        TabView(selection: tabBinding) {
-            NavigationStack(path: $homePath) { HomeView().withRoutes() }
-                .tabItem { Label("Ειδήσεις", systemImage: "newspaper") }.tag(Tab.home)
-            NavigationStack(path: $matchesPath) { MatchesView().withRoutes() }
-                .tabItem { Label("Αγώνες", systemImage: "soccerball") }.tag(Tab.matches)
-            NavigationStack(path: $standingsPath) { StandingsView().withRoutes() }
-                .tabItem { Label("Βαθμολογίες", systemImage: "list.number") }.tag(Tab.standings)
-            NavigationStack(path: $mePath) { MeView().withRoutes() }
-                .tabItem { Label("Εγώ", systemImage: "person") }.tag(Tab.me)
+    func binding(_ t: Tab) -> Binding<NavigationPath> {
+        Binding(get: { paths[t] ?? NavigationPath() }, set: { paths[t] = $0 })
+    }
+
+    @ViewBuilder func root(_ t: Tab) -> some View {
+        switch t {
+        case .home: HomeView()
+        case .matches: MatchesView()
+        case .standings: StandingsView()
+        case .me: MeView()
         }
+    }
+
+    func stack(_ t: Tab, bar: Bool) -> some View {
+        NavigationStack(path: binding(t)) {
+            root(t)
+                .toolbar(.hidden, for: .navigationBar)
+                .safeAreaInset(edge: .bottom) { if bar { Color.clear.frame(height: 78) } }
+                .withRoutes()
+        }
+    }
+
+    var isPad: Bool { hsc == .regular }
+
+    var body: some View {
+        Group {
+            if isPad {
+                HStack(spacing: 0) {
+                    Sidebar(tab: tabBinding, live: liveNow)
+                    ZStack { ForEach(Tab.allCases, id: \.self) { t in stack(t, bar: false).opacity(app.tab == t ? 1 : 0).allowsHitTesting(app.tab == t) } }
+                }
+            } else {
+                ZStack(alignment: .bottom) {
+                    ForEach(Tab.allCases, id: \.self) { t in stack(t, bar: true).opacity(app.tab == t ? 1 : 0).allowsHitTesting(app.tab == t) }
+                    if (paths[app.tab]?.count ?? 0) == 0 {
+                        FloatingTabBar(tab: tabBinding) { go(.search) }
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
+                .animation(.easeOut(duration: 0.2), value: paths[app.tab]?.count ?? 0)
+            }
+        }
+        .background(C.ink.ignoresSafeArea())
         .onOpenURL { app.open($0) }
         .onChange(of: app.deepLink) { r in
             guard let r else { return }
-            switch app.tab {
-            case .home: homePath.append(r)
-            case .matches: matchesPath.append(r)
-            case .standings: standingsPath.append(r)
-            case .me: mePath.append(r)
-            }
+            go(r)
             app.deepLink = nil
         }
         .onChange(of: phase) { p in
@@ -174,23 +207,99 @@ struct RootView: View {
                 Notifier.shared.scheduleBG()
             }
         }
+        .task {
+            // «LIVE ΤΩΡΑ» στην πλαϊνή στήλη του iPad
+            while !Task.isCancelled {
+                if let l = try? await Api.shared.matches() { liveNow = l.items.first { $0.live } }
+                try? await Task.sleep(nanoseconds: 30_000_000_000)
+            }
+        }
         .fullScreenCover(isPresented: Binding(get: { !prefs.introDone }, set: { _ in })) {
             IntroView { prefs.introDone = true }
         }
     }
 
-    /// Ξανά πάτημα στην ίδια καρτέλα → επιστροφή στην αρχή της (όπως σε κάθε app iPhone)
+    func go(_ r: Route) {
+        var p = paths[app.tab] ?? NavigationPath()
+        p.append(r)
+        paths[app.tab] = p
+    }
+
+    /// Ξανά πάτημα στην ίδια καρτέλα → επιστροφή στην αρχή της
     private var tabBinding: Binding<Tab> {
         Binding(get: { app.tab }, set: { t in
-            if t == app.tab {
-                switch t {
-                case .home: homePath = NavigationPath()
-                case .matches: matchesPath = NavigationPath()
-                case .standings: standingsPath = NavigationPath()
-                case .me: mePath = NavigationPath()
-                }
-            }
+            if t == app.tab { paths[t] = NavigationPath() }
             app.tab = t
         })
+    }
+}
+
+/// Κάψουλα καρτελών που «αιωρείται» (ύψος 66) + ξεχωριστό γυάλινο κουμπί αναζήτησης
+struct FloatingTabBar: View {
+    @Binding var tab: Tab
+    var search: () -> Void
+    var body: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 2) {
+                ForEach(Tab.allCases, id: \.self) { t in
+                    let on = t == tab
+                    Button { tab = t } label: {
+                        VStack(spacing: 3) {
+                            Image(systemName: on ? t.iconOn : t.icon).font(.system(size: 19, weight: .medium))
+                                .symbolRenderingMode(.monochrome)
+                            Text(t.label).font(.system(size: 11, weight: on ? .bold : .medium))
+                        }
+                        .foregroundStyle(on ? C.gold : C.text)
+                        .frame(maxWidth: .infinity).frame(height: 56)
+                        .background(Capsule().fill(on ? Color.white.opacity(0.12) : .clear))
+                        .contentShape(Capsule())
+                    }.buttonStyle(.plain)
+                }
+            }
+            .padding(5)
+            .glass(Capsule())
+            GlassCircle(icon: "magnifyingglass", size: 66, action: search)
+        }
+        .padding(.horizontal, 16).padding(.bottom, 4)
+    }
+}
+
+/// iPad: πλαϊνή στήλη (λογότυπο, καρτέλες, «LIVE ΤΩΡΑ»)
+struct Sidebar: View {
+    @Binding var tab: Tab
+    let live: MatchCard?
+    @EnvironmentObject var app: AppState
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            LogoTitle(h: 38).padding(.horizontal, 14).padding(.top, 30).padding(.bottom, 26)
+            ForEach(Tab.allCases, id: \.self) { t in
+                let on = t == tab
+                Button { tab = t } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: on ? t.iconOn : t.icon).font(.system(size: 19)).frame(width: 26)
+                        Text(t.long).font(F.body(17, on ? .semibold : .regular))
+                        Spacer()
+                    }
+                    .foregroundStyle(on ? C.gold : C.text)
+                    .padding(.horizontal, 16).frame(height: 50)
+                    .background(Capsule().fill(on ? Color.white.opacity(0.1) : .clear))
+                    .contentShape(Capsule())
+                }.buttonStyle(.plain)
+            }
+            Spacer()
+            if let m = live {
+                Button { app.tab = .matches; app.deepLink = .match(m.id) } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("LIVE ΤΩΡΑ").font(F.tag(11)).tracking(1).foregroundStyle(C.gold)
+                        Text("\(m.home) \(m.scoreHome)–\(m.scoreAway) \(m.away) · \(liveText(m))").font(F.body(14, .semibold)).foregroundStyle(C.text).lineLimit(2)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(14).card(18, fill: C.ink)
+                }.buttonStyle(.plain)
+            }
+        }
+        .padding(12)
+        .frame(width: 260)
+        .glass(RoundedRectangle(cornerRadius: 30, style: .continuous))
+        .padding(12)
     }
 }

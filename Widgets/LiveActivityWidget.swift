@@ -1,0 +1,126 @@
+import WidgetKit
+import SwiftUI
+import ActivityKit
+
+/// Live Activity αγώνα: κλειδωμένη οθόνη + Dynamic Island (σχέδιο «Live Activity — Κλειδωμένη οθόνη / Dynamic Island»)
+struct LiveMatchWidget: Widget {
+    var body: some WidgetConfiguration {
+        ActivityConfiguration(for: LiveMatchAttributes.self) { ctx in
+            LockView(a: ctx.attributes, s: ctx.state)
+                .activityBackgroundTint(Color.black.opacity(0.78))
+                .activitySystemActionForegroundColor(C.gold)
+                .widgetURL(URL(string: "aekhub://match/\(ctx.attributes.matchId)"))
+        } dynamicIsland: { ctx in
+            let a = ctx.attributes, s = ctx.state
+            return DynamicIsland {
+                DynamicIslandExpandedRegion(.leading) {
+                    VStack(spacing: 4) { crest(a.home, a.aek == "home", 40); name(a.home, a.aek == "home") }.padding(.leading, 6)
+                }
+                DynamicIslandExpandedRegion(.trailing) {
+                    VStack(spacing: 4) { crest(a.away, a.aek == "away", 40); name(a.away, a.aek == "away") }.padding(.trailing, 6)
+                }
+                DynamicIslandExpandedRegion(.center) {
+                    VStack(spacing: 2) {
+                        status(s)
+                        score(a, s, 44)
+                    }
+                }
+                DynamicIslandExpandedRegion(.bottom) {
+                    VStack(spacing: 6) {
+                        if s.status != "finished" { bar(s.progress) }
+                        HStack {
+                            Text(s.last.isEmpty ? s.phase : s.last).font(.system(size: 13)).foregroundStyle(.white.opacity(0.8)).lineLimit(1)
+                            Spacer()
+                            Text(a.competition).font(.system(size: 13)).foregroundStyle(.white.opacity(0.6)).lineLimit(1)
+                        }
+                    }.padding(.horizontal, 8)
+                }
+            } compactLeading: {
+                Image("HubLogo").resizable().scaledToFit().frame(width: 22, height: 22).clipShape(Circle())
+            } compactTrailing: {
+                HStack(spacing: 4) {
+                    Text("\(s.sh)–\(s.sa)").font(.system(size: 15, weight: .heavy)).foregroundStyle(s.goal ? C.gold : .white).monospacedDigit()
+                    if s.status != "finished" { Text(s.minute).font(.system(size: 12, weight: .bold)).foregroundStyle(C.live).lineLimit(1) }
+                }
+            } minimal: {
+                Image("HubLogo").resizable().scaledToFit().frame(width: 22, height: 22).clipShape(Circle())
+            }
+            .widgetURL(URL(string: "aekhub://match/\(a.matchId)"))
+            .keylineTint(C.gold)
+        }
+    }
+
+    @ViewBuilder func status(_ s: LiveMatchAttributes.ContentState) -> some View {
+        if s.status == "finished" { Text("ΤΕΛΙΚΟ").font(.system(size: 12, weight: .heavy)).foregroundStyle(C.gold) }
+        else if ["halftime", "ht", "break", "eth"].contains(s.status) { Text("ΗΜΙΧΡΟΝΟ").font(.system(size: 12, weight: .heavy)).foregroundStyle(C.gold) }
+        else {
+            HStack(spacing: 4) { Circle().fill(C.live).frame(width: 7, height: 7); Text(s.minute).font(.system(size: 13, weight: .bold)).foregroundStyle(.white) }
+        }
+    }
+}
+
+func crest(_ n: String, _ aek: Bool, _ size: CGFloat) -> some View {
+    ZStack {
+        if aek { Image("HubLogo").resizable().scaledToFit().clipShape(Circle()) }
+        else { Circle().fill(Color.white.opacity(0.12)); Text(String(n.upperGr.prefix(3))).font(.system(size: size * 0.3, weight: .heavy)).foregroundStyle(.white) }
+    }.frame(width: size, height: size)
+}
+
+func name(_ n: String, _ aek: Bool) -> some View {
+    Text(n.upperGr).font(F.disp(14)).foregroundStyle(aek ? C.gold : .white).lineLimit(1).minimumScaleFactor(0.6)
+}
+
+func score(_ a: LiveMatchAttributes, _ s: LiveMatchAttributes.ContentState, _ size: CGFloat) -> some View {
+    HStack(spacing: 8) {
+        Text(s.sh).foregroundStyle(a.aek == "home" ? C.gold : .white)
+        Text("–").foregroundStyle(.white.opacity(0.35))
+        Text(s.sa).foregroundStyle(a.aek == "away" ? C.gold : .white)
+    }
+    .font(F.disp(size)).monospacedDigit()
+}
+
+func bar(_ p: Double) -> some View {
+    GeometryReader { g in
+        ZStack(alignment: .leading) {
+            Capsule().fill(Color.white.opacity(0.15))
+            Capsule().fill(C.goldGrad).frame(width: g.size.width * CGFloat(max(0, min(1, p))))
+        }
+    }.frame(height: 5)
+}
+
+/// Κλειδωμένη οθόνη
+struct LockView: View {
+    let a: LiveMatchAttributes
+    let s: LiveMatchAttributes.ContentState
+    var body: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Image("HubLogo").resizable().scaledToFit().frame(width: 20, height: 20).clipShape(RoundedRectangle(cornerRadius: 5))
+                Text(a.competition.upperGr).font(.system(size: 12, weight: .bold)).tracking(0.8).foregroundStyle(.white.opacity(0.75)).lineLimit(1)
+                Spacer()
+                if s.status == "finished" { Text("ΤΕΛΙΚΟ").font(.system(size: 13, weight: .heavy)).foregroundStyle(C.gold) }
+                else {
+                    HStack(spacing: 5) {
+                        Circle().fill(C.live).frame(width: 8, height: 8)
+                        Text("LIVE").font(.system(size: 13, weight: .heavy)).foregroundStyle(C.live)
+                        Text(s.minute).font(.system(size: 14, weight: .heavy)).foregroundStyle(.white)
+                    }
+                }
+            }
+            HStack {
+                VStack(spacing: 4) { crest(a.home, a.aek == "home", 42); name(a.home, a.aek == "home") }.frame(width: 90)
+                Spacer()
+                score(a, s, 52)
+                Spacer()
+                VStack(spacing: 4) { crest(a.away, a.aek == "away", 42); name(a.away, a.aek == "away") }.frame(width: 90)
+            }
+            if s.status != "finished" { bar(s.progress) }
+            HStack {
+                Text(s.last.isEmpty ? (a.venue.isEmpty ? " " : a.venue) : s.last).font(.system(size: 13)).foregroundStyle(.white.opacity(0.75)).lineLimit(1)
+                Spacer()
+                Text(s.phase).font(.system(size: 13)).foregroundStyle(.white.opacity(0.75)).lineLimit(1)
+            }
+        }
+        .padding(16)
+    }
+}
