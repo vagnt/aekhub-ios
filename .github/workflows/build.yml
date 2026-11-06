@@ -136,6 +136,8 @@ jobs:
         env:
           MATCH: "214093"
           MATCH2: "215042"
+          POST: "218069"
+          POST2: "218062"
         run: bash ci/screens.sh sim/Build/Products/Debug-iphonesimulator/AEKHub.app shots
       - uses: actions/upload-artifact@v4
         with:

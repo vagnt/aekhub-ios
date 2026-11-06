@@ -14,7 +14,7 @@ shoot() { # $1 = όνομα συσκευής, $2 = πρόθεμα
   # κύλιση της αρχικής (2η οθόνη)
   xcrun simctl terminate "$UDID" gr.aekhub.app; xcrun simctl launch "$UDID" gr.aekhub.app -shots YES -open "news" -scroll 1; sleep 10
   xcrun simctl io "$UDID" screenshot "$OUT/$2-1b-home.png"
-  for u in matches standings me notifs "match/$MATCH" "match/$MATCH2"; do
+  for u in matches standings me notifs "match/$MATCH" "match/$MATCH2" feed category/podosfairo "post/$POST" "post/$POST2"; do
     xcrun simctl terminate "$UDID" gr.aekhub.app; xcrun simctl launch "$UDID" gr.aekhub.app -shots YES -open "$u"; sleep 10
     xcrun simctl io "$UDID" screenshot "$OUT/$2-$(echo $u | tr '/' '-').png"
   done

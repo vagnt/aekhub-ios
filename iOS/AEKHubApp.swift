@@ -68,6 +68,8 @@ final class AppState: ObservableObject {
         case "matches": tab = .matches
         case "standings": tab = .standings
         case "news": tab = .home
+        case "feed": tab = .home; deepLink = .feed
+        case "category": tab = .home; deepLink = .category(url.lastPathComponent, config?.categories.first { $0.slug == url.lastPathComponent }?.name ?? "")
         case "me": tab = .me
         case "notifs": tab = .me; deepLink = .notifs
         case "back": deepLink = nil
