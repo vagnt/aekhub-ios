@@ -4,14 +4,24 @@ import SwiftUI
 @main
 struct AEKHubWatchApp: App {
     var body: some Scene {
-        WindowGroup {
-            NavigationStack { WatchHome() }
-                .tint(C.gold)
-        }
+        WindowGroup { WatchRoot().tint(C.gold) }
     }
 }
 
 enum WRoute: Hashable { case match(Int), post(PostCard), standings }
+
+struct WatchRoot: View {
+    @State private var path = NavigationPath()
+    var body: some View {
+        NavigationStack(path: $path) { WatchHome() }
+            .onAppear {
+                // για τα screenshots του CI: -open match/123 · standings
+                guard let o = UserDefaults.standard.string(forKey: "open") else { return }
+                if o == "standings" { path.append(WRoute.standings) }
+                else if o.hasPrefix("match/"), let id = Int(o.dropFirst(6)) { path.append(WRoute.match(id)) }
+            }
+    }
+}
 
 struct WatchHome: View {
     @State private var home: HomeData? = Api.shared.peek(Api.pHome).map(HomeData.init)
