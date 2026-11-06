@@ -11,11 +11,20 @@ shoot() { # $1 = όνομα συσκευής, $2 = πρόθεμα
   xcrun simctl install "$UDID" "$APP"
   xcrun simctl launch "$UDID" gr.aekhub.app -shots YES
   sleep 12; xcrun simctl io "$UDID" screenshot "$OUT/$2-1-home.png"
+  # κύλιση της αρχικής (2η οθόνη)
+  xcrun simctl terminate "$UDID" gr.aekhub.app; xcrun simctl launch "$UDID" gr.aekhub.app -shots YES -open "news" -scroll 1; sleep 10
+  xcrun simctl io "$UDID" screenshot "$OUT/$2-1b-home.png"
   for u in matches standings me notifs "match/$MATCH" "match/$MATCH2"; do
-    xcrun simctl terminate "$UDID" gr.aekhub.app; xcrun simctl launch "$UDID" gr.aekhub.app -shots YES; sleep 4
-    xcrun simctl openurl "$UDID" "aekhub://$u"; sleep 7
+    xcrun simctl terminate "$UDID" gr.aekhub.app; xcrun simctl launch "$UDID" gr.aekhub.app -shots YES -open "$u"; sleep 10
     xcrun simctl io "$UDID" screenshot "$OUT/$2-$(echo $u | tr '/' '-').png"
   done
+  # σελίδα αγώνα: κάθε καρτέλα (κυλισμένη ως τις καρτέλες)
+  for t in Πορεία Στατιστικά Συνθέσεις Παίκτες; do
+    xcrun simctl terminate "$UDID" gr.aekhub.app; xcrun simctl launch "$UDID" gr.aekhub.app -shots YES -open "match/$MATCH" -mtab "$t" -scroll 1; sleep 10
+    xcrun simctl io "$UDID" screenshot "$OUT/$2-mt-$t.png"
+  done
+  xcrun simctl terminate "$UDID" gr.aekhub.app; xcrun simctl launch "$UDID" gr.aekhub.app -shots YES -open "match/$MATCH2" -mtab Πορεία -scroll 1; sleep 10
+  xcrun simctl io "$UDID" screenshot "$OUT/$2-mt-basket.png"
   xcrun simctl shutdown "$UDID"
 }
 shoot "iPhone 17 Pro (" phone

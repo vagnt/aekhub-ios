@@ -7,7 +7,7 @@ struct MatchView: View {
     let id: Int
     @State private var d: MatchDetail?
     @State private var error = false
-    @State private var tab = ""
+    @State private var tab = UserDefaults.standard.string(forKey: "mtab") ?? ""
     @State private var openURL: URL?
     @EnvironmentObject var prefs: Prefs
     @Environment(\.dismiss) var dismiss
@@ -61,6 +61,7 @@ struct MatchView: View {
         let split = hsc == .regular && tabs.contains("Πορεία") && tabs.count > 1
         let rTabs = split ? tabs.filter { $0 != "Πορεία" } : tabs
         let cur = rTabs.contains(tab) ? tab : (rTabs.first ?? "")
+        ScrollViewReader { proxy in
         ScrollView {
             VStack(spacing: 14) {
                 MatchHero(d: d, alert: prefs.alertOn(d.card), back: { dismiss() }) { prefs.toggleMatchAlert(d.card) }
@@ -77,7 +78,7 @@ struct MatchView: View {
                             }.frame(maxWidth: .infinity)
                         }
                     } else {
-                        if tabs.count > 1 { TabBar(tabs: tabs, sel: Binding(get: { cur }, set: { tab = $0 })) }
+                        if tabs.count > 1 { TabBar(tabs: tabs, sel: Binding(get: { cur }, set: { tab = $0 })).id("tabs") }
                         section(cur, d).readable(820)
                     }
                     noCoverage(d)
@@ -86,6 +87,10 @@ struct MatchView: View {
             .padding(.bottom, 28)
         }
         .refreshable { haptic(); await load() }
+        .onAppear {
+            if UserDefaults.standard.bool(forKey: "scroll") { DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { proxy.scrollTo("tabs", anchor: .top) } }
+        }
+        }
     }
 
     @ViewBuilder func section(_ t: String, _ d: MatchDetail) -> some View {

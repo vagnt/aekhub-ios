@@ -196,6 +196,12 @@ struct RootView: View {
         }
         .background(C.ink.ignoresSafeArea())
         .onOpenURL { app.open($0) }
+        .onAppear {
+            // για τα screenshots του CI: -open matches / match/123
+            if let o = UserDefaults.standard.string(forKey: "open"), let u = URL(string: "aekhub://" + o) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { app.open(u) }
+            }
+        }
         .onChange(of: app.deepLink) { r in
             guard let r else { return }
             go(r)

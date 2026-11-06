@@ -12,14 +12,19 @@ struct HomeView: View {
     var wide: Bool { hsc == .regular }
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 12) {
-                header
-                if let d = data { content(d) }
-                else if let error { EmptyState(icon: "wifi.exclamationmark", text: error) { Task { await load() } } }
-                else { SkeletonList() }
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 12) {
+                    header
+                    if let d = data { content(d) }
+                    else if let error { EmptyState(icon: "wifi.exclamationmark", text: error) { Task { await load() } } }
+                    else { SkeletonList() }
+                }
+                .padding(.bottom, 28)
             }
-            .padding(.bottom, 28)
+            .onChange(of: data?.top.count ?? 0) { _ in
+                if UserDefaults.standard.bool(forKey: "scroll") { DispatchQueue.main.asyncAfter(deadline: .now() + 1) { proxy.scrollTo("latest", anchor: .top) } }
+            }
         }
         .background(C.ink)
         .refreshable { haptic(); await load() }
@@ -110,7 +115,7 @@ struct HomeView: View {
 
             let topBeside = wide && lh == nil && d.featured != nil
             if !d.top.isEmpty && !topBeside {
-                GoldHeader(title: "Τελευταία νέα", action: "Ροή ειδήσεων", route: .feed).padding(.top, 8)
+                GoldHeader(title: "Τελευταία νέα", action: "Ροή ειδήσεων", route: .feed).padding(.top, 8).id("latest")
                 LazyVGrid(columns: wide ? adaptiveCols : [GridItem(.flexible())], spacing: 0) { ForEach(d.top) { PostRow(p: $0) } }
             }
 
