@@ -7,6 +7,7 @@ struct MatchView: View {
     @State private var error: String?
     @State private var tab = ""
     @State private var openURL: URL?
+    @EnvironmentObject var prefs: Prefs
 
     init(id: Int) {
         self.id = id
@@ -55,17 +56,28 @@ struct MatchView: View {
             ToolbarItem(placement: .principal) {
                 if let c = d?.card { Text("\(c.home) – \(c.away)").font(F.body(14, .extra)).lineLimit(1) }
             }
-            ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                if let c = d?.card, !c.finished {
+                    // 🔔 Ειδοποιήσεις για ΑΥΤΟΝ τον αγώνα (υπενθύμιση, σέντρα, γκολ, τελικό), ό,τι κι αν έχεις στις ρυθμίσεις
+                    Button {
+                        if prefs.matchAlerts.contains(id) { prefs.matchAlerts.remove(id) } else {
+                            prefs.matchAlerts.insert(id)
+                            Task { _ = await Notifier.shared.requestPermission(); await Notifier.shared.refresh(force: true) }
+                        }
+                    } label: { Image(systemName: prefs.matchAlerts.contains(id) ? "bell.fill" : "bell") }
+                }
                 if let l = d?.card.link, let u = URL(string: l) { ShareLink(item: u) { Image(systemName: "square.and.arrow.up") } }
             }
         }
         .refreshable { await load() }
         .sheet(item: $openURL) { SafariView(url: $0).ignoresSafeArea() }
         .task {
+            Analytics.screen(4, id)
             await load()
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: (d?.card.live == true ? 10 : 120) * 1_000_000_000)
                 await load()
+                if d?.card.live == true { await Notifier.shared.refresh() }
             }
         }
     }

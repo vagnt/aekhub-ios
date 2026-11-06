@@ -24,7 +24,7 @@ struct StandingsView: View {
         .navigationTitle("Βαθμολογίες")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await load() }
-        .task { await load() }
+        .task { Analytics.screen(6, name: "standings"); await load() }
     }
 
     var current: Standing { items[min(sel, items.count - 1)] }

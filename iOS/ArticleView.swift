@@ -10,6 +10,9 @@ struct ArticleView: View {
     @State private var error: String?
     @AppStorage("articleSize") private var size: Double = 17
     @State private var openURL: URL?
+    @State private var showComments = false
+    @State private var comments = 0
+    @EnvironmentObject var prefs: Prefs
 
     init(id: Int, card: PostCard?) {
         self.id = id; self.card = card
@@ -42,13 +45,34 @@ struct ArticleView: View {
                     Button { size = max(14, size - 1) } label: { Label("Μικρότερα γράμματα", systemImage: "textformat.size.smaller") }
                     Button { size = min(26, size + 1) } label: { Label("Μεγαλύτερα γράμματα", systemImage: "textformat.size.larger") }
                 } label: { Image(systemName: "textformat.size") }
+                if let c = post?.card ?? card {
+                    Button { prefs.toggleSaved(c) } label: { Image(systemName: prefs.isSaved(id) ? "bookmark.fill" : "bookmark") }
+                }
                 if let l = post?.link ?? card?.link, let u = URL(string: l) {
                     ShareLink(item: u) { Image(systemName: "square.and.arrow.up") }
                 }
             }
         }
+        .safeAreaInset(edge: .bottom) {
+            if post != nil {
+                Button { showComments = true } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "bubble.left.and.bubble.right.fill")
+                        Text(comments > 0 ? "Σχόλια (\(comments))" : "Σχόλια").font(F.body(14, .extra))
+                    }
+                    .foregroundStyle(C.ink).padding(.horizontal, 18).padding(.vertical, 11)
+                    .background(Capsule().fill(C.gold)).shadow(color: .black.opacity(0.5), radius: 8, y: 3)
+                }
+                .padding(.bottom, 8)
+            }
+        }
         .sheet(item: $openURL) { SafariView(url: $0).ignoresSafeArea() }
-        .task { await load() }
+        .sheet(isPresented: $showComments) { CommentsView(postId: id, title: post?.title ?? "") }
+        .task {
+            Analytics.screen(1, id)
+            await load()
+            if let j = try? await CommentsApi.call("comments/\(id)?sort=new&page=1") { comments = j["total"].int }
+        }
     }
 
     func load() async {

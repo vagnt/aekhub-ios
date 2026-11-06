@@ -11,7 +11,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.1.0"
+    MARKETING_VERSION: "0.2.0"
     CURRENT_PROJECT_VERSION: "1"
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: ""
@@ -64,7 +64,26 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         ITSAppUsesNonExemptEncryption: false
+        # Έλεγχος αγώνων στο παρασκήνιο (τοπικές ειδοποιήσεις χωρίς push) — το iOS αποφασίζει πόσο συχνά
+        UIBackgroundModes: [fetch]
+        BGTaskSchedulerPermittedIdentifiers: [gr.aekhub.app.refresh]
+        # aekhub://match/123 · aekhub://post/123 (widgets, ειδοποιήσεις)
+        CFBundleURLTypes:
+          - CFBundleURLName: gr.aekhub.app
+            CFBundleURLSchemes: [aekhub]
+        UIApplicationShortcutItems:
+          - UIApplicationShortcutItemType: matches
+            UIApplicationShortcutItemTitle: Αγώνες
+            UIApplicationShortcutItemIconSymbolName: soccerball
+          - UIApplicationShortcutItemType: standings
+            UIApplicationShortcutItemTitle: Βαθμολογίες
+            UIApplicationShortcutItemIconSymbolName: list.number
+          - UIApplicationShortcutItemType: search
+            UIApplicationShortcutItemTitle: Αναζήτηση
+            UIApplicationShortcutItemIconType: UIApplicationShortcutIconTypeSearch
     dependencies:
+      - target: AEKHubWidgets
+        embed: true
       # Η εφαρμογή του ρολογιού μπαίνει ΜΕΣΑ στο .ipa του iPhone (φάκελος Watch)
       - target: AEKHubWatch
         embed: true
@@ -96,3 +115,58 @@ targets:
         WKApplication: true
         WKCompanionAppBundleIdentifier: gr.aekhub.app
         WKRunsIndependentlyOfCompanionApp: true
+    dependencies:
+      - target: AEKHubWatchWidgets
+        embed: true
+
+  # Widgets iPhone/iPad (οθόνη αφετηρίας + οθόνη κλειδώματος)
+  AEKHubWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widgets
+      - path: Shared
+      - path: Resources/Fonts
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: gr.aekhub.app.widgets
+        PRODUCT_NAME: AEKHubWidgets
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: YES
+    info:
+      path: Widgets/Info.plist
+      properties:
+        CFBundleDisplayName: AEK Hub
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UIAppFonts:
+          - Manrope-Medium.ttf
+          - Manrope-Bold.ttf
+          - Manrope-ExtraBold.ttf
+          - SofiaSans-ExtraBold.ttf
+          - SofiaSans-Black.ttf
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+
+  # Complications Apple Watch
+  AEKHubWatchWidgets:
+    type: app-extension
+    platform: watchOS
+    sources:
+      - path: WatchWidgets
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: gr.aekhub.app.watchkitapp.widgets
+        PRODUCT_NAME: AEKHubWatchWidgets
+        SKIP_INSTALL: YES
+        TARGETED_DEVICE_FAMILY: "4"
+    info:
+      path: WatchWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: AEK Hub
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension

@@ -33,7 +33,10 @@ struct FeedView: View {
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await reload() }
-        .task { if items.isEmpty { selected = cat ?? ""; await reload() } }
+        .task {
+            Analytics.screen(cat == nil ? 6 : 3, name: cat ?? "feed")
+            if items.isEmpty { selected = cat ?? ""; await reload() }
+        }
     }
 
     var key: String? { selected.isEmpty ? nil : selected }

@@ -3,8 +3,10 @@ import SwiftUI
 /// «Εγώ»: social, ρυθμίσεις ανάγνωσης, ειδοποιήσεις (έρχονται με λογαριασμό Apple Developer), πληροφορίες.
 struct MeView: View {
     @EnvironmentObject var app: AppState
+    @EnvironmentObject var prefs: Prefs
     @AppStorage("articleSize") private var size: Double = 17
     @State private var diag = ""
+    @State private var showCal = false
 
     var body: some View {
         List {
@@ -19,15 +21,11 @@ struct MeView: View {
             }
 
             Section {
-                HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: "bell.badge").foregroundStyle(C.gold).font(.system(size: 20))
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Ειδοποιήσεις").font(F.body(15, .extra)).foregroundStyle(C.text)
-                        Text("Στο iPhone οι ειδοποιήσεις (γκολ, σέντρα, τελικό, έκτακτα) ενεργοποιούνται όταν η εφαρμογή μπει στο App Store. Μέχρι τότε, άνοιξε το app για live σκορ.")
-                            .font(F.body(12, .medium)).foregroundStyle(C.text2)
-                    }
-                }.listRowBackground(C.panel)
-            } header: { Text("ΕΙΔΟΠΟΙΗΣΕΙΣ").font(F.body(11, .extra)) }
+                NavigationLink(value: Route.notifs) { row("bell.badge", "Ειδοποιήσεις", "Ανά άθλημα, γκολ, σέντρα/τελικό, υπενθύμιση, νέα") }
+                NavigationLink(value: Route.saved) { row("bookmark", "Αποθηκευμένα άρθρα", prefs.saved.isEmpty ? "Κανένα ακόμα" : "\(prefs.saved.count) άρθρα") }
+                Button { showCal = true } label: { row("calendar.badge.plus", "Το πρόγραμμα στο ημερολόγιο", "Όλοι οι αγώνες στο Ημερολόγιο του iPhone") }.buttonStyle(.plain)
+            }
+            .listRowBackground(C.panel)
 
             Section {
                 VStack(alignment: .leading, spacing: 8) {
@@ -58,6 +56,15 @@ struct MeView: View {
             }.font(F.body(14, .bold)).foregroundStyle(C.gold)
 
             Section {
+                Toggle(isOn: $prefs.stats) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Ανώνυμα στατιστικά").font(F.body(14, .extra))
+                        Text("Βοηθούν να βελτιώνουμε το AEK Hub (ποια άρθρα και αγώνες διαβάζονται). Χωρίς προσωπικά στοιχεία.").font(F.body(11, .medium)).foregroundStyle(C.muted)
+                    }
+                }.tint(C.gold).listRowBackground(C.panel)
+            }
+
+            Section {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Έκδοση \(Api.version) (build \(Api.build)) · iOS").font(F.body(12, .bold)).foregroundStyle(C.text2)
                     Text(diag).font(F.body(11, .medium)).foregroundStyle(C.muted)
@@ -68,11 +75,24 @@ struct MeView: View {
         .background(C.ink)
         .navigationTitle("Εγώ")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showCal) { CalendarSheet().environmentObject(AppState.shared) }
         .onAppear {
+            Analytics.screen(6, name: "me")
             let f = DateFormatter(); f.dateFormat = "d/M HH:mm:ss"
             diag = (Api.shared.lastOk.map { "Τελευταία σύνδεση: " + f.string(from: $0) } ?? "Καμία σύνδεση ακόμη") + (Api.shared.lastErr.isEmpty ? "" : "\nΤελευταίο σφάλμα: " + Api.shared.lastErr)
         }
     }
+}
+
+private func row(_ icon: String, _ t: String, _ sub: String) -> some View {
+    HStack(spacing: 12) {
+        Image(systemName: icon).foregroundStyle(C.gold).font(.system(size: 18)).frame(width: 28)
+        VStack(alignment: .leading, spacing: 2) {
+            Text(t).font(F.body(15, .extra)).foregroundStyle(C.text)
+            Text(sub).font(F.body(12, .medium)).foregroundStyle(C.muted)
+        }
+        Spacer(minLength: 0)
+    }.contentShape(Rectangle())
 }
 
 /// Live γεγονός (π.χ. μεταγραφικό/ρεπορτάζ λεπτό-λεπτό) από το Live Ticker
@@ -119,6 +139,7 @@ struct EventView: View {
         .refreshable { await load() }
         .sheet(item: $openURL) { SafariView(url: $0).ignoresSafeArea() }
         .task {
+            Analytics.screen(5, id, name: "event")
             await load()
             while !Task.isCancelled { try? await Task.sleep(nanoseconds: 20_000_000_000); await load() }
         }

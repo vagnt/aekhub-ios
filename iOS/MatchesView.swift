@@ -9,6 +9,7 @@ struct MatchesView: View {
     @State private var error: String?
     @State private var loading = false
     @State private var scrolled = false
+    @State private var showCal = false
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -54,7 +55,14 @@ struct MatchesView: View {
         .navigationTitle("Αγώνες")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await load() }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button { showCal = true } label: { Label("Στο ημερολόγιο", systemImage: "calendar.badge.plus") }
+            }
+        }
+        .sheet(isPresented: $showCal) { CalendarSheet().environmentObject(AppState.shared) }
         .task {
+            Analytics.screen(6, name: "matches")
             await load()
             while !Task.isCancelled {
                 let live = list?.items.contains { $0.live } == true
@@ -81,6 +89,7 @@ struct MatchesView: View {
             let to = list?.to.isEmpty == false ? list?.to : nil
             list = try await Api.shared.matches(from: from, to: from == nil ? nil : to, sport: sport.isEmpty ? nil : sport)
             error = nil
+            if from == nil && sport.isEmpty, let l = list { Notifier.shared.check(l.items) }
         } catch { if list == nil { self.error = "Δεν φόρτωσαν οι αγώνες.\n" + error.localizedDescription } }
     }
 

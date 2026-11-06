@@ -27,6 +27,7 @@ struct HomeView: View {
             }
         }
         .task {
+            Analytics.screen(2)
             await load()
             // Ανανέωση κάθε λεπτό (κάθε 15″ όταν παίζεται αγώνας)
             while !Task.isCancelled {
