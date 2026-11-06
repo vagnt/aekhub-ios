@@ -17,9 +17,9 @@ struct StandingsView: View {
                 let t = ofSport.first { $0.id == sel } ?? ofSport.first { $0.rows.contains { $0.aek } } ?? ofSport[0]
                 HStack(spacing: 10) {
                     AekDropdown(label: "Άθλημα", value: sp, options: sports.map { ($0, $0) }) { sport = $0; sel = 0 }
-                        .frame(maxWidth: .infinity).layoutPriority(0.8)
+                        .frame(width: 150)
                     AekDropdown(label: "Διοργάνωση", value: t.league.isEmpty ? t.title : t.league, options: ofSport.map { (String($0.id), $0.league.isEmpty ? $0.title : $0.league) }) { sel = Int($0) ?? 0 }
-                        .frame(maxWidth: .infinity).layoutPriority(1.2)
+                        .frame(maxWidth: .infinity)
                 }
                 .padding(.horizontal, screenPad).padding(.vertical, 4)
                 ScrollView {

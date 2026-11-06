@@ -41,7 +41,7 @@ struct HomeView: View {
 
     var header: some View {
         HStack(spacing: 4) {
-            LogoTitle(h: 30)
+            if !wide { LogoTitle(h: 30) }
             Spacer()
             HStack(spacing: 0) {
                 NavigationLink(value: Route.feed) { icon("clock.arrow.circlepath") }

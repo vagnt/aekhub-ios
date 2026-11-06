@@ -19,6 +19,12 @@ struct NotifSettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                HStack(spacing: 6) {
+                    Button { dismiss() } label: { Image(systemName: "chevron.left").font(.system(size: 19, weight: .semibold)).foregroundStyle(C.text).frame(width: 40, height: 44) }
+                        .padding(.leading, -12)
+                    ScreenTitle(text: "Ειδοποιήσεις")
+                    Spacer()
+                }
                 if status == .denied || status == .notDetermined {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(status == .denied ? "Οι ειδοποιήσεις είναι κλειστές για το AEK Hub στο iPhone σου." : "Δεν έχεις δώσει ακόμα άδεια για ειδοποιήσεις.")
@@ -115,8 +121,7 @@ struct NotifSettingsView: View {
             .readable(680)
         }
         .background(C.ink)
-        .navigationTitle("Ειδοποιήσεις")
-        .navigationBarTitleDisplayMode(.large)
+        .toolbar(.hidden, for: .navigationBar)
         .task { status = await Notifier.shared.status() }
         .onChange(of: p.all) { on in if on { Task { _ = await Notifier.shared.requestPermission(); status = await Notifier.shared.status() } } }
         .onDisappear { Task { await Notifier.shared.refresh(force: true) } }
