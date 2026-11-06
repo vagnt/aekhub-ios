@@ -1,0 +1,98 @@
+# AEK Hub — iPhone / iPad / Apple Watch
+# Το .xcodeproj ΔΕΝ μπαίνει στο repo: το φτιάχνει το XcodeGen από αυτό το αρχείο (στο GitHub Actions ή σε Mac: `xcodegen generate`).
+name: AEKHub
+options:
+  bundleIdPrefix: gr.aekhub
+  deploymentTarget:
+    iOS: "16.0"
+    watchOS: "9.0"
+  createIntermediateGroups: true
+  developmentLanguage: el
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ""
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    SWIFT_STRICT_CONCURRENCY: minimal
+
+targets:
+  AEKHub:
+    type: application
+    platform: iOS
+    sources:
+      - path: iOS
+      - path: Shared
+      - path: Resources/Fonts
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: gr.aekhub.app
+        PRODUCT_NAME: AEKHub
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_KEY_CFBundleDisplayName: AEK Hub
+    info:
+      path: iOS/Info.plist
+      properties:
+        CFBundleDisplayName: AEK Hub
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDevelopmentRegion: el
+        LSApplicationQueriesSchemes: [instagram, fb, twitter, youtube, tiktok]
+        UIAppFonts:
+          - Manrope-Medium.ttf
+          - Manrope-Bold.ttf
+          - Manrope-ExtraBold.ttf
+          - SofiaSans-ExtraBold.ttf
+          - SofiaSans-Black.ttf
+        UILaunchScreen:
+          UIColorName: ""
+          UIImageName: ""
+        UIUserInterfaceStyle: Dark
+        UIStatusBarStyle: UIStatusBarStyleLightContent
+        UIViewControllerBasedStatusBarAppearance: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        ITSAppUsesNonExemptEncryption: false
+    dependencies:
+      # Η εφαρμογή του ρολογιού μπαίνει ΜΕΣΑ στο .ipa του iPhone (φάκελος Watch)
+      - target: AEKHubWatch
+        embed: true
+        copy:
+          destination: productsDirectory
+          subpath: $(CONTENTS_FOLDER_PATH)/Watch
+    scheme: {}
+
+  AEKHubWatch:
+    type: application
+    platform: watchOS
+    sources:
+      - path: Watch
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: gr.aekhub.app.watchkitapp
+        PRODUCT_NAME: AEKHubWatch
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SKIP_INSTALL: YES
+        TARGETED_DEVICE_FAMILY: "4"
+    info:
+      path: Watch/Info.plist
+      properties:
+        CFBundleDisplayName: AEK Hub
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDevelopmentRegion: el
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: gr.aekhub.app
+        WKRunsIndependentlyOfCompanionApp: true
