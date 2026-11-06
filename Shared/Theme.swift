@@ -108,7 +108,8 @@ final class ImageLoader: ObservableObject {
         if let i = ImageLoader.cache.object(forKey: u as NSURL) { image = i; return }
         image = nil
         task = Task { [weak self] in
-            guard let (d, _) = try? await URLSession.shared.data(from: u), !Task.isCancelled else { return }
+            guard let res = try? await URLSession.shared.data(from: u), !Task.isCancelled else { return }
+            let d = res.0
             let img: UIImage? = await Task.detached(priority: .userInitiated) { () -> UIImage? in
                 #if os(iOS)
                 return UIImage(data: d)?.preparingForDisplay() ?? UIImage(data: d)

@@ -42,7 +42,7 @@ struct MatchesView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .animation(.easeOut(duration: 0.2), value: cur)
                 }
-                .environment(\.matchPick) { selected = $0 }
+                .environment(\.matchPick, { (id: Int) in selected = id })
                 .environment(\.matchSel, cur)
             } else {
                 listColumn
