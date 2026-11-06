@@ -17,41 +17,53 @@ struct SavedView: View {
     }
 }
 
-/// Οθόνη υποδοχής (πρώτο άνοιγμα)
-struct IntroView: View {
+/// Άνοιγμα της εφαρμογής (όπως στο Android): το λογότυπο «χτίζεται» κομμάτι-κομμάτι —
+/// a από αριστερά, e από πάνω, ο κύκλος hub γυρίζει και «σκάει», το K από δεξιά — ένας παλμός και σβήνει (~1,6″).
+struct IntroSplash: View {
     var done: () -> Void
-    @State private var page = 0
+    @State private var box = 0.0
+    @State private var a = 0.0
+    @State private var e = 0.0
+    @State private var hub = 0.0
+    @State private var k = 0.0
+    @State private var pulse = 1.0
+    @State private var out = 0.0
+
     var body: some View {
         ZStack {
             C.ink.ignoresSafeArea()
-            Image("HeroBg").resizable().scaledToFill().opacity(0.25).ignoresSafeArea()
-            VStack(spacing: 22) {
-                Spacer()
-                Image("HubLogo").resizable().scaledToFit().frame(width: 110, height: 110).clipShape(RoundedRectangle(cornerRadius: 24))
-                TabView(selection: $page) {
-                    slide("ΟΛΗ Η ΑΕΚ, ΟΛΑ ΤΑ ΤΜΗΜΑΤΑ", "Ειδήσεις, ποδόσφαιρο, μπάσκετ, βόλεϊ, χάντμπολ και όλη η ερασιτεχνική, σε ένα μέρος.").tag(0)
-                    slide("LIVE ΑΓΩΝΕΣ", "Σκορ, πορεία, ενδεκάδες, στατιστικά και βαθμοί παικτών — λεπτό προς λεπτό.").tag(1)
-                    slide("ΣΤΟ ΡΟΛΟΪ ΚΑΙ ΣΤΗΝ ΟΘΟΝΗ", "Widgets για την οθόνη αφετηρίας και κλειδώματος, και εφαρμογή για Apple Watch.").tag(2)
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    piece("intro_a").opacity(a).offset(x: -46 * (1 - a))
+                    piece("intro_e").opacity(e).offset(y: -46 * (1 - e))
                 }
-                .tabViewStyle(.page(indexDisplayMode: .always))
-                .frame(height: 200)
-                Spacer()
-                Button {
-                    if page < 2 { withAnimation { page += 1 } }
-                    else { Task { _ = await Notifier.shared.requestPermission(); done() } }
-                } label: {
-                    Text(page < 2 ? "ΣΥΝΕΧΕΙΑ" : "ΞΕΚΙΝΑ").font(F.body(16, .bold)).foregroundStyle(C.ink)
-                        .frame(maxWidth: 420).padding(.vertical, 16).background(RoundedRectangle(cornerRadius: 14).fill(C.gold))
-                }.padding(.horizontal, 24)
-                Button("Παράλειψη", action: done).font(F.body(13, .bold)).foregroundStyle(C.muted).padding(.bottom, 20)
+                HStack(spacing: 0) {
+                    piece("intro_hub").opacity(min(1, hub)).scaleEffect(hub).rotationEffect(.degrees(-200 * (1 - hub)))
+                    piece("intro_k").opacity(k).offset(x: 46 * (1 - k))
+                }
             }
+            .frame(width: 220, height: 220)
+            .background(RoundedRectangle(cornerRadius: 48, style: .continuous).fill(.black))
+            .scaleEffect((0.86 + 0.14 * box) * pulse * (1 + 0.25 * out))
+            .opacity(box)
         }
-        .preferredColorScheme(.dark)
-    }
-    func slide(_ t: String, _ s: String) -> some View {
-        VStack(spacing: 10) {
-            Text(t).font(F.disp(30, black: true)).foregroundStyle(C.gold).multilineTextAlignment(.center)
-            Text(s).font(F.body(15, .medium)).foregroundStyle(C.text2).multilineTextAlignment(.center).padding(.horizontal, 30)
+        .opacity(1 - out)
+        .task {
+            withAnimation(.easeOut(duration: 0.28)) { box = 1 }
+            withAnimation(.easeInOut(duration: 0.36).delay(0.12)) { a = 1 }
+            withAnimation(.easeInOut(duration: 0.36).delay(0.23)) { e = 1 }
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.45).delay(0.34)) { hub = 1 }
+            withAnimation(.easeInOut(duration: 0.36).delay(0.45)) { k = 1 }
+            try? await Task.sleep(nanoseconds: 950_000_000)
+            haptic(.soft)
+            withAnimation(.easeOut(duration: 0.14)) { pulse = 1.07 }
+            try? await Task.sleep(nanoseconds: 140_000_000)
+            withAnimation(.easeOut(duration: 0.18)) { pulse = 1 }
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            withAnimation(.easeInOut(duration: 0.3)) { out = 1 }
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            done()
         }
     }
+    func piece(_ n: String) -> some View { Image(n).resizable().scaledToFit().frame(width: 110, height: 110) }
 }

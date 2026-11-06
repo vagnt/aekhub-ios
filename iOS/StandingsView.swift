@@ -1,113 +1,131 @@
 import SwiftUI
 
-/// Βαθμολογίες: Άθλημα + Διοργάνωση (γυάλινα dropdown) → πίνακας με ζώνες, η ΑΕΚ τονισμένη (όπως στο σχέδιο)
+/// Βαθμολογίες — ΠΙΣΤΗ ΑΝΤΙΓΡΑΦΗ του Android StandingsScreen: Άθλημα → Διοργάνωση (δύο λίστες) → ένας πίνακας.
 struct StandingsView: View {
-    @State private var items: [Standing] = Api.shared.peek(Api.pStandings)?["items"].list(Standing.init) ?? []
+    @State private var list: [Standing]? = Api.shared.peek(Api.pStandings)?["items"].list(Standing.init)
     @State private var sport = ""
     @State private var sel = 0
-    @State private var error: String?
-
-    var sports: [String] { var seen: [String] = []; for s in items where !seen.contains(s.sport) { seen.append(s.sport) }; return seen }
-    var inSport: [Standing] { items.filter { sport.isEmpty || $0.sport == sport } }
-    var current: Standing? { inSport.first { $0.id == sel } ?? inSport.first }
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                ScreenTitle(text: "Βαθμολογίες")
-                if items.isEmpty {
-                    if let error { EmptyState(icon: "wifi.exclamationmark", text: error) { Task { await load() } } }
-                    else { ProgressView().tint(C.gold).frame(maxWidth: .infinity).padding(60) }
-                } else if let s = current {
-                    HStack(spacing: 10) {
-                        GlassPicker(label: "Άθλημα", value: s.sport, options: sports.map { ($0, $0) }) { k in
-                            sport = k; sel = items.first { $0.sport == k }?.id ?? 0
-                        }
-                        .frame(maxWidth: 200)
-                        GlassPicker(label: "Διοργάνωση", value: s.title, options: inSport.map { (String($0.id), $0.title) }) { k in sel = Int(k) ?? 0 }
-                    }
-                    .padding(.horizontal, screenPad)
-                    StandingTable(s: s).padding(.horizontal, 12).frame(maxWidth: 820)
-                }
-            }.padding(.bottom, 24)
-        }
-        .background(C.ink)
-        .refreshable { await load() }
-        .task { Analytics.screen(6, name: "standings"); await load() }
-    }
-
-    func load() async {
-        do {
-            items = try await Api.shared.standings(); error = nil
-            if sport.isEmpty, let first = items.first { sport = first.sport; sel = first.id }
-        } catch { if items.isEmpty { self.error = "Δεν φόρτωσαν οι βαθμολογίες.\n" + error.localizedDescription } }
-    }
-}
-
-struct StandingTable: View {
-    let s: Standing
-    var draws: Bool { s.style.contains("d") }
+    @State private var error = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 10) {
-                if !s.leagueLogo.isEmpty { TeamLogo(url: s.leagueLogo, size: 28) }
-                Text(s.title.upperGr).font(F.disp(24)).foregroundStyle(C.text).lineLimit(1).minimumScaleFactor(0.7)
+            ScreenTitle(text: "Βαθμολογίες").padding(.horizontal, screenPad).padding(.top, 14).padding(.bottom, 8)
+            if let l = list, !l.isEmpty {
+                let sports = unique(l.map { $0.sport.isEmpty ? "Άλλα" : $0.sport })
+                let sp = sports.contains(sport) ? sport : sports[0]
+                let ofSport = l.filter { ($0.sport.isEmpty ? "Άλλα" : $0.sport) == sp }
+                let t = ofSport.first { $0.id == sel } ?? ofSport.first { $0.rows.contains { $0.aek } } ?? ofSport[0]
+                HStack(spacing: 10) {
+                    AekDropdown(label: "Άθλημα", value: sp, options: sports.map { ($0, $0) }) { sport = $0; sel = 0 }
+                        .frame(maxWidth: .infinity).layoutPriority(0.8)
+                    AekDropdown(label: "Διοργάνωση", value: t.league.isEmpty ? t.title : t.league, options: ofSport.map { (String($0.id), $0.league.isEmpty ? $0.title : $0.league) }) { sel = Int($0) ?? 0 }
+                        .frame(maxWidth: .infinity).layoutPriority(1.2)
+                }
+                .padding(.horizontal, screenPad).padding(.vertical, 4)
+                ScrollView {
+                    StandingTable(s: t).padding(.top, 8).padding(.bottom, 28).padding(.horizontal, screenPad).readable(760)
+                }
+                .refreshable { haptic(); await load() }
+            } else if list != nil {
+                Text("Δεν υπάρχουν βαθμολογίες ακόμα.").font(F.body(15)).foregroundStyle(C.muted).padding(24)
+                Spacer()
+            } else if error {
+                EmptyState(icon: "wifi.exclamationmark", text: "Δεν φόρτωσε. Έλεγξε τη σύνδεση.") { Task { await load() } }
+                Spacer()
+            } else {
+                ProgressView().tint(C.gold).frame(maxWidth: .infinity).padding(40)
+                Spacer()
             }
-            .padding(.horizontal, 18).padding(.top, 18).padding(.bottom, 10)
+        }
+        .background(C.ink)
+        .task {
+            Analytics.screen(6, name: "standings")
+            while !Task.isCancelled {
+                await load()
+                try? await Task.sleep(nanoseconds: 120_000_000_000)
+            }
+        }
+    }
 
-            Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
-                GridRow {
-                    Text("#").frame(width: 46, alignment: .center)
-                    Text("ΟΜΑΔΑ").frame(maxWidth: .infinity, alignment: .leading)
-                    num("ΑΓ"); num("Ν"); if draws { num("Ι") }; num("Η"); num("+/−", w: 40)
-                    Text("Β").foregroundStyle(C.gold).frame(width: 36, alignment: .center)
-                }
-                .font(F.tag(11)).tracking(0.8).foregroundStyle(C.muted).padding(.vertical, 8)
+    func unique(_ a: [String]) -> [String] { var s = Set<String>(); return a.filter { s.insert($0).inserted } }
 
-                ForEach(s.rows, id: \.self) { r in
-                    GridRow {
-                        Text("\(r.pos)").font(F.body(13, .bold)).foregroundStyle(r.aek ? C.ink : C.text2)
-                            .frame(width: 26, height: 26)
-                            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(r.aek ? C.gold : C.panel3))
-                            .frame(width: 46)
-                        HStack(spacing: 8) {
-                            TeamLogo(url: r.logo, size: 22, name: r.name)
-                            Text(r.name.upperGr).font(F.disp(17)).foregroundStyle(r.aek ? C.gold : C.text).lineLimit(1).minimumScaleFactor(0.75)
-                        }.frame(maxWidth: .infinity, alignment: .leading)
-                        num(r.played); num(r.won); if draws { num(r.drawn) }; num(r.lost)
-                        Text(gd(r)).font(F.body(14, .medium)).foregroundStyle(gdColor(r)).frame(width: 40, alignment: .center).monospacedDigit()
-                        Text(r.points).font(F.body(16, .heavy)).foregroundStyle(r.aek ? C.gold : C.text).frame(width: 36, alignment: .center).monospacedDigit()
+    func load() async {
+        do { list = try await Api.shared.standings(); error = false } catch { if list == nil { self.error = true } }
+    }
+}
+
+/// Πίνακας βαθμολογίας: ζώνη (4px) · θέση σε κουτάκι · σήμα · όνομα · ΑΓ Ν (Ι) Η · +/- · Β
+struct StandingTable: View {
+    let s: Standing
+    var wdl: Bool { s.style != "wl" }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                if !s.leagueLogo.isEmpty { NetImage(url: s.leagueLogo, w: 120, mode: .fit).frame(width: 34, height: 34) }
+                Text(s.title.upperGr).font(F.disp(22)).foregroundStyle(C.text).lineLimit(2)
+                Spacer(minLength: 0)
+            }
+            .padding(14)
+
+            // κεφαλίδα
+            HStack(spacing: 0) {
+                Color.clear.frame(width: 4)
+                Text("#").frame(width: 34)
+                Text("ΟΜΑΔΑ").frame(maxWidth: .infinity, alignment: .leading)
+                ForEach(wdl ? ["ΑΓ", "Ν", "Ι", "Η"] : ["ΑΓ", "Ν", "Η"], id: \.self) { Text($0).frame(width: 26, alignment: .trailing) }
+                Text("+/-").frame(width: 34, alignment: .trailing)
+                Text("Β").foregroundStyle(C.gold).frame(width: 40, alignment: .trailing).padding(.trailing, 10)
+            }
+            .font(F.body(10, .heavy)).foregroundStyle(C.muted).padding(.vertical, 6)
+
+            ForEach(s.rows, id: \.self) { r in
+                let z = s.zones.first { r.pos >= $0.from && r.pos <= $0.to }
+                HStack(spacing: 0) {
+                    Rectangle().fill(z.flatMap { Color(hexString: $0.color) } ?? C.panel).frame(width: 4)
+                    Text("\(r.pos)").font(F.body(12, .heavy)).foregroundStyle(r.aek ? C.ink : C.text2)
+                        .frame(width: 24, height: 24).background(RoundedRectangle(cornerRadius: 6).fill(r.aek ? C.gold : C.panel3))
+                        .frame(width: 34)
+                    HStack(spacing: 8) {
+                        TeamLogo(url: r.logo, size: 24, name: r.name)
+                        Text(r.name.upperGr).font(F.disp(16)).foregroundStyle(r.aek ? C.gold : C.text).lineLimit(1).minimumScaleFactor(0.65)
                     }
-                    .font(F.body(14)).foregroundStyle(C.text2)
-                    .padding(.vertical, 12)
-                    .background(r.aek ? C.gold.opacity(0.13) : Color.clear)
-                    .overlay(alignment: .leading) { Rectangle().fill(zone(r.pos) ?? .clear).frame(width: 3) }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    num(r.played); num(r.won); if wdl { num(r.drawn) }; num(r.lost)
+                    num(diff(r), color: diffColor(r), w: 34)
+                    Text(r.points).font(F.disp(18)).foregroundStyle(r.aek ? C.gold : C.text).frame(width: 40, alignment: .trailing).padding(.trailing, 10)
                 }
+                .frame(height: 46)
+                .background(r.aek ? C.gold.opacity(0.13) : .clear)
             }
 
             let zs = s.zones.filter { !$0.label.isEmpty }
             if !zs.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
+                FlowLayout(spacing: 14) {
                     ForEach(zs, id: \.self) { z in
-                        HStack(spacing: 8) {
-                            RoundedRectangle(cornerRadius: 2).fill(Color(hexString: z.color) ?? C.gold).frame(width: 10, height: 10)
-                            Text(z.label).font(F.body(13)).foregroundStyle(C.text2)
+                        HStack(spacing: 6) {
+                            Rectangle().fill(Color(hexString: z.color) ?? C.gold).frame(width: 12, height: 3)
+                            Text(z.label).font(F.body(11, .bold)).foregroundStyle(C.text2)
                         }
                     }
-                }.padding(16)
+                }
+                .padding(14)
             }
         }
-        .background(RoundedRectangle(cornerRadius: 28, style: .continuous).fill(C.panel))
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(C.line, lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(C.panel))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
-    func num(_ t: String, w: CGFloat = 30) -> some View { Text(t).frame(width: w, alignment: .center).monospacedDigit() }
-    func gdVal(_ r: StandingRow) -> Int? { guard let f = Int(r.gf), let a = Int(r.ga) else { return nil }; return f - a }
-    func gd(_ r: StandingRow) -> String { guard let v = gdVal(r) else { return "" }; return v > 0 ? "+\(v)" : (v < 0 ? "−\(-v)" : "0") }
-    func gdColor(_ r: StandingRow) -> Color { guard let v = gdVal(r) else { return C.muted }; return v > 0 ? C.win : (v < 0 ? C.live : C.muted) }
-    func zone(_ pos: Int) -> Color? {
-        s.zones.first { pos >= $0.from && pos <= $0.to }.map { Color(hexString: $0.color) ?? C.gold }
+    func num(_ v: String, color: Color = C.text2, w: CGFloat = 26) -> some View {
+        Text(v).font(F.body(13, .bold)).foregroundStyle(color).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7).frame(width: w, alignment: .trailing)
+    }
+    func diff(_ r: StandingRow) -> String {
+        guard let f = Int(r.gf), let a = Int(r.ga) else { return "" }
+        let d = f - a
+        return d > 0 ? "+\(d)" : "\(d)"
+    }
+    func diffColor(_ r: StandingRow) -> Color {
+        let d = diff(r)
+        return d.hasPrefix("+") ? C.win : (d.hasPrefix("-") ? C.loss : C.text2)
     }
 }

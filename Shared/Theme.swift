@@ -33,10 +33,21 @@ extension Color {
 /// Τίτλοι: στενή γραμματοσειρά της μάρκας (Sofia Sans Extra Condensed 800/900)· όλα τα υπόλοιπα: σύστημα (SF Pro).
 enum F {
     enum W { case regular, medium, semibold, bold, heavy }
+    /// Κείμενο: Manrope (όπως στο Android/site)· στο ρολόι η γραμματοσειρά του συστήματος
     static func body(_ size: CGFloat, _ w: W = .regular) -> Font {
+        #if os(watchOS)
         let wt: Font.Weight
         switch w { case .regular: wt = .regular; case .medium: wt = .medium; case .semibold: wt = .semibold; case .bold: wt = .bold; case .heavy: wt = .heavy }
         return .system(size: size, weight: wt)
+        #else
+        let n: String
+        switch w {
+        case .regular, .medium: n = "ManropeExtraLight-Medium"
+        case .semibold, .bold: n = "ManropeExtraLight-Bold"
+        case .heavy: n = "ManropeExtraLight-ExtraBold"
+        }
+        return .custom(n, fixedSize: size)
+        #endif
     }
     /// Στενή γραμματοσειρά (τίτλοι, σκορ, ώρες)
     static func disp(_ size: CGFloat, black: Bool = true) -> Font {
@@ -47,7 +58,7 @@ enum F {
         #endif
     }
     /// Ετικέτα: κεφαλαία, bold, +8% απόσταση
-    static func tag(_ size: CGFloat = 11) -> Font { .system(size: size, weight: .bold) }
+    static func tag(_ size: CGFloat = 11) -> Font { body(size, .heavy) }
 }
 
 // MARK: - Liquid Glass (iOS 26) με εναλλακτικό υλικό για παλιότερα iOS
@@ -94,6 +105,20 @@ struct NetImage: View {
     }
 }
 
+/// Εικόνα που γεμίζει ένα κουτί χωρίς ποτέ να το μεγαλώνει (αλλιώς το scaledToFill «φαρδαίνει» την οθόνη)
+struct FillImage: View {
+    let url: String
+    var w: Int = 800
+    var height: CGFloat? = nil
+    var body: some View {
+        Color.clear
+            .frame(maxWidth: .infinity)
+            .frame(height: height)
+            .overlay(NetImage(url: url, w: w))
+            .clipped()
+    }
+}
+
 /// Λογότυπο ομάδας (CDN, μικρό)· αν λείπει → κύκλος με τα αρχικά
 struct TeamLogo: View {
     let url: String
@@ -113,10 +138,11 @@ struct TeamLogo: View {
 /// Κόκκινη τελεία που «αναπνέει» (live)
 struct LiveDot: View {
     var size: CGFloat = 8
+    var color: Color = C.live
     @State private var on = false
     var body: some View {
-        Circle().fill(C.live).frame(width: size, height: size)
-            .overlay(Circle().stroke(C.live.opacity(0.35), lineWidth: 3).scaleEffect(on ? 1.9 : 1).opacity(on ? 0 : 1))
+        Circle().fill(color).frame(width: size, height: size)
+            .overlay(Circle().stroke(color.opacity(0.35), lineWidth: 3).scaleEffect(on ? 1.9 : 1).opacity(on ? 0 : 1))
             .onAppear { withAnimation(.easeOut(duration: 1.2).repeatForever(autoreverses: false)) { on = true } }
     }
 }

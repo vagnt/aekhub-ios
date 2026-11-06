@@ -1,62 +1,85 @@
 import SwiftUI
 
-/// Ροή ειδήσεων (όλες ή μίας κατηγορίας), με σελίδες που φορτώνουν καθώς κατεβαίνεις.
+/// Ροή ειδήσεων / Κατηγορία (Android FeedScreen / CategoryScreen): κεφαλίδα με εικονίδιο, πρώτο άρθρο σε μεγάλη κάρτα
+/// (κατηγορία), μετά γραμμές· «ΠΕΡΙΣΣΟΤΕΡΑ ΑΡΘΡΑ» αντί για ατελείωτο scroll. iPad: 2–3 στήλες.
 struct FeedView: View {
     let cat: String?
     let title: String
-    @EnvironmentObject var app: AppState
-    @State private var selected: String = ""
+    var icon: String = "eagle"
+    @Environment(\.dismiss) var dismiss
+    @Environment(\.horizontalSizeClass) var hsc
     @State private var items: [PostCard] = []
     @State private var page = 0
     @State private var pages = 1
     @State private var loading = false
-    @State private var error: String?
+    @State private var error = false
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                if cat == nil, let cats = app.config?.categories, !cats.isEmpty {
-                    ChipRow(items: [("", "Όλα")] + cats.map { ($0.slug, $0.name) }, selected: selected) { k in
-                        selected = k; Task { await reload() }
-                    }.padding(.vertical, 10)
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                Button { dismiss() } label: { Image(systemName: "chevron.left").font(.system(size: 19, weight: .semibold)).foregroundStyle(C.text).frame(width: 44, height: 44) }
+                if cat != nil {
+                    Image(catIcon(icon)).resizable().scaledToFit().frame(width: 34, height: 34)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("ΚΑΤΗΓΟΡΙΑ").font(F.body(10, .heavy)).foregroundStyle(C.gold)
+                        ScreenTitle(text: title)
+                    }
+                } else {
+                    ScreenTitle(text: title)
                 }
-                LazyVGrid(columns: adaptiveCols, spacing: 0) {
-                    ForEach(items) { p in
-                        PostRow(p: p).onAppear { if p.id == items.last?.id { Task { await more() } } }
+                Spacer()
+            }
+            .padding(.trailing, 16).padding(.leading, 4).padding(.vertical, 6)
+
+            ScrollView {
+                if items.isEmpty && error { EmptyState(icon: "wifi.exclamationmark", text: "Δεν φόρτωσε. Έλεγξε τη σύνδεση.") { Task { await load(reset: true) } } }
+                else if items.isEmpty { SkeletonList() }
+                else {
+                    LazyVGrid(columns: hsc == .regular ? adaptiveCols : [GridItem(.flexible())], spacing: 8) {
+                        ForEach(Array(items.enumerated()), id: \.element.id) { i, p in
+                            if i == 0 && cat != nil { PostCardMedium(p: p).padding(.bottom, 6) } else { PostRow(p: p) }
+                        }
+                    }
+                    .padding(.horizontal, hsc == .regular ? 24 : 16)
+                    if page < pages {
+                        Button { Task { await load(reset: false) } } label: {
+                            Group {
+                                if loading { ProgressView().tint(C.ink) } else { Text("ΠΕΡΙΣΣΟΤΕΡΑ ΑΡΘΡΑ").font(F.body(14, .heavy)) }
+                            }
+                            .foregroundStyle(C.ink).padding(.horizontal, 22).padding(.vertical, 12)
+                            .background(RoundedRectangle(cornerRadius: 12).fill(C.gold))
+                        }.buttonStyle(.plain).padding(.top, 8).padding(.bottom, 24)
                     }
                 }
-                if loading { ProgressView().tint(C.gold).frame(maxWidth: .infinity).padding(24) }
-                else if let error, items.isEmpty { EmptyState(icon: "wifi.exclamationmark", text: error) { Task { await reload() } } }
-            }.padding(.bottom, 20)
+            }
+            .refreshable { haptic(); await load(reset: true) }
         }
         .background(C.ink)
-        .navigationTitle(title)
-        .navigationBarTitleDisplayMode(.inline)
-        .refreshable { await reload() }
+        .toolbar(.hidden, for: .navigationBar)
         .task {
             Analytics.screen(cat == nil ? 6 : 3, name: cat ?? "feed")
-            if items.isEmpty { selected = cat ?? ""; await reload() }
+            if items.isEmpty {
+                if let j = Api.shared.peek(Api.pFeed(cat)) { let f = Feed(j); items = merge([], ([f.featured].compactMap { $0 }) + f.items) }
+                await load(reset: true)
+            }
         }
     }
 
-    var key: String? { selected.isEmpty ? nil : selected }
-
-    func reload() async {
-        page = 0; pages = 1
-        if let j = Api.shared.peek(Api.pFeed(key)) { items = Feed(j).items } else { items = [] }
-        await more(reset: true)
+    func merge(_ old: [PostCard], _ new: [PostCard]) -> [PostCard] {
+        var out = old
+        for n in new.sorted(by: { $0.date > $1.date }) where !out.contains(where: { $0.id == n.id }) { out.append(n) }
+        return out
     }
 
-    func more(reset: Bool = false) async {
-        guard !loading, page < pages else { return }
+    func load(reset: Bool) async {
+        guard !loading else { return }
         loading = true; defer { loading = false }
         do {
-            let f = try await Api.shared.feed(key, page: page + 1)
-            var list = f.items
-            if page == 0, let feat = f.featured, !list.contains(where: { $0.id == feat.id }) { list.insert(feat, at: 0) }
-            if reset || page == 0 { items = list } else { items += list.filter { n in !items.contains { $0.id == n.id } } }
-            page = f.page; pages = f.pages; error = nil
-        } catch { self.error = "Δεν φόρτωσαν τα άρθρα.\n" + error.localizedDescription }
+            let f = try await Api.shared.feed(cat, page: reset ? 1 : page + 1)
+            let all = (reset ? [f.featured].compactMap { $0 } : []) + f.items
+            items = merge(reset ? [] : items, all)
+            page = f.page; pages = f.pages; error = false
+        } catch { if reset && items.isEmpty { self.error = true } }
     }
 }
 
@@ -68,7 +91,7 @@ struct SearchView: View {
 
     var body: some View {
         ScrollView {
-            LazyVGrid(columns: adaptiveCols, spacing: 0) { ForEach(items) { PostRow(p: $0) } }
+            LazyVGrid(columns: adaptiveCols, spacing: 0) { ForEach(items) { PostRow(p: $0) } }.padding(.horizontal, 16)
             if searching { ProgressView().tint(C.gold).padding(30) }
             else if done && items.isEmpty { EmptyState(icon: "magnifyingglass", text: "Δεν βρέθηκαν άρθρα για «\(q)».") }
         }

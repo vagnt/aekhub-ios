@@ -1,185 +1,129 @@
 import SwiftUI
 import UserNotifications
 
-/// «Εγώ» (σχέδιο iOS 26): Ειδοποιήσεις · Κατηγορίες ειδήσεων · Αγώνες που ακολουθώ (ανά άθλημα + είδη) · Γενικά · Πληροφορίες
+/// «Εγώ»: Ειδοποιήσεις (ξεχωριστή οθόνη) · αποθηκευμένα · ημερολόγιο · ανάγνωση · στατιστικά · social · πληροφορίες
 struct MeView: View {
     @EnvironmentObject var app: AppState
     @EnvironmentObject var p: Prefs
     @AppStorage("articleSize") private var size: Double = 17
-    @State private var status: UNAuthorizationStatus = .authorized
     @State private var showCal = false
-    @State private var diag = ""
-    @Environment(\.openURL) var openURL
+    @State private var status: UNAuthorizationStatus = .authorized
+    @State private var tick = 0
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
-                ScreenTitle(text: "Εγώ").padding(.horizontal, -screenPad)
+            VStack(alignment: .leading, spacing: 18) {
+                ScreenTitle(text: "Εγώ").padding(.top, 14)
 
-                if status == .denied {
-                    Button { if let u = URL(string: UIApplication.openSettingsURLString) { openURL(u) } } label: {
-                        Text("⚠ Οι ειδοποιήσεις είναι κλειστές στις Ρυθμίσεις του iPhone — πάτα για να τις ανοίξεις.")
-                            .font(F.body(14, .semibold)).foregroundStyle(C.ink).padding(14).frame(maxWidth: .infinity, alignment: .leading)
-                            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(C.goldGrad))
-                    }.buttonStyle(.plain)
-                }
-
-                label("Ειδοποιήσεις")
-                group {
-                    toggle("Ειδοποιήσεις", "Γενικός διακόπτης για όλη την εφαρμογή", $p.all)
-                    divider
-                    toggle("Live Activities", "Ζωντανό σκορ στην κλειδωμένη οθόνη και στο Dynamic Island", $p.liveActivities)
-                    divider
-                    toggle("Νέα άρθρα", "Το νεότερο θέμα κάθε φορά (όχι καταιγισμός)", $p.news)
-                    divider
-                    Button { Notifier.shared.test() } label: {
-                        HStack { Text("🔔 Δοκιμή ειδοποίησης").font(F.body(17, .semibold)).foregroundStyle(C.gold); Spacer() }.padding(.vertical, 14)
-                    }.buttonStyle(.plain)
-                }
-
-                if p.news, let cats = app.config?.categories, !cats.isEmpty {
-                    label("Κατηγορίες ειδήσεων")
-                    group {
-                        FlowLayout(spacing: 8) {
-                            ForEach(cats) { c in
-                                pill(c.name, p.newsCats.isEmpty || p.newsCats.contains(c.name)) {
-                                    if p.newsCats.isEmpty { p.newsCats = Set(cats.map(\.name)).subtracting([c.name]) }
-                                    else if p.newsCats.contains(c.name) { p.newsCats.remove(c.name) } else { p.newsCats.insert(c.name) }
-                                    if p.newsCats.count == cats.count { p.newsCats = [] }
-                                }
-                            }
-                        }.padding(.vertical, 16)
-                    }
-                }
-
-                label("Αγώνες που ακολουθώ")
-                group {
-                    ForEach(Array(sportList.enumerated()), id: \.offset) { i, item in
-                        let sp = item.0
-                        if i > 0 { divider }
-                        toggle(item.1, nil, Binding(get: { p.sports.contains(sp) }, set: { on in if on { p.sports.insert(sp) } else { p.sports.remove(sp) } }))
-                        if p.sports.contains(sp) {
-                            FlowLayout(spacing: 8) {
-                                ForEach(kinds(sp), id: \.0) { k in
-                                    pill(k.1, p.kinds.contains("\(sp):\(k.0)")) { p.toggleKind(sp, k.0) }
-                                }
-                            }.padding(.bottom, 14)
+                // Ειδοποιήσεις → ξεχωριστή οθόνη με όλα τα αθλήματα
+                NavigationLink(value: Route.notifs) {
+                    HStack(spacing: 14) {
+                        Image(systemName: p.all ? "bell.fill" : "bell.slash.fill").font(.system(size: 19)).foregroundStyle(p.all ? C.ink : C.muted)
+                            .frame(width: 44, height: 44).background(Circle().fill(p.all ? C.gold : C.panel3))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Ειδοποιήσεις").font(F.body(16, .heavy)).foregroundStyle(C.text)
+                            Text(status == .denied ? "Κλειστές στις Ρυθμίσεις του iPhone" : (p.all ? "Ενεργές · \(p.sports.count) αθλήματα" : "Κλειστές"))
+                                .font(F.body(12)).foregroundStyle(status == .denied ? C.live : (p.all ? C.gold : C.muted))
                         }
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.system(size: 14, weight: .bold)).foregroundStyle(C.muted)
                     }
-                }
-                Text("Η υπενθύμιση 30′ πριν έρχεται πάντα. Σέντρα, γκολ, ημίχρονο και τελικό: αμέσως όσο το app είναι ανοιχτό· με κλειστό app όποτε επιτρέψει το iOS. Άμεσες παντού όταν μπει στο App Store.")
-                    .font(F.body(12)).foregroundStyle(C.muted).padding(.horizontal, 6)
+                    .padding(16)
+                    .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(p.all ? C.panel : C.panel2))
+                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(p.all ? C.gold : C.line, lineWidth: 1.5))
+                }.buttonStyle(.plain)
 
-                label("Γενικά")
                 group {
-                    toggle("Χωρίς spoilers", "Ειδοποιήσεις αγώνων χωρίς το σκορ", $p.spoiler)
-                    divider
-                    toggle("Ήσυχες ώρες", "Καμία ειδοποίηση τη νύχτα", $p.quiet)
-                    if p.quiet {
-                        DatePicker("Από", selection: timeBinding(\.quietFrom), displayedComponents: .hourAndMinute).font(F.body(16)).padding(.vertical, 6)
-                        DatePicker("Έως", selection: timeBinding(\.quietTo), displayedComponents: .hourAndMinute).font(F.body(16)).padding(.vertical, 6)
-                        toggle("Τα γκολ της ΑΕΚ περνάνε", nil, $p.quietAek)
-                    }
-                    divider
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack { Text("Μέγεθος γραμμάτων άρθρων").font(F.body(17, .semibold)); Spacer(); Text("\(Int(size))").font(F.body(17, .bold)).foregroundStyle(C.gold) }
-                        Slider(value: $size, in: 14...26, step: 1).tint(C.gold)
-                    }.padding(.vertical, 12)
-                    divider
-                    toggle("Ανώνυμα στατιστικά", "Ποια άρθρα και αγώνες διαβάζονται — χωρίς προσωπικά στοιχεία", $p.stats)
+                    rowButton("calendar", "Το πρόγραμμα στο ημερολόγιο", "Όλοι οι αγώνες στο Ημερολόγιο του iPhone") { showCal = true }
+                    sep
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 12) {
+                            iconBox("textformat.size", true)
+                            Text("Μέγεθος γραμμάτων άρθρων").font(F.body(15, .heavy)).foregroundStyle(C.text)
+                            Spacer()
+                            Text("\(Int(size))").font(F.body(15, .heavy)).foregroundStyle(C.gold)
+                        }
+                        Slider(value: $size, in: 14...26, step: 1).tint(C.gold).padding(.leading, 52)
+                    }.padding(.horizontal, 16).padding(.vertical, 12)
+                    sep
+                    Toggle(isOn: $p.stats) {
+                        HStack(alignment: .top, spacing: 12) {
+                            iconBox("chart.line.uptrend.xyaxis", p.stats)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Ανώνυμα στατιστικά").font(F.body(15, .heavy)).foregroundStyle(p.stats ? C.text : C.text2)
+                                Text("Βοηθούν να βελτιώνουμε το AEK Hub (ποια άρθρα και αγώνες διαβάζονται). Χωρίς προσωπικά στοιχεία.").font(F.body(12)).foregroundStyle(C.muted)
+                            }
+                        }
+                    }.toggleStyle(GoldToggle()).padding(.horizontal, 16).padding(.vertical, 14)
                 }
 
-                label("Περισσότερα")
-                group {
-                    NavigationLink(value: Route.saved) { nav("bookmark", "Αποθηκευμένα άρθρα", p.saved.isEmpty ? "Κανένα ακόμα" : "\(p.saved.count)") }
-                    divider
-                    Button { showCal = true } label: { nav("calendar.badge.plus", "Το πρόγραμμα στο ημερολόγιο", "") }.buttonStyle(.plain)
-                    ForEach(app.config?.socials ?? [], id: \.self) { so in
-                        divider
-                        Link(destination: URL(string: so.url) ?? URL(string: Api.site)!) { nav("arrow.up.right.square", so.label.isEmpty ? so.key.capitalized : so.label, so.handle) }
-                    }
-                    divider
-                    Link(destination: URL(string: Api.site)!) { nav("globe", "aekhub.gr", "") }
-                    divider
-                    Link(destination: URL(string: Api.site + "/politiki-aporritou/")!) { nav("lock.shield", "Πολιτική απορρήτου", "") }
+                SectionLabel(text: "Αποθηκευμένα άρθρα")
+                if p.saved.isEmpty {
+                    Text("Πάτα το σημαδάκι σε ένα άρθρο για να το βρίσκεις εδώ.").font(F.body(14)).foregroundStyle(C.muted)
+                } else {
+                    VStack(spacing: 0) { ForEach(p.saved) { PostRow(p: $0) } }
                 }
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("AEK Hub \(Api.version) (build \(Api.build)) · iOS").font(F.body(12, .semibold)).foregroundStyle(C.text2)
-                    Text(diag).font(F.body(11)).foregroundStyle(C.muted)
-                }.padding(.horizontal, 6).padding(.top, 10)
+                Link(destination: URL(string: Api.site + "/politiki-aporritou/")!) {
+                    Text("Πολιτική απορρήτου").font(F.body(14, .bold)).foregroundStyle(C.gold).padding(.vertical, 4)
+                }
+                if let so = app.config?.socials, !so.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("ΑΚΟΛΟΥΘΗΣΕ ΤΟ AEK HUB").font(F.disp(18)).foregroundStyle(C.text)
+                        HStack(spacing: 10) { ForEach(so, id: \.self) { SocialDot(s: $0, size: 46) } }
+                    }
+                    .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(C.panel))
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("AEK Hub \(Api.version) (build \(Api.build))").font(F.body(12)).foregroundStyle(C.muted)
+                    Text(diag).font(F.body(11)).foregroundStyle(C.muted).id(tick)
+                }.padding(.top, 8)
             }
-            .padding(.horizontal, screenPad).padding(.bottom, 24)
+            .padding(.horizontal, screenPad).padding(.bottom, 32)
+            .readable(680)
         }
         .background(C.ink)
         .sheet(isPresented: $showCal) { CalendarSheet().environmentObject(AppState.shared) }
         .task {
             Analytics.screen(6, name: "me")
             status = await Notifier.shared.status()
-            let f = DateFormatter(); f.dateFormat = "d/M HH:mm:ss"
-            diag = (Api.shared.lastOk.map { "Τελευταία σύνδεση: " + f.string(from: $0) } ?? "Καμία σύνδεση ακόμη") + (Api.shared.lastErr.isEmpty ? "" : "\nΤελευταίο σφάλμα: " + Api.shared.lastErr)
+            while !Task.isCancelled { try? await Task.sleep(nanoseconds: 2_000_000_000); tick += 1 }
         }
-        .onChange(of: p.all) { on in if on { Task { _ = await Notifier.shared.requestPermission(); status = await Notifier.shared.status() } } }
-        .onDisappear { Task { await Notifier.shared.refresh(force: true) } }
     }
 
-    var sportList: [(String, String)] {
-        let fromCfg = (app.config?.sports ?? []).map { ($0.key, $0.name) }
-        return fromCfg.isEmpty ? Kinds.sports.map { ($0, Sports.label($0)) } : fromCfg
-    }
-    func kinds(_ sp: String) -> [(String, String)] {
-        var r: [(String, String)] = []
-        if sp.hasPrefix("volleyball") { r.append((Kinds.goals, "Κάθε σετ")) }
-        else if !Kinds.noGoals.contains(sp) { r.append((Kinds.goals, "Γκολ")) }
-        r.append((Kinds.startend, "Σέντρα · Ημίχρονο · Τελικό"))
-        r.append((Kinds.reminder, "Υπενθύμιση 30′"))
-        return r
+    var diag: String {
+        let f = DateFormatter(); f.dateFormat = "HH:mm:ss"
+        return "Server: " + (Api.shared.lastOk.map { "τελευταία επιτυχία " + f.string(from: $0) } ?? "καμία επιτυχής σύνδεση ακόμη") + (Api.shared.lastErr.isEmpty ? "" : "\nσφάλμα: " + Api.shared.lastErr)
     }
 
-    func label(_ t: String) -> some View {
-        Text(t.upperGr).font(F.tag(12)).tracking(1.4).foregroundStyle(C.muted).padding(.horizontal, 6).padding(.top, 16)
-    }
     func group<V: View>(@ViewBuilder _ c: () -> V) -> some View {
-        VStack(alignment: .leading, spacing: 0) { c() }.padding(.horizontal, 16).card(24)
+        VStack(spacing: 0) { c() }
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(C.panel))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(C.line, lineWidth: 1))
     }
-    var divider: some View { Rectangle().fill(C.line).frame(height: 1) }
-    func toggle(_ t: String, _ sub: String?, _ b: Binding<Bool>) -> some View {
-        Toggle(isOn: b) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(t).font(F.body(17, .semibold)).foregroundStyle(C.text)
-                if let sub { Text(sub).font(F.body(13)).foregroundStyle(C.muted) }
+    var sep: some View { Rectangle().fill(C.line).frame(height: 1).padding(.leading, 68).padding(.trailing, 16) }
+    func rowButton(_ icon: String, _ t: String, _ sub: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                iconBox(icon, true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(t).font(F.body(15, .heavy)).foregroundStyle(C.text)
+                    Text(sub).font(F.body(12)).foregroundStyle(C.muted)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold)).foregroundStyle(C.muted)
             }
-        }
-        .toggleStyle(GoldToggle())
-        .padding(.vertical, 12)
-    }
-    func pill(_ t: String, _ on: Bool, _ tap: @escaping () -> Void) -> some View {
-        Button(action: tap) {
-            Text(t).font(F.body(14, .semibold)).foregroundStyle(on ? C.gold : C.muted)
-                .padding(.horizontal, 13).padding(.vertical, 8)
-                .background(Capsule().fill(on ? C.gold.opacity(0.14) : .clear))
-                .overlay(Capsule().stroke(on ? C.gold.opacity(0.8) : C.line2, lineWidth: 1))
+            .padding(.horizontal, 16).padding(.vertical, 14).contentShape(Rectangle())
         }.buttonStyle(.plain)
     }
-    func nav(_ icon: String, _ t: String, _ sub: String) -> some View {
-        HStack(spacing: 14) {
-            Image(systemName: icon).font(.system(size: 17)).foregroundStyle(C.gold).frame(width: 24)
-            Text(t).font(F.body(17)).foregroundStyle(C.text)
-            Spacer()
-            if !sub.isEmpty { Text(sub).font(F.body(14)).foregroundStyle(C.muted) }
-            Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(C.muted)
-        }
-        .padding(.vertical, 14).contentShape(Rectangle())
-    }
-    func timeBinding(_ kp: ReferenceWritableKeyPath<Prefs, Int>) -> Binding<Date> {
-        Binding(get: {
-            let m = p[keyPath: kp]
-            return Fmt.cal.date(bySettingHour: m / 60, minute: m % 60, second: 0, of: Date()) ?? Date()
-        }, set: { d in
-            let c = Fmt.cal.dateComponents([.hour, .minute], from: d)
-            p[keyPath: kp] = (c.hour ?? 0) * 60 + (c.minute ?? 0)
-        })
-    }
+}
+
+/// Τετράγωνο εικονίδιο (40, γωνία 12): κίτρινο όταν είναι ενεργό
+func iconBox(_ icon: String, _ on: Bool) -> some View {
+    Image(systemName: icon).font(.system(size: 18, weight: .semibold)).foregroundStyle(on ? C.gold : C.muted)
+        .frame(width: 40, height: 40)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(on ? C.gold.opacity(0.16) : C.panel2))
 }
 
 /// Live γεγονός (π.χ. μεταγραφικό/ρεπορτάζ λεπτό-λεπτό) από το Live Ticker
@@ -192,7 +136,7 @@ struct EventView: View {
         ScrollView {
             if let e {
                 VStack(alignment: .leading, spacing: 12) {
-                    if !e.image.isEmpty { NetImage(url: e.image, w: 1200).frame(height: 210).frame(maxWidth: .infinity).clipped() }
+                    if !e.image.isEmpty { FillImage(url: e.image, w: 1200, height: 210) }
                     VStack(alignment: .leading, spacing: 8) {
                         if e.live { HStack(spacing: 6) { LiveDot(); Text("LIVE").font(F.body(12, .bold)).foregroundStyle(C.live) } }
                         else if !e.statusLabel.isEmpty { Text(e.statusLabel.upperGr).font(F.body(11, .bold)).foregroundStyle(C.muted) }
@@ -206,7 +150,7 @@ struct EventView: View {
                             }
                             if !u.title.isEmpty { Text(u.title).font(F.body(15, .bold)).foregroundStyle(C.text) }
                             if !u.text.isEmpty { Text(u.text.plainText).font(F.body(14, .medium)).foregroundStyle(C.text2) }
-                            if !u.thumb.isEmpty { NetImage(url: u.thumb, w: 800).frame(height: 180).frame(maxWidth: .infinity).clipped().clipShape(RoundedRectangle(cornerRadius: 10)) }
+                            if !u.thumb.isEmpty { FillImage(url: u.thumb, w: 800, height: 180).clipShape(RoundedRectangle(cornerRadius: 10)) }
                             if let l = [u.video, u.link].first(where: { !$0.isEmpty }), let url = URL(string: l) {
                                 Button { openURL = url } label: { Label(u.video.isEmpty ? "Άνοιγμα" : "Δες το βίντεο", systemImage: u.video.isEmpty ? "link" : "play.fill") }
                                     .font(F.body(13, .bold)).foregroundStyle(C.gold)

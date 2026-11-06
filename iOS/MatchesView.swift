@@ -1,172 +1,181 @@
 import SwiftUI
 
-/// Αγώνες: άθλημα (dropdown) · εβδομάδα με μέρες · μία μέρα τη φορά με μεγάλες κάρτες (όπως στο σχέδιο/Android)
+/// Αγώνες μέρα-μέρα (Android MatchesScreen): λωρίδα ημερών που κυλάει (45 μέρες πίσω – 90 μπροστά),
+/// σύρσιμο αριστερά/δεξιά για αλλαγή μέρας, «Επιστροφή στο σήμερα», άθλημα (dropdown), 📅 ημερολόγιο.
 struct MatchesView: View {
     @EnvironmentObject var app: AppState
+    @Environment(\.horizontalSizeClass) var hsc
     @State private var sport = ""
-    @State private var list: MatchList? = Api.shared.peek(Api.pMatches()).map(MatchList.init)
-    @State private var sel = ""
-    @State private var error: String?
-    @State private var loading = false
+    @State private var list: [MatchCard]?
+    @State private var error = false
+    @State private var page = MatchesView.back
     @State private var showCal = false
 
-    var today: String { Fmt.ymdString(Date()) }
-    var items: [MatchCard] { list?.items ?? [] }
-    var days: [String] { Array(Set(items.map(\.date))).sorted() }
+    static let back = 45
+    static let fwd = 90
+    let today = Fmt.cal.startOfDay(for: Date())
+    var days: [Date] { (0...(MatchesView.back + MatchesView.fwd)).map { Fmt.cal.date(byAdding: .day, value: $0 - MatchesView.back, to: today)! } }
+    var startS: String { Fmt.ymdString(days.first!) }
+    var endS: String { Fmt.ymdString(days.last!) }
+    var byDay: [String: [MatchCard]] { Dictionary(grouping: list ?? [], by: \.date) }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .bottom) {
-                    ScreenTitle(text: "Αγώνες").padding(.horizontal, -screenPad)
-                    Spacer()
-                    GlassCircle(icon: "calendar.badge.plus", size: 44) { showCal = true }
-                }
-                .padding(.horizontal, screenPad)
-
-                GlassPicker(label: "Άθλημα", value: sport.isEmpty ? "Όλα τα αθλήματα" : (app.config?.sports.first { $0.key == sport }?.name ?? Sports.label(sport)),
-                            options: [("", "Όλα τα αθλήματα")] + (app.config?.sports ?? []).map { ($0.key, $0.name) }) { k in
-                    sport = k; sel = ""
-                    list = Api.shared.peek(Api.pMatches(sport: k)).map(MatchList.init)
-                    Task { await load() }
-                }
-                .padding(.horizontal, screenPad)
-
-                weekStrip
-                dayNav
-
-                let dayItems = items.filter { $0.date == sel }.sorted { $0.time < $1.time }
-                if list == nil {
-                    if let error { EmptyState(icon: "wifi.exclamationmark", text: error) { Task { await load() } } }
-                    else { ProgressView().tint(C.gold).frame(maxWidth: .infinity).padding(60) }
-                } else if dayItems.isEmpty {
-                    VStack(spacing: 14) {
-                        EmptyState(icon: "calendar", text: "Δεν υπάρχουν αγώνες αυτή τη μέρα.")
-                        if let n = days.first(where: { $0 > sel }) {
-                            Button { withAnimation { sel = n } } label: {
-                                Text("Επόμενοι αγώνες · " + Fmt.shortDay(n)).font(F.body(15, .bold)).foregroundStyle(C.ink)
-                                    .padding(.horizontal, 20).padding(.vertical, 12).background(Capsule().fill(C.goldGrad))
-                            }.buttonStyle(.plain)
-                        }
+        VStack(spacing: 0) {
+            HStack {
+                ScreenTitle(text: "Αγώνες")
+                Spacer()
+                Button { showCal = true } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "calendar").font(.system(size: 15, weight: .semibold))
+                        Text("Στο ημερολόγιο").font(F.body(13, .heavy))
                     }
-                } else {
-                    LazyVGrid(columns: adaptiveCols, spacing: 14) { ForEach(dayItems) { MatchCardBig(m: $0) } }
-                        .padding(.horizontal, screenPad)
-                }
+                    .foregroundStyle(C.ink).padding(.horizontal, 12).padding(.vertical, 8)
+                    .background(Capsule().fill(C.gold))
+                }.buttonStyle(.plain)
             }
-            .padding(.bottom, 24)
+            .padding(.horizontal, screenPad).padding(.top, 14).padding(.bottom, 8)
+
+            let opts = [("", "Όλα τα αθλήματα")] + (app.config?.sports ?? []).map { ($0.key, $0.name) }
+            AekDropdown(label: "Άθλημα", value: opts.first { $0.0 == sport }?.1 ?? "Όλα τα αθλήματα", options: opts) { k in
+                sport = k
+                list = Api.shared.peek(Api.pMatches(from: startS, to: endS, sport: k)).map { MatchList($0).items }
+                Task { await load() }
+            }
+            .padding(.horizontal, screenPad).padding(.bottom, 10)
+
+            strip
+            dayHeader
+
+            if list == nil {
+                if error { EmptyState(icon: "wifi.exclamationmark", text: "Δεν φόρτωσε. Έλεγξε τη σύνδεση.") { Task { await load() } } }
+                else { ProgressView().tint(C.gold).frame(maxWidth: .infinity).padding(40) }
+                Spacer()
+            } else {
+                TabView(selection: $page) {
+                    ForEach(days.indices, id: \.self) { i in dayPage(i).tag(i) }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+            }
         }
         .background(C.ink)
-        .refreshable { await load() }
         .sheet(isPresented: $showCal) { CalendarSheet().environmentObject(AppState.shared) }
+        .onChange(of: page) { _ in haptic(.soft) }
         .task {
             Analytics.screen(6, name: "matches")
-            pickDefault()
+            list = Api.shared.peek(Api.pMatches(from: startS, to: endS, sport: nil)).map { MatchList($0).items }
             await load()
             while !Task.isCancelled {
-                let live = items.contains { $0.live }
+                let live = list?.contains { $0.live } == true
                 try? await Task.sleep(nanoseconds: (live ? 15 : 90) * 1_000_000_000)
                 await load()
             }
         }
     }
 
-    // MARK: Εβδομάδα
+    // MARK: Λωρίδα ημερών (κυλάει, ακολουθεί τη σελίδα)
 
-    var week: [String] {
-        guard let d = Fmt.day(sel.isEmpty ? today : sel) else { return [] }
-        let wd = Fmt.cal.component(.weekday, from: d) // 1 = Κυριακή
-        let start = Fmt.cal.date(byAdding: .day, value: -(wd - 1), to: d)!
-        return (0..<7).map { Fmt.ymdString(Fmt.cal.date(byAdding: .day, value: $0, to: start)!) }
-    }
-
-    var weekStrip: some View {
-        HStack(spacing: 0) {
-            ForEach(week, id: \.self) { d in
-                let on = d == sel, isToday = d == today
-                let has = days.contains(d)
-                Button { withAnimation(.easeOut(duration: 0.2)) { sel = d }; ensureLoaded(d) } label: {
-                    VStack(spacing: 3) {
-                        Text(isToday ? "ΣΗΜ" : weekday(d)).font(F.body(12, .semibold)).foregroundStyle(on ? C.ink : C.muted)
-                        Text(dayNum(d)).font(F.disp(26)).foregroundStyle(on ? C.ink : (has ? C.text : C.muted))
-                        Circle().fill(has ? (on ? C.ink : C.gold) : .clear).frame(width: 4, height: 4)
+    var strip: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 4) {
+                    ForEach(days.indices, id: \.self) { i in
+                        let d = days[i]
+                        let on = i == page
+                        let isToday = i == MatchesView.back
+                        let has = byDay[Fmt.ymdString(d)]
+                        Button { withAnimation(.easeInOut(duration: 0.25)) { page = i } } label: {
+                            VStack(spacing: 1) {
+                                Text(isToday ? "ΣΗΜ." : Fmt.daysShort[Fmt.cal.component(.weekday, from: d) - 1].upperGr)
+                                    .font(F.body(10, .heavy)).foregroundStyle(on ? C.ink : (isToday ? C.gold : C.muted))
+                                Text("\(Fmt.cal.component(.day, from: d))").font(F.body(17, .heavy)).foregroundStyle(on ? C.ink : C.text2)
+                                Circle().fill(has == nil ? Color.clear : (has!.contains { $0.live } ? C.live : (on ? C.ink : C.gold))).frame(width: 5, height: 5)
+                            }
+                            .frame(width: 50).padding(.vertical, 7)
+                            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(on ? C.gold : Color.clear))
+                            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(isToday && !on ? C.gold : .clear, lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                        .id(i)
                     }
-                    .frame(width: 44, height: 70)
-                    .background(Capsule().fill(on ? AnyShapeStyle(C.goldGrad) : AnyShapeStyle(Color.clear)))
-                    .overlay(Capsule().stroke(isToday && !on ? C.gold : .clear, lineWidth: 1.5))
-                    .frame(maxWidth: .infinity)
+                }
+                .padding(.horizontal, 12)
+            }
+            .frame(height: 62)
+            .onAppear { proxy.scrollTo(page, anchor: .center) }
+            .onChange(of: page) { p in withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(p, anchor: .center) } }
+        }
+    }
+
+    var dayHeader: some View {
+        let cur = days[page]
+        let rel = page - MatchesView.back
+        return VStack(spacing: 6) {
+            HStack {
+                Button { go(page - 1) } label: { Image(systemName: "chevron.left").font(.system(size: 17, weight: .semibold)).foregroundStyle(C.text).frame(width: 44, height: 44) }
+                Spacer()
+                VStack(spacing: 1) {
+                    Text(rel == 0 ? "ΣΗΜΕΡΑ" : rel == 1 ? "ΑΥΡΙΟ" : rel == -1 ? "ΧΘΕΣ" : rel > 0 ? "ΣΕ \(rel) ΜΕΡΕΣ" : "ΠΡΙΝ \(-rel) ΜΕΡΕΣ")
+                        .font(F.body(10, .heavy)).foregroundStyle(rel == 0 ? C.gold : C.muted)
+                    Text(Fmt.dayHeader(Fmt.ymdString(cur))).font(F.disp(20)).foregroundStyle(C.text).lineLimit(1).minimumScaleFactor(0.65)
+                }
+                Spacer()
+                Button { go(page + 1) } label: { Image(systemName: "chevron.right").font(.system(size: 17, weight: .semibold)).foregroundStyle(C.text).frame(width: 44, height: 44) }
+            }
+            .padding(.horizontal, 4)
+            if rel != 0 {
+                Button { go(MatchesView.back) } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.uturn.backward").font(.system(size: 13, weight: .bold))
+                        Text("Επιστροφή στο σήμερα").font(F.body(13, .heavy))
+                    }
+                    .foregroundStyle(C.ink).padding(.horizontal, 14).padding(.vertical, 7)
+                    .background(Capsule().fill(C.gold))
                 }.buttonStyle(.plain)
+                .transition(.scale.combined(with: .opacity))
             }
         }
-        .padding(.horizontal, 12)
+        .padding(.top, 6).padding(.bottom, 4)
+        .animation(.easeOut(duration: 0.2), value: rel == 0)
     }
 
-    var dayNav: some View {
-        HStack {
-            GlassCircle(icon: "chevron.left", size: 36) { step(-1) }
-            Spacer()
-            VStack(spacing: 2) {
-                Text(relative(sel)).font(F.tag(11)).tracking(1).foregroundStyle(C.muted)
-                Text(Fmt.dayHeader(sel.isEmpty ? today : sel)).font(F.disp(22)).foregroundStyle(C.text).lineLimit(1).minimumScaleFactor(0.7)
+    func go(_ i: Int) { withAnimation(.easeInOut(duration: 0.25)) { page = min(max(0, i), days.count - 1) } }
+
+    @ViewBuilder func dayPage(_ i: Int) -> some View {
+        let ms = (byDay[Fmt.ymdString(days[i])] ?? []).sorted { $0.time < $1.time }
+        ScrollView {
+            if ms.isEmpty {
+                VStack(spacing: 16) {
+                    Text("Δεν υπάρχουν αγώνες αυτή τη μέρα.").font(F.body(15, .bold)).foregroundStyle(C.text2).padding(.top, 30)
+                    let next = days.indices.first { $0 > i && byDay[Fmt.ymdString(days[$0])] != nil }
+                    let prev = days.indices.last { $0 < i && byDay[Fmt.ymdString(days[$0])] != nil }
+                    if let t = next ?? prev {
+                        Button { go(t) } label: {
+                            Text((t == next ? "Επόμενος αγώνας: " : "Τελευταίος αγώνας: ") + short(days[t]) + (t == next ? " ›" : ""))
+                                .font(F.body(14, .heavy)).foregroundStyle(C.gold).padding(.horizontal, 16).padding(.vertical, 10)
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(C.gold, lineWidth: 1))
+                        }.buttonStyle(.plain)
+                    }
+                }
+                .frame(maxWidth: .infinity).padding(24)
+            } else {
+                LazyVGrid(columns: hsc == .regular ? [GridItem(.adaptive(minimum: 320), spacing: 16)] : [GridItem(.flexible())], spacing: 12) {
+                    ForEach(ms) { MatchCardView(m: $0) }
+                }
+                .padding(hsc == .regular ? 24 : 16)
             }
-            Spacer()
-            GlassCircle(icon: "chevron.right", size: 36) { step(1) }
         }
-        .padding(.horizontal, screenPad)
+        .refreshable { haptic(); await load() }
     }
 
-    func weekday(_ d: String) -> String {
-        guard let x = Fmt.day(d) else { return "" }
-        return Fmt.daysShort[Fmt.cal.component(.weekday, from: x) - 1].upperGr
-    }
-    func dayNum(_ d: String) -> String { Fmt.day(d).map { String(Fmt.cal.component(.day, from: $0)) } ?? "" }
-    func relative(_ d: String) -> String {
-        guard let a = Fmt.day(today), let b = Fmt.day(d.isEmpty ? today : d) else { return "" }
-        let n = Fmt.cal.dateComponents([.day], from: a, to: b).day ?? 0
-        switch n {
-        case 0: return "ΣΗΜΕΡΑ"
-        case 1: return "ΑΥΡΙΟ"
-        case -1: return "ΧΘΕΣ"
-        case 2...: return "ΣΕ \(n) ΜΕΡΕΣ"
-        default: return "ΠΡΙΝ \(-n) ΜΕΡΕΣ"
-        }
+    func short(_ d: Date) -> String {
+        let c = Fmt.cal.dateComponents([.day, .month, .weekday], from: d)
+        return Fmt.daysShort[c.weekday! - 1].upperGr + " \(c.day!) " + Fmt.monthsShort[c.month! - 1]
     }
 
-    /// Βέλη: στην επόμενη/προηγούμενη μέρα ΜΕ αγώνες (αν δεν υπάρχει, μία μέρα)
-    func step(_ dir: Int) {
-        let cur = sel.isEmpty ? today : sel
-        let target = dir > 0 ? days.first { $0 > cur } : days.last { $0 < cur }
-        let next = target ?? Fmt.day(cur).flatMap { Fmt.cal.date(byAdding: .day, value: dir, to: $0) }.map(Fmt.ymdString) ?? cur
-        withAnimation(.easeOut(duration: 0.2)) { sel = next }
-        ensureLoaded(next)
-    }
-
-    func pickDefault() {
-        guard sel.isEmpty else { return }
-        if days.contains(today) || items.isEmpty { sel = today; return }
-        sel = days.first { $0 >= today } ?? days.last ?? today
-    }
-
-    /// Μέρα έξω από όσα έχουμε φορτώσει → φέρε το διάστημα γύρω της
-    func ensureLoaded(_ d: String) {
-        guard let l = list, !l.from.isEmpty, !l.to.isEmpty, d < l.from || d > l.to else { return }
-        Task { await load(around: d) }
-    }
-
-    func load(around d: String? = nil) async {
-        guard !loading else { return }
-        loading = true; defer { loading = false }
+    func load() async {
         do {
-            var from: String? = nil, to: String? = nil
-            let c = d ?? ((list.map { sel < $0.from || sel > $0.to } ?? false) ? sel : nil)
-            if let c, let x = Fmt.day(c) {
-                from = Fmt.ymdString(Fmt.cal.date(byAdding: .day, value: -10, to: x)!)
-                to = Fmt.ymdString(Fmt.cal.date(byAdding: .day, value: 14, to: x)!)
-            }
-            let l = try await Api.shared.matches(from: from, to: to, sport: sport.isEmpty ? nil : sport)
-            list = l; error = nil
-            pickDefault()
-            if from == nil && sport.isEmpty { Notifier.shared.check(l.items) }
-        } catch { if list == nil { self.error = "Δεν φόρτωσαν οι αγώνες.\n" + error.localizedDescription } }
+            let l = try await Api.shared.matches(from: startS, to: endS, sport: sport.isEmpty ? nil : sport)
+            list = l.items; error = false
+        } catch { if list == nil { self.error = true } }
     }
 }

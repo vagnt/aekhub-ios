@@ -32,7 +32,7 @@ struct ArticleView: View {
                 } else {
                     VStack(alignment: .leading, spacing: 16) {
                         if let c = card {
-                            NetImage(url: c.image, w: 1200).frame(height: 360).frame(maxWidth: .infinity).clipped()
+                            FillImage(url: c.image, w: 1200, height: 360)
                             Text(c.title.upperGr).font(F.disp(34)).foregroundStyle(C.text).padding(.horizontal, screenPad)
                         }
                         ProgressView().tint(C.gold).frame(maxWidth: .infinity)

@@ -1,126 +1,144 @@
 import SwiftUI
 
-/// Στήλες: 1 στο iPhone, περισσότερες στο iPad
-let adaptiveCols = [GridItem(.adaptive(minimum: 340), spacing: 14, alignment: .top)]
-let screenPad: CGFloat = 20
+// Τα κοινά κομμάτια — ΠΙΣΤΗ ΑΝΤΙΓΡΑΦΗ του Android (ui/components: Cards.kt, MatchUi.kt, Countdown.kt, Social.kt, Common.kt)
+
+let adaptiveCols = [GridItem(.adaptive(minimum: 320), spacing: 24, alignment: .top)]
+let screenPad: CGFloat = 16
+
+/// Πλάτος περιεχομένου σε iPad (όπως το sidePad του Android): κεντραρισμένο, όχι απλωμένο σε όλη την οθόνη
+extension View {
+    func readable(_ max: CGFloat = 760) -> some View { frame(maxWidth: max).frame(maxWidth: .infinity) }
+}
+
+func haptic(_ s: UIImpactFeedbackGenerator.FeedbackStyle = .light) { UIImpactFeedbackGenerator(style: s).impactOccurred() }
 
 // MARK: - Τίτλοι
 
-/// Μεγάλος τίτλος οθόνης («ΑΓΩΝΕΣ», «ΒΑΘΜΟΛΟΓΙΕΣ», «ΕΓΩ»)
+/// «ΑΓΩΝΕΣ», «ΒΑΘΜΟΛΟΓΙΕΣ» (disp 32)
 struct ScreenTitle: View {
     let text: String
     var body: some View {
-        Text(text.upperGr).font(F.disp(40)).foregroundStyle(C.text).frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, screenPad).padding(.top, 8)
+        Text(text.upperGr).font(F.disp(32)).foregroundStyle(C.text).lineLimit(1).minimumScaleFactor(0.7)
     }
 }
 
-/// Κίτρινη κεκλιμένη ετικέτα + διακεκομμένη γραμμή + «Όλα ›» (όπως στο Android)
+/// Κεκλιμένο σχήμα μόνο δεξιά (όπως οι κίτρινες ετικέτες του site)
+struct SlantRight: Shape {
+    func path(in r: CGRect) -> Path {
+        let k = r.height * 0.35
+        var p = Path()
+        p.move(to: .zero); p.addLine(to: CGPoint(x: r.maxX, y: 0)); p.addLine(to: CGPoint(x: r.maxX - k, y: r.maxY)); p.addLine(to: CGPoint(x: 0, y: r.maxY)); p.closeSubpath()
+        return p
+    }
+}
+
+/// Τίτλος ενότητας: κίτρινη κεκλιμένη ετικέτα + γραμμή + «Όλα ›»
 struct GoldHeader: View {
     let title: String
     var action: String? = nil
     var route: Route? = nil
     var body: some View {
-        HStack(spacing: 10) {
-            Text(title.upperGr).font(F.disp(19)).foregroundStyle(C.ink)
-                .padding(.leading, 10).padding(.trailing, 16).padding(.vertical, 4)
-                .background(SlantShape(k: 9).fill(C.gold).padding(.leading, -9))
-                .padding(.leading, 9)
-            Line().stroke(C.line2, style: StrokeStyle(lineWidth: 1, dash: [3, 4])).frame(height: 1)
+        HStack(spacing: 0) {
+            Text(title.upperGr).font(F.disp(22)).foregroundStyle(C.ink).lineLimit(1).minimumScaleFactor(0.65)
+                .padding(.leading, 14).padding(.trailing, 26).padding(.vertical, 6)
+                .background(SlantRight().fill(C.gold))
+                .layoutPriority(1)
+            Rectangle().fill(C.line).frame(height: 1).padding(.horizontal, 10)
             if let action, let route {
                 NavigationLink(value: route) {
-                    Text(action + " ›").font(F.body(14, .semibold)).foregroundStyle(C.gold).lineLimit(1)
+                    Text(action + " ›").font(F.body(13, .heavy)).foregroundStyle(C.gold).lineLimit(1).fixedSize()
                 }
             }
         }
-        .padding(.horizontal, screenPad).padding(.top, 22).padding(.bottom, 10)
     }
-}
-
-struct Line: Shape {
-    func path(in r: CGRect) -> Path { var p = Path(); p.move(to: CGPoint(x: 0, y: r.midY)); p.addLine(to: CGPoint(x: r.maxX, y: r.midY)); return p }
 }
 
 struct SectionLabel: View {
     let text: String
     var body: some View {
-        Text(text.upperGr).font(F.tag(12)).tracking(1.2).foregroundStyle(C.muted)
+        Text(text.upperGr).font(F.body(12, .heavy)).tracking(1).foregroundStyle(C.muted)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
-/// Κίτρινη ετικέτα κατηγορίας (π.χ. «ΕΡΑΣΙΤΕΧΝΙΚΗ»)
 struct Tag: View {
     let text: String
     var body: some View {
-        Text(text.upperGr).font(F.tag(11)).tracking(0.9).foregroundStyle(C.ink)
-            .padding(.horizontal, 10).padding(.vertical, 5)
-            .background(Capsule().fill(C.gold))
+        Text(text.upperGr).font(F.body(11, .heavy)).tracking(0.5).foregroundStyle(C.ink)
+            .padding(.horizontal, 8).padding(.vertical, 4)
+            .background(RoundedRectangle(cornerRadius: 6).fill(C.gold))
     }
 }
 
-// MARK: - Κουμπιά γυαλιού
+struct PlayBadge: View {
+    var size: CGFloat = 40
+    var body: some View {
+        Image(systemName: "play.fill").font(.system(size: size * 0.4, weight: .bold)).foregroundStyle(C.ink)
+            .frame(width: size, height: size).background(Circle().fill(C.gold))
+    }
+}
+typealias VideoBadge = PlayBadge
+
+// MARK: - Γυάλινα κουμπιά (iOS 26)
 
 struct GlassCircle: View {
     let icon: String
     var size: CGFloat = 44
     var gold = false
+    var tint: Color = C.text
     var action: () -> Void
     var body: some View {
-        Button(action: action) {
-            Image(systemName: icon).font(.system(size: size * 0.4, weight: .semibold))
-                .foregroundStyle(gold ? C.ink : C.text)
+        Button { haptic(); action() } label: {
+            Image(systemName: icon).font(.system(size: size * 0.42, weight: .semibold))
+                .foregroundStyle(gold ? C.ink : tint)
                 .frame(width: size, height: size)
-                .background(gold ? AnyView(Circle().fill(C.goldGrad)) : AnyView(Color.clear))
+                .background { if gold { Circle().fill(C.gold) } }
                 .glass(Circle(), tint: gold ? C.gold : nil, interactive: true)
         }.buttonStyle(.plain)
     }
 }
 
-/// Γυάλινο «dropdown» με μικρή ετικέτα πάνω (ΑΘΛΗΜΑ / ΔΙΟΡΓΑΝΩΣΗ)
-struct GlassPicker: View {
+/// Λίστα επιλογής στο στυλ του app (Android AekDropdown)
+struct AekDropdown: View {
     let label: String
     let value: String
     let options: [(String, String)]
     let pick: (String) -> Void
     var body: some View {
         Menu {
-            ForEach(options, id: \.0) { o in Button(o.1) { pick(o.0) } }
+            ForEach(options, id: \.0) { o in Button { haptic(); pick(o.0) } label: { if o.1 == value { Label(o.1, systemImage: "checkmark") } else { Text(o.1) } } }
         } label: {
-            HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(label.upperGr).font(F.tag(10)).tracking(1).foregroundStyle(C.muted)
-                    Text(value).font(F.body(15, .semibold)).foregroundStyle(C.text).lineLimit(2).multilineTextAlignment(.leading)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(label.upperGr).font(F.body(9, .heavy)).tracking(1).foregroundStyle(C.muted)
+                HStack(spacing: 4) {
+                    Text(value).font(F.body(14, .heavy)).foregroundStyle(C.text).lineLimit(1)
+                    Spacer(minLength: 2)
+                    if options.count > 1 { Image(systemName: "chevron.down").font(.system(size: 12, weight: .bold)).foregroundStyle(C.gold) }
                 }
-                Spacer(minLength: 4)
-                Image(systemName: "chevron.down").font(.system(size: 13, weight: .bold)).foregroundStyle(C.gold)
             }
-            .padding(.horizontal, 18).padding(.vertical, 11)
-            .frame(minHeight: 52)
-            .glass(Capsule())
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(C.panel))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(C.line2, lineWidth: 1))
         }
+        .disabled(options.count <= 1)
     }
 }
 
-/// Τσιπάκια: «Όλα» κίτρινο, τα άλλα με κίτρινη τελεία
+/// Τσιπάκια (ροή/αναζήτηση)
 struct ChipRow: View {
     let items: [(String, String)]
     let selected: String
-    var dots = true
+    var dots = false
     let pick: (String) -> Void
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(items, id: \.0) { it in
                     let on = it.0 == selected
-                    Button { pick(it.0) } label: {
-                        HStack(spacing: 7) {
-                            if dots && !it.0.isEmpty && !on { Circle().fill(C.gold).frame(width: 7, height: 7) }
-                            Text(it.1).font(F.body(15, .semibold)).foregroundStyle(on ? C.ink : C.text)
-                        }
-                        .padding(.horizontal, 18).frame(height: 42)
-                        .background(on ? AnyView(Capsule().fill(C.goldGrad).shadow(color: C.gold.opacity(0.35), radius: 10)) : AnyView(Capsule().fill(C.panel)))
-                        .overlay(Capsule().stroke(on ? Color.clear : C.line, lineWidth: 1))
+                    Button { haptic(); pick(it.0) } label: {
+                        Text(it.1).font(F.body(13, on ? .heavy : .bold)).foregroundStyle(on ? C.ink : C.text)
+                            .padding(.horizontal, 14).frame(minHeight: 36)
+                            .background(Capsule().fill(on ? C.gold : C.panel2))
                     }.buttonStyle(.plain)
                 }
             }.padding(.horizontal, screenPad)
@@ -128,302 +146,563 @@ struct ChipRow: View {
     }
 }
 
-struct VideoBadge: View {
-    var body: some View {
-        Image(systemName: "play.fill").font(.system(size: 13, weight: .bold)).foregroundStyle(C.ink)
-            .frame(width: 34, height: 34).background(Circle().fill(C.gold))
-    }
-}
-
 // MARK: - Άρθρα
 
-/// Μεγάλη κάρτα κύριου θέματος (ακτίνα 28)
-struct PostHero: View {
+/// Κύριο θέμα (Android FeaturedCard: 300, γωνία 20)
+struct FeaturedCard: View {
     let p: PostCard
-    var height: CGFloat = 330
+    var height: CGFloat = 300
     var body: some View {
         NavigationLink(value: Route.post(p.id, p)) {
             ZStack(alignment: .bottomLeading) {
-                NetImage(url: p.image, w: 1200).frame(maxWidth: .infinity).frame(height: height).clipped()
-                LinearGradient(colors: [.clear, .black.opacity(0.35), .black.opacity(0.92)], startPoint: .top, endPoint: .bottom)
-                VStack(alignment: .leading, spacing: 10) {
+                FillImage(url: p.image, w: 1200, height: height)
+                LinearGradient(stops: [.init(color: .clear, location: 0.3), .init(color: C.ink.opacity(0.92), location: 0.7), .init(color: C.ink, location: 1)], startPoint: .top, endPoint: .bottom)
+                VStack(alignment: .leading, spacing: 8) {
                     if !p.category.isEmpty { Tag(text: p.category) }
-                    Text(p.title.upperGr).font(F.disp(30)).foregroundStyle(.white).multilineTextAlignment(.leading).lineLimit(4).minimumScaleFactor(0.8)
-                    Text(Fmt.postDate(p.date)).font(F.body(13)).foregroundStyle(C.text2)
-                }.padding(20)
-                if p.video { VideoBadge().padding(16).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing) }
+                    Text(p.title.upperGr).font(F.disp(30)).foregroundStyle(C.text).lineLimit(4).multilineTextAlignment(.leading).minimumScaleFactor(0.8)
+                        .lineSpacing(-4)
+                    Text(Fmt.postDate(p.date)).font(F.body(12)).foregroundStyle(C.text2)
+                }.padding(16)
+                if p.video { PlayBadge(size: 46).padding(14).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing) }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(C.line, lineWidth: 1))
-            .padding(.horizontal, screenPad)
-        }.buttonStyle(.plain)
+            .frame(height: height)
+            .background(C.panel)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .postMenu(p)
     }
 }
+typealias PostHero = FeaturedCard
 
-/// Γραμμή άρθρου (εικόνα αριστερά, κατηγορία κίτρινη, τίτλος, ημερομηνία)
+/// Γραμμή άρθρου (112×78, γωνία 12)
 struct PostRow: View {
     let p: PostCard
     var body: some View {
         NavigationLink(value: Route.post(p.id, p)) {
-            HStack(alignment: .top, spacing: 14) {
+            HStack(alignment: .center, spacing: 12) {
                 ZStack {
-                    if p.image.isEmpty { RoundedRectangle(cornerRadius: 16).fill(C.panel2).overlay(Image("HubLogo").resizable().scaledToFit().frame(width: 44).opacity(0.9)) }
-                    else { NetImage(url: p.image, w: 400) }
-                    if p.video { VideoBadge().scaleEffect(0.8) }
+                    if p.image.isEmpty { RoundedRectangle(cornerRadius: 12).fill(C.panel2).overlay(Image("HubLogo").resizable().scaledToFit().frame(width: 40)) }
+                    else { FillImage(url: p.image, w: 360, height: 78) }
+                    if p.video { PlayBadge(size: 30) }
                 }
-                .frame(width: 112, height: 88).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .frame(width: 112, height: 78).background(C.panel2).clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 VStack(alignment: .leading, spacing: 5) {
-                    if !p.category.isEmpty { Text(p.category.upperGr).font(F.tag(11)).tracking(0.9).foregroundStyle(C.gold).lineLimit(1) }
-                    Text(p.title).font(F.body(17, .semibold)).foregroundStyle(C.text).lineLimit(3).multilineTextAlignment(.leading)
-                    Text(Fmt.postDate(p.date, withYear: false)).font(F.body(13)).foregroundStyle(C.muted)
+                    if !p.category.isEmpty { Text(p.category.upperGr).font(F.body(11, .heavy)).tracking(0.5).foregroundStyle(C.gold).lineLimit(1) }
+                    Text(p.title).font(F.body(15, .bold)).foregroundStyle(C.text).lineLimit(3).multilineTextAlignment(.leading).lineSpacing(1)
+                    Text(Fmt.postDate(p.date, withYear: false)).font(F.body(12)).foregroundStyle(C.muted)
                 }
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, screenPad).padding(.vertical, 9)
+            .padding(.vertical, 6)
             .contentShape(Rectangle())
-        }.buttonStyle(.plain)
+        }
+        .buttonStyle(.plain)
+        .postMenu(p)
     }
 }
 
-/// Πλακίδιο άρθρου για οριζόντιες λίστες
-struct PostTile: View {
+/// Μεσαία κάρτα: πρώτο άρθρο κάθε ενότητας (εικόνα 190, γωνία 16)
+struct PostCardMedium: View {
     let p: PostCard
-    var width: CGFloat = 250
     var body: some View {
         NavigationLink(value: Route.post(p.id, p)) {
             VStack(alignment: .leading, spacing: 8) {
                 ZStack {
-                    NetImage(url: p.image, w: 600).frame(width: width, height: width * 0.6).clipped()
-                    if p.video { VideoBadge() }
-                }.clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                Text(p.title).font(F.body(15, .semibold)).foregroundStyle(C.text).lineLimit(3).multilineTextAlignment(.leading)
-                    .frame(width: width, alignment: .leading)
+                    FillImage(url: p.image, w: 900, height: 190)
+                    if p.video { PlayBadge(size: 52) }
+                }
+                .frame(height: 190).background(C.panel2).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                Text(p.title).font(F.body(18, .heavy)).foregroundStyle(C.text).lineLimit(3).multilineTextAlignment(.leading)
                 Text(Fmt.postDate(p.date, withYear: false)).font(F.body(12)).foregroundStyle(C.muted)
             }
-        }.buttonStyle(.plain)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .postMenu(p)
     }
 }
 
+/// Παρατεταμένο πάτημα σε άρθρο: αποθήκευση / κοινοποίηση (όπως σε κάθε καλό app iPhone)
+struct PostMenu: ViewModifier {
+    let p: PostCard
+    @EnvironmentObject var prefs: Prefs
+    func body(content: Content) -> some View {
+        content.contextMenu {
+            Button { prefs.toggleSaved(p) } label: { Label(prefs.isSaved(p.id) ? "Αφαίρεση από αποθηκευμένα" : "Αποθήκευση", systemImage: prefs.isSaved(p.id) ? "bookmark.slash" : "bookmark") }
+            if let u = URL(string: p.link) { ShareLink(item: u) { Label("Κοινοποίηση", systemImage: "square.and.arrow.up") } }
+        }
+    }
+}
+extension View { func postMenu(_ p: PostCard) -> some View { modifier(PostMenu(p: p)) } }
+
 // MARK: - Αγώνες
 
-/// Κατάσταση αγώνα (live λεπτό / ΤΕΛΙΚΟ / ώρα)
+func matchMeta(_ m: MatchCard) -> String { [m.sportLabel, m.competition].filter { !$0.isEmpty }.joined(separator: " · ").upperGr }
+
 func liveText(_ m: MatchCard, _ now: Date = Date()) -> String {
     let mn = liveMinute(m.clock, fallback: m.minute, now: now)
     if !mn.isEmpty { return mn }
-    if !m.phase.isEmpty { return m.phase }
-    return m.statusLabel.isEmpty ? "LIVE" : m.statusLabel
+    if !m.phase.isEmpty { return m.phase.upperGr }
+    return m.statusLabel.upperGr
 }
 
-struct LiveBadge: View {
+struct LiveTag: View {
     let m: MatchCard
-    var size: CGFloat = 13
+    var prefix = "LIVE · "
     var body: some View {
         TimelineView(.periodic(from: .now, by: 15)) { ctx in
-            HStack(spacing: 6) {
-                LiveDot(size: size * 0.6)
-                Text("LIVE · " + liveText(m, ctx.date)).font(.system(size: size, weight: .heavy)).foregroundStyle(C.live).lineLimit(1)
+            HStack(spacing: 5) {
+                LiveDot(size: 7, color: .white)
+                Text((prefix + liveText(m, ctx.date)).trimmingCharacters(in: CharacterSet(charactersIn: " ·"))).font(F.body(11, .heavy)).foregroundStyle(.white).lineLimit(1)
             }
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background(RoundedRectangle(cornerRadius: 6).fill(C.live))
         }
     }
 }
 
-/// Όνομα ομάδας: κεφαλαία, στενά· η ΑΕΚ κίτρινη
-struct TeamName: View {
+/// Λογότυπο + όνομα (TeamCell)
+struct TeamCell: View {
+    let logo: String
     let name: String
     let aek: Bool
-    var size: CGFloat = 17
+    var size: CGFloat = 48
+    var font: CGFloat = 16
     var body: some View {
-        Text(name.upperGr).font(F.disp(size)).foregroundStyle(aek ? C.gold : C.text)
-            .multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.7)
+        VStack(spacing: 6) {
+            TeamLogo(url: logo, size: size, name: name)
+            Text(name.upperGr).font(F.disp(font)).foregroundStyle(aek ? C.gold : C.text)
+                .multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.6)
+                .frame(maxWidth: .infinity)
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 
-/// Μεγάλη κάρτα αγώνα (οθόνη Αγώνες): διοργάνωση + 🔔 · λογότυπα & ονόματα · VS + ώρα ή σκορ · κανάλι · γήπεδο
-struct MatchCardBig: View {
+/// Κέντρο κάρτας αγώνα: ώρα, σκορ ή LIVE
+struct MatchCenter: View {
+    let m: MatchCard
+    var body: some View {
+        VStack(spacing: 4) {
+            if m.live {
+                HStack(spacing: 0) {
+                    Text(m.scoreHome.isEmpty ? "0" : m.scoreHome).foregroundStyle(m.aek == "home" ? C.gold : C.text)
+                    Text(" : ").font(F.disp(26)).foregroundStyle(C.muted)
+                    Text(m.scoreAway.isEmpty ? "0" : m.scoreAway).foregroundStyle(m.aek == "away" ? C.gold : C.text)
+                }.font(F.disp(32)).monospacedDigit()
+                TimelineView(.periodic(from: .now, by: 15)) { ctx in
+                    HStack(spacing: 5) { LiveDot(size: 7); Text(liveText(m, ctx.date)).font(F.body(12, .heavy)).foregroundStyle(C.live).lineLimit(1) }
+                }
+            } else if m.finished && !m.scoreHome.isEmpty {
+                Text("\(m.scoreHome) : \(m.scoreAway)").font(F.disp(26)).foregroundStyle(.white).monospacedDigit()
+                    .padding(.horizontal, 10).padding(.vertical, 1)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(m.aekWon == true ? C.win : (m.aekWon == false ? C.loss : C.panel3)))
+                Text(m.penHome.isEmpty ? "ΤΕΛΙΚΟ" : "ΠΕΝ. \(m.penHome)-\(m.penAway)").font(F.body(10, .heavy)).foregroundStyle(C.muted)
+            } else if m.postponed {
+                Text("ΑΝΑΒΟΛΗ").font(F.body(12, .heavy)).foregroundStyle(C.muted)
+            } else {
+                Text("VS").font(F.body(10, .heavy)).tracking(2).foregroundStyle(C.muted)
+                Text(m.time.isEmpty ? "—" : m.time).font(F.disp(28)).foregroundStyle(C.gold)
+            }
+        }
+        .frame(width: 96)
+    }
+}
+
+/// Κάρτα αγώνα (λίστα αγώνων) — Android MatchCardView
+struct MatchCardView: View {
     let m: MatchCard
     @EnvironmentObject var prefs: Prefs
     var body: some View {
         NavigationLink(value: Route.match(m.id)) {
-            VStack(spacing: 12) {
-                HStack(spacing: 8) {
-                    Text(([m.sportLabel.isEmpty ? Sports.label(m.sport) : m.sportLabel, m.competition].filter { !$0.isEmpty }.joined(separator: " · ")).upperGr)
-                        .font(F.tag(11)).tracking(0.8).foregroundStyle(C.gold).lineLimit(1)
+            VStack(spacing: 0) {
+                HStack {
+                    Text(matchMeta(m)).font(F.body(11, .heavy)).tracking(0.4).foregroundStyle(C.gold).lineLimit(1)
                     Spacer()
-                    if m.live { LiveBadge(m: m, size: 12) }
-                    else if !m.finished {
+                    if m.upcoming {
+                        let on = prefs.alertOn(m)
                         Button {
-                            if prefs.matchAlerts.contains(m.id) { prefs.matchAlerts.remove(m.id) }
-                            else { prefs.matchAlerts.insert(m.id); Task { _ = await Notifier.shared.requestPermission(); await Notifier.shared.refresh(force: true) } }
+                            haptic(.medium)
+                            prefs.toggleMatchAlert(m)
                         } label: {
-                            Image(systemName: prefs.matchAlerts.contains(m.id) || prefs.wants(m.sport, Kinds.reminder) ? "bell.fill" : "bell")
-                                .font(.system(size: 16)).foregroundStyle(prefs.matchAlerts.contains(m.id) ? C.gold : C.muted)
+                            Image(systemName: on ? "bell.fill" : "bell").font(.system(size: 17)).foregroundStyle(on ? C.gold : C.muted).frame(width: 40, height: 40)
                         }.buttonStyle(.plain)
-                    }
+                    } else { Color.clear.frame(width: 40, height: 40) }
                 }
-                HStack(alignment: .center, spacing: 6) {
-                    side(m.home, m.homeLogo, m.aek == "home")
-                    VStack(spacing: 2) {
-                        if m.upcoming && !m.hasScore {
-                            Text("VS").font(F.body(12, .bold)).foregroundStyle(C.muted)
-                            Text(m.time.isEmpty ? "–" : m.time).font(F.disp(40)).foregroundStyle(C.gold).monospacedDigit()
-                        } else {
-                            HStack(spacing: 8) {
-                                Text(m.scoreHome).foregroundStyle(scoreColor(home: true))
-                                Text("–").foregroundStyle(C.muted)
-                                Text(m.scoreAway).foregroundStyle(scoreColor(home: false))
-                            }.font(F.disp(44)).monospacedDigit()
-                            if m.finished { Text(m.penHome.isEmpty ? "ΤΕΛΙΚΟ" : "ΠΕΝ. \(m.penHome)–\(m.penAway)").font(F.tag(10)).tracking(1).foregroundStyle(C.muted) }
-                            else if m.postponed { Text("ΑΝΑΒΟΛΗ").font(F.tag(10)).foregroundStyle(C.muted) }
-                        }
-                    }.frame(minWidth: 110)
-                    side(m.away, m.awayLogo, m.aek == "away")
+                HStack(spacing: 0) {
+                    TeamCell(logo: m.homeLogo, name: m.home, aek: m.aek == "home")
+                    MatchCenter(m: m)
+                    TeamCell(logo: m.awayLogo, name: m.away, aek: m.aek == "away")
                 }
+                .padding(.trailing, 10)
                 let foot = [m.broadcast, m.venue].filter { !$0.isEmpty }
                 if !foot.isEmpty {
-                    Text(foot.joined(separator: "  ·  ")).font(F.body(13)).foregroundStyle(C.muted).lineLimit(1)
+                    HStack(spacing: 4) {
+                        if !m.broadcast.isEmpty { Image(systemName: "tv").font(.system(size: 12)).foregroundStyle(C.gold) }
+                        Text(foot.joined(separator: "  ·  ")).font(F.body(12)).foregroundStyle(C.text2).lineLimit(1)
+                    }
+                    .padding(.top, 10).padding(.trailing, 10)
                 }
             }
-            .padding(.horizontal, 18).padding(.vertical, 16)
-            .background(RoundedRectangle(cornerRadius: 28, style: .continuous).fill(m.live ? C.panel2 : C.panel))
-            .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(m.live ? C.live.opacity(0.55) : C.line, lineWidth: 1))
+            .padding(.leading, 14).padding(.trailing, 4).padding(.top, 4).padding(.bottom, 14)
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(C.panel))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(m.live ? C.live : C.line, lineWidth: 1))
             .contentShape(Rectangle())
         }.buttonStyle(.plain)
     }
-    func scoreColor(home: Bool) -> Color {
-        if m.live { return (home ? m.aek == "home" : m.aek == "away") ? C.gold : C.text }
-        guard m.finished, let h = Int(m.scoreHome), let a = Int(m.scoreAway) else { return C.text }
-        let mine = home ? h : a, their = home ? a : h
-        return mine >= their ? C.text : C.text.opacity(0.55)
-    }
-    func side(_ name: String, _ logo: String, _ aek: Bool) -> some View {
-        VStack(spacing: 8) {
-            TeamLogo(url: logo, size: 54, name: name)
-            TeamName(name: name, aek: aek, size: 16)
-        }.frame(maxWidth: .infinity)
-    }
 }
 
-/// Μικρή κάρτα αγώνα για οριζόντια λίστα (αρχική)
+/// Μικρή κάρτα «Επόμενοι αγώνες» (250)
 struct MatchMini: View {
     let m: MatchCard
     var body: some View {
         NavigationLink(value: Route.match(m.id)) {
-            VStack(spacing: 10) {
-                HStack {
-                    Text((m.sportLabel.isEmpty ? Sports.label(m.sport) : m.sportLabel).upperGr).font(F.tag(10)).tracking(0.8).foregroundStyle(C.gold).lineLimit(1)
-                    Spacer()
-                    if m.live { LiveBadge(m: m, size: 10) } else { Text(Fmt.shortDay(m.date)).font(F.body(11, .semibold)).foregroundStyle(C.muted) }
+            VStack(alignment: .leading, spacing: 10) {
+                Text(matchMeta(m)).font(F.body(10, .heavy)).foregroundStyle(C.gold).lineLimit(1)
+                HStack(spacing: 0) {
+                    TeamCell(logo: m.homeLogo, name: m.home, aek: m.aek == "home")
+                    MatchCenter(m: m)
+                    TeamCell(logo: m.awayLogo, name: m.away, aek: m.aek == "away")
                 }
-                HStack {
-                    TeamLogo(url: m.homeLogo, size: 38, name: m.home)
-                    Spacer()
-                    if m.upcoming && !m.hasScore { Text(m.time).font(F.disp(30)).foregroundStyle(C.gold) }
-                    else { Text("\(m.scoreHome)–\(m.scoreAway)").font(F.disp(32)).foregroundStyle(m.live ? C.gold : C.text).monospacedDigit() }
-                    Spacer()
-                    TeamLogo(url: m.awayLogo, size: 38, name: m.away)
+                if !m.live {
+                    Text(miniDate(m) + (m.broadcast.isEmpty ? "" : "  ·  " + m.broadcast)).font(F.body(11, .bold)).foregroundStyle(C.text2).lineLimit(1)
                 }
-                Text("\(m.home) – \(m.away)").font(F.body(12, .semibold)).foregroundStyle(C.text2).lineLimit(1)
             }
-            .padding(14).frame(width: 240)
-            .card(24, fill: m.live ? C.panel2 : C.panel)
+            .padding(12).frame(width: 250)
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(C.panel))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(m.live ? C.live : C.line, lineWidth: 1))
+        }.buttonStyle(.plain)
+    }
+    func miniDate(_ m: MatchCard) -> String {
+        guard let d = Fmt.day(m.date) else { return m.date }
+        let c = Fmt.cal.dateComponents([.day, .month, .weekday], from: d)
+        return Fmt.daysShort[c.weekday! - 1].upperGr + " \(c.day!) " + Fmt.monthsShort[c.month! - 1]
+    }
+}
+
+/// Live αγώνας στην αρχική (LiveBar)
+struct LiveBar: View {
+    let m: MatchCard
+    var body: some View {
+        NavigationLink(value: Route.match(m.id)) {
+            VStack(spacing: 10) {
+                HStack(spacing: 8) {
+                    LiveTag(m: m)
+                    Text(matchMeta(m)).font(F.body(11, .heavy)).foregroundStyle(C.gold).lineLimit(1)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold)).foregroundStyle(C.muted)
+                }
+                HStack(spacing: 8) {
+                    HStack(spacing: 8) {
+                        TeamLogo(url: m.homeLogo, size: 40, name: m.home)
+                        Text(m.home.upperGr).font(F.disp(18)).foregroundStyle(m.aek == "home" ? C.gold : C.text).lineLimit(2).minimumScaleFactor(0.7)
+                        Spacer(minLength: 0)
+                    }
+                    Text("\(m.scoreHome.isEmpty ? "0" : m.scoreHome) : \(m.scoreAway.isEmpty ? "0" : m.scoreAway)").font(F.disp(36)).foregroundStyle(C.text).monospacedDigit().fixedSize()
+                    HStack(spacing: 8) {
+                        Spacer(minLength: 0)
+                        Text(m.away.upperGr).font(F.disp(18)).foregroundStyle(m.aek == "away" ? C.gold : C.text).lineLimit(2).multilineTextAlignment(.trailing).minimumScaleFactor(0.7)
+                        TeamLogo(url: m.awayLogo, size: 40, name: m.away)
+                    }
+                }
+            }
+            .padding(.horizontal, 14).padding(.vertical, 12)
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(LinearGradient(colors: [Color(hex: 0x2A1513), C.panel], startPoint: .top, endPoint: .bottom)))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(C.live, lineWidth: 1.5))
         }.buttonStyle(.plain)
     }
 }
 
-/// ⏱ Επόμενος αγώνας με αντίστροφη μέτρηση (ίδιος αγώνας με τη μπάρα του site) ή live σκορ
-struct CountdownCard: View {
+/// Live αγώνας στη θέση του κύριου θέματος (LiveMatchHero, 250)
+struct LiveMatchHero: View {
     let m: MatchCard
+    let image: String
     var body: some View {
         NavigationLink(value: Route.match(m.id)) {
-            VStack(spacing: 14) {
-                HStack {
-                    if m.live { LiveBadge(m: m, size: 12) }
-                    else { Text("ΕΠΟΜΕΝΟΣ ΑΓΩΝΑΣ").font(F.tag(11)).tracking(1).foregroundStyle(C.gold) }
+            ZStack {
+                if image.isEmpty { Color.clear.overlay(Image("HeroBg").resizable().scaledToFill()).clipped() } else { FillImage(url: image, w: 1200, height: 250) }
+                LinearGradient(colors: [C.ink.opacity(0.55), C.ink.opacity(0.95)], startPoint: .top, endPoint: .bottom)
+                VStack {
+                    HStack { LiveTag(m: m); Spacer(); Text(matchMeta(m)).font(F.body(10, .heavy)).foregroundStyle(C.gold).lineLimit(1) }
                     Spacer()
-                    Text(m.competition.upperGr).font(F.tag(10)).tracking(0.6).foregroundStyle(C.muted).lineLimit(1)
-                }
-                HStack(alignment: .center) {
-                    side(m.home, m.homeLogo, m.aek == "home")
-                    VStack(spacing: 2) {
-                        if m.live || m.hasScore {
-                            Text("\(m.scoreHome)–\(m.scoreAway)").font(F.disp(52)).foregroundStyle(C.gold).monospacedDigit()
-                        } else {
-                            Text("VS").font(F.body(12, .bold)).foregroundStyle(C.muted)
-                            Text(m.time).font(F.disp(40)).foregroundStyle(C.gold)
-                            Text(Fmt.shortDay(m.date)).font(F.body(12, .semibold)).foregroundStyle(C.text2)
+                    HStack(spacing: 0) {
+                        TeamCell(logo: m.homeLogo, name: m.home, aek: m.aek == "home", size: 58, font: 17)
+                        Text("\(m.scoreHome.isEmpty ? "0" : m.scoreHome) : \(m.scoreAway.isEmpty ? "0" : m.scoreAway)").font(F.disp(52)).foregroundStyle(C.text).monospacedDigit().fixedSize()
+                        TeamCell(logo: m.awayLogo, name: m.away, aek: m.aek == "away", size: 58, font: 17)
+                    }
+                    Spacer()
+                    Text("ΠΑΤΑ ΓΙΑ ΤΟ MATCH CENTER ›").font(F.body(11, .heavy)).tracking(1).foregroundStyle(C.gold)
+                }.padding(16)
+            }
+            .frame(height: 250)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(C.live, lineWidth: 1.5))
+        }.buttonStyle(.plain)
+    }
+}
+
+/// Live γεγονός στη θέση του κύριου θέματος
+struct LiveEventHero: View {
+    let id: Int
+    let title: String
+    let image: String
+    var body: some View {
+        NavigationLink(value: Route.event(id)) {
+            ZStack(alignment: .bottomLeading) {
+                if image.isEmpty { Color.clear.overlay(Image("HeroBg").resizable().scaledToFill()).clipped() } else { FillImage(url: image, w: 1200, height: 250) }
+                LinearGradient(stops: [.init(color: .clear, location: 0.2), .init(color: C.ink, location: 1)], startPoint: .top, endPoint: .bottom)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 5) { LiveDot(size: 7, color: .white); Text("LIVE ΤΩΡΑ").font(F.body(11, .heavy)).foregroundStyle(.white) }
+                        .padding(.horizontal, 8).padding(.vertical, 3).background(RoundedRectangle(cornerRadius: 6).fill(C.live))
+                    Text(title.upperGr).font(F.disp(28)).foregroundStyle(C.text).lineLimit(3)
+                }.padding(16)
+            }
+            .frame(height: 250)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(C.live, lineWidth: 1.5))
+        }.buttonStyle(.plain)
+    }
+}
+
+/// ⏱ Αντίστροφη μέτρηση (Android NextMatchCountdown)
+struct NextMatchCountdown: View {
+    let m: MatchCard
+    var body: some View {
+        if let ko = m.kickoffDate, ko > Date(), !m.live, !m.finished {
+            NavigationLink(value: Route.match(m.id)) {
+                VStack(spacing: 10) {
+                    HStack(spacing: 8) {
+                        Text("ΕΠΟΜΕΝΟΣ ΑΓΩΝΑΣ").font(F.body(11, .heavy)).foregroundStyle(C.gold).lineLimit(1).fixedSize()
+                        Text(m.competition.isEmpty ? m.sportLabel : m.competition).font(F.body(11, .bold)).foregroundStyle(C.muted).lineLimit(1)
+                        Spacer(minLength: 0)
+                        Text(whenText(ko)).font(F.body(11, .bold)).foregroundStyle(C.text2).lineLimit(1).fixedSize()
+                    }
+                    HStack(spacing: 8) {
+                        HStack(spacing: 8) {
+                            TeamLogo(url: m.homeLogo, size: 30, name: m.home)
+                            Text(m.home.upperGr).font(F.disp(15)).foregroundStyle(m.aek == "home" ? C.gold : C.text).lineLimit(1).minimumScaleFactor(0.65)
+                            Spacer(minLength: 0)
                         }
-                    }.frame(minWidth: 110)
-                    side(m.away, m.awayLogo, m.aek == "away")
-                }
-                if !m.live, let ko = m.kickoffDate, ko > Date() {
+                        Text("VS").font(F.body(12, .heavy)).foregroundStyle(C.muted)
+                        HStack(spacing: 8) {
+                            Spacer(minLength: 0)
+                            Text(m.away.upperGr).font(F.disp(15)).foregroundStyle(m.aek == "away" ? C.gold : C.text).lineLimit(1).minimumScaleFactor(0.65)
+                            TeamLogo(url: m.awayLogo, size: 30, name: m.away)
+                        }
+                    }
                     TimelineView(.periodic(from: .now, by: 1)) { ctx in
                         let s = max(0, Int(ko.timeIntervalSince(ctx.date)))
                         HStack(spacing: 8) {
-                            box(s / 86400, "ΜΕΡΕΣ"); box(s % 86400 / 3600, "ΩΡΕΣ"); box(s % 3600 / 60, "ΛΕΠΤΑ"); box(s % 60, "ΔΕΥΤ")
+                            cell(s / 86400, "ΜΕΡΕΣ"); cell(s % 86400 / 3600, "ΩΡΕΣ"); cell(s % 3600 / 60, "ΛΕΠΤΑ"); cell(s % 60, "ΔΕΥΤ.")
                         }
                     }
                 }
-            }
-            .padding(18)
-            .background(
-                ZStack {
-                    Image("HeroBg").resizable().scaledToFill().opacity(0.3)
-                    LinearGradient(colors: [C.panel.opacity(0.3), C.ink.opacity(0.95)], startPoint: .top, endPoint: .bottom)
-                }
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(m.live ? C.live.opacity(0.55) : C.gold.opacity(0.3), lineWidth: 1))
-            .padding(.horizontal, screenPad)
-        }.buttonStyle(.plain)
+                .padding(.horizontal, 14).padding(.vertical, 12)
+                .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(LinearGradient(colors: [Color(hex: 0x1D1B13), C.panel, Color(hex: 0x221C05)], startPoint: .topLeading, endPoint: .bottomTrailing)))
+                .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(C.gold.opacity(0.35), lineWidth: 1))
+            }.buttonStyle(.plain)
+        }
     }
-    func side(_ name: String, _ logo: String, _ aek: Bool) -> some View {
-        VStack(spacing: 8) {
-            TeamLogo(url: logo, size: 58, name: name)
-            TeamName(name: name, aek: aek, size: 17)
-        }.frame(maxWidth: .infinity)
+    func whenText(_ d: Date) -> String {
+        let c = Fmt.cal.dateComponents([.day, .month, .weekday, .hour, .minute], from: d)
+        return Fmt.daysShort[c.weekday! - 1] + " \(c.day!)/\(c.month!) · " + String(format: "%02d:%02d", c.hour!, c.minute!)
     }
-    func box(_ v: Int, _ l: String) -> some View {
-        VStack(spacing: 1) {
-            Text(String(format: "%02d", v)).font(F.disp(28)).foregroundStyle(C.text).monospacedDigit()
-            Text(l).font(F.tag(9)).tracking(0.8).foregroundStyle(C.muted)
-        }.frame(maxWidth: .infinity).frame(height: 56).card(16, fill: C.panel2)
+    func cell(_ v: Int, _ l: String) -> some View {
+        VStack(spacing: 0) {
+            Text(String(format: "%02d", v)).font(F.disp(22)).foregroundStyle(C.gold).monospacedDigit()
+            Text(l).font(F.body(9, .heavy)).foregroundStyle(C.muted)
+        }
+        .frame(maxWidth: .infinity).padding(.vertical, 7)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(C.ink))
     }
 }
+
+// MARK: - Κατηγορίες & social
+
+func catIcon(_ k: String) -> String {
+    switch k {
+    case "football": return "nav_football"
+    case "basketball": return "nav_basketball"
+    case "erasitechniki": return "nav_erasitechniki"
+    case "hubplus": return "nav_hubplus"
+    case "programma": return "nav_programma"
+    case "home": return "nav_home"
+    default: return "Eagle"
+    }
+}
+
+/// Μενού κατηγοριών: πλακίδια με τα εικονίδια του site (84×92)
+struct CategoryMenu: View {
+    let items: [Category]
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(items) { c in
+                    NavigationLink(value: Route.category(c.slug, c.name)) {
+                        VStack(spacing: 6) {
+                            Image(catIcon(c.icon)).resizable().scaledToFit().frame(width: 38, height: 38)
+                            Text(c.name).font(F.body(11, .heavy)).foregroundStyle(C.text).lineLimit(1).minimumScaleFactor(0.7)
+                        }
+                        .padding(8).frame(width: 84, height: 92)
+                        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(C.panel))
+                        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(C.line, lineWidth: 1))
+                    }.buttonStyle(.plain)
+                }
+            }.padding(.horizontal, screenPad)
+        }
+    }
+}
+
+func socialGrad(_ k: String) -> LinearGradient {
+    let cs: [Color]
+    switch k {
+    case "facebook": cs = [Color(hex: 0x1877F2), Color(hex: 0x0E5FD0)]
+    case "instagram": cs = [Color(hex: 0xFEDA75), Color(hex: 0xFA7E1E), Color(hex: 0xD62976), Color(hex: 0x962FBF), Color(hex: 0x4F5BD5)]
+    case "youtube": cs = [Color(hex: 0xFF0000), Color(hex: 0xC4302B)]
+    case "tiktok": cs = [Color(hex: 0x25F4EE), Color(hex: 0x000000), Color(hex: 0xFE2C55)]
+    default: cs = [Color(hex: 0x2A2A2A), .black]
+    }
+    return LinearGradient(colors: cs, startPoint: .topLeading, endPoint: .bottomTrailing)
+}
+func socialIcon(_ k: String) -> String { ["facebook", "instagram", "youtube", "tiktok"].contains(k) ? "soc_" + k : "soc_x" }
+func socialCta(_ k: String) -> String {
+    switch k {
+    case "instagram": return "Stories & reels από κάθε ματς"
+    case "youtube": return "Βίντεο, συνεντεύξεις, στιγμιότυπα"
+    case "tiktok": return "Τα πιο viral της ΑΕΚ"
+    case "facebook": return "Συζήτηση με την κερκίδα"
+    default: return "Πρώτοι στα έκτακτα"
+    }
+}
+
+struct SocialDot: View {
+    let s: Social
+    var size: CGFloat = 36
+    @Environment(\.openURL) var open
+    var body: some View {
+        Button { if let u = URL(string: s.url) { open(u) } } label: {
+            Image(socialIcon(s.key)).resizable().renderingMode(.template).scaledToFit().foregroundStyle(.white)
+                .frame(width: size * 0.5, height: size * 0.5)
+                .frame(width: size, height: size).background(Circle().fill(socialGrad(s.key)))
+        }.buttonStyle(.plain)
+    }
+}
+
+/// Λωρίδα «Ακολούθησέ μας» (κορυφή αρχικής)
+struct SocialStrip: View {
+    let list: [Social]
+    var body: some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("ΑΚΟΛΟΥΘΗΣΕ ΜΑΣ").font(F.disp(16)).foregroundStyle(C.gold).lineLimit(1).minimumScaleFactor(0.7)
+                Text(list.first { !$0.handle.isEmpty }?.handle ?? "AEK Hub").font(F.body(11, .bold)).foregroundStyle(C.muted).lineLimit(1)
+            }
+            Spacer(minLength: 0)
+            ForEach(list, id: \.self) { SocialDot(s: $0) }
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(C.panel))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(C.line, lineWidth: 1))
+    }
+}
+
+/// Μεγάλη ενότητα social (τέλος αρχικής)
+struct SocialSection: View {
+    let list: [Social]
+    @Environment(\.openURL) var open
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                Image("Eagle").resizable().scaledToFit().frame(width: 40, height: 40)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("ΑΚΟΛΟΥΘΗΣΕ ΤΟ AEK HUB").font(F.disp(22)).foregroundStyle(C.text)
+                    Text("Ό,τι γίνεται στην ΑΕΚ, πρώτα στα social μας").font(F.body(12)).foregroundStyle(C.muted)
+                }
+            }
+            ForEach(list, id: \.self) { s in
+                Button { if let u = URL(string: s.url) { open(u) } } label: {
+                    HStack(spacing: 12) {
+                        Image(socialIcon(s.key)).resizable().renderingMode(.template).scaledToFit().foregroundStyle(.white).frame(width: 22, height: 22)
+                            .frame(width: 40, height: 40).background(Circle().fill(.black.opacity(0.25)))
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(s.label + (s.handle.isEmpty ? "" : "  " + s.handle)).font(F.body(15, .heavy)).foregroundStyle(.white).lineLimit(1)
+                            Text(socialCta(s.key)).font(F.body(12, .bold)).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
+                        }
+                        Spacer(minLength: 0)
+                        Text("Follow").font(F.body(12, .heavy)).foregroundStyle(.black).padding(.horizontal, 12).padding(.vertical, 6).background(Capsule().fill(.white))
+                    }
+                    .padding(.horizontal, 14).padding(.vertical, 12)
+                    .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(socialGrad(s.key)))
+                }.buttonStyle(.plain)
+            }
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(C.panel))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(C.line, lineWidth: 1))
+    }
+}
+
+// MARK: - Βοηθητικά
 
 struct EmptyState: View {
     let icon: String
     let text: String
     var retry: (() -> Void)? = nil
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: icon).font(.system(size: 34)).foregroundStyle(C.muted)
-            Text(text).font(F.body(15, .medium)).foregroundStyle(C.text2).multilineTextAlignment(.center)
+        VStack(spacing: 14) {
+            Image(systemName: icon).font(.system(size: 30)).foregroundStyle(C.muted)
+            Text(text).font(F.body(15, .bold)).foregroundStyle(C.text2).multilineTextAlignment(.center)
             if let retry {
                 Button(action: retry) {
-                    Text("Ξαναδοκίμασε").font(F.body(15, .bold)).foregroundStyle(C.ink).padding(.horizontal, 22).padding(.vertical, 12).background(Capsule().fill(C.goldGrad))
+                    Text("Ξαναδοκίμασε").font(F.body(14, .heavy)).foregroundStyle(C.ink).padding(.horizontal, 22).padding(.vertical, 12)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(C.gold))
                 }.buttonStyle(.plain)
             }
-        }.padding(40).frame(maxWidth: .infinity)
+        }.padding(32).frame(maxWidth: .infinity)
     }
 }
 
-/// Το λογότυπο aek·hub
+/// Σκελετός φόρτωσης (αντί για σκέτο spinner)
+struct SkeletonList: View {
+    var rows = 5
+    @State private var on = false
+    var body: some View {
+        VStack(spacing: 14) {
+            RoundedRectangle(cornerRadius: 20).fill(C.panel).frame(height: 220)
+            ForEach(0..<rows, id: \.self) { _ in
+                HStack(spacing: 12) {
+                    RoundedRectangle(cornerRadius: 12).fill(C.panel).frame(width: 112, height: 78)
+                    VStack(alignment: .leading, spacing: 8) {
+                        RoundedRectangle(cornerRadius: 4).fill(C.panel).frame(width: 80, height: 10)
+                        RoundedRectangle(cornerRadius: 4).fill(C.panel).frame(height: 14)
+                        RoundedRectangle(cornerRadius: 4).fill(C.panel).frame(width: 140, height: 14)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, screenPad)
+        .opacity(on ? 0.45 : 1)
+        .onAppear { withAnimation(.easeInOut(duration: 0.9).repeatForever()) { on = true } }
+    }
+}
+
 struct LogoTitle: View {
-    var h: CGFloat = 34
+    var h: CGFloat = 30
     var body: some View { Image("Logo").resizable().scaledToFit().frame(height: h) }
 }
 
-/// Κίτρινος διακόπτης
+/// Διακόπτης στο χρώμα του app (Android: κίτρινο track, μαύρο thumb)
 struct GoldToggle: ToggleStyle {
     func makeBody(configuration c: Configuration) -> some View {
-        HStack {
+        HStack(spacing: 12) {
             c.label
-            Spacer(minLength: 12)
-            Capsule().fill(c.isOn ? AnyShapeStyle(C.goldGrad) : AnyShapeStyle(C.panel3)).frame(width: 52, height: 32)
-                .overlay(Circle().fill(.white).padding(3).shadow(color: .black.opacity(0.25), radius: 2, y: 1)
-                    .offset(x: c.isOn ? 10 : -10))
+            Spacer(minLength: 8)
+            Capsule().fill(c.isOn ? C.gold : C.line2).frame(width: 51, height: 31)
+                .overlay(Circle().fill(c.isOn ? C.ink : C.muted).padding(4).offset(x: c.isOn ? 10 : -10))
                 .animation(.spring(response: 0.25, dampingFraction: 0.8), value: c.isOn)
-                .onTapGesture { c.isOn.toggle() }
+                .onTapGesture { haptic(); c.isOn.toggle() }
         }
         .contentShape(Rectangle())
     }

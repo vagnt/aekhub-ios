@@ -44,6 +44,9 @@ final class Prefs: ObservableObject {
     @Published var quietAek: Bool { didSet { d.set(quietAek, forKey: "n_qaek") } }
     @Published var spoiler: Bool { didSet { d.set(spoiler, forKey: "n_spoiler") } }
     @Published var matchAlerts: Set<Int> { didSet { d.set(Array(matchAlerts), forKey: "n_alerts") } }
+    @Published var mutedMatches: Set<Int> { didSet { d.set(Array(mutedMatches), forKey: "n_muted") } }
+    /// «Σίγαση για λίγο» (1 ώρα, 2 ώρες, ως το πρωί): ως πότε
+    @Published var quietUntil: Double { didSet { d.set(quietUntil, forKey: "n_quntil") } }
     @Published var stats: Bool { didSet { d.set(stats, forKey: "stats_on") } }
     @Published var liveActivities: Bool { didSet { d.set(liveActivities, forKey: "n_la"); if !liveActivities { LiveActivities.shared.endAll() } } }
     @Published var saved: [PostCard] { didSet { saveSaved() } }
@@ -61,6 +64,8 @@ final class Prefs: ObservableObject {
         quietAek = d.object(forKey: "n_qaek") as? Bool ?? true
         spoiler = d.bool(forKey: "n_spoiler")
         matchAlerts = Set((d.array(forKey: "n_alerts") as? [Int]) ?? [])
+        mutedMatches = Set((d.array(forKey: "n_muted") as? [Int]) ?? [])
+        quietUntil = d.double(forKey: "n_quntil")
         stats = d.object(forKey: "stats_on") as? Bool ?? true
         liveActivities = d.object(forKey: "n_la") as? Bool ?? true
         introDone = d.bool(forKey: "intro_done")
@@ -72,6 +77,7 @@ final class Prefs: ObservableObject {
     func wants(_ sport: String, _ kind: String, match: Int = 0) -> Bool {
         guard all else { return false }
         if match > 0 && matchAlerts.contains(match) { return true }
+        if match > 0 && mutedMatches.contains(match) { return false }
         return sports.contains(sport) && kinds.contains("\(sport):\(kind)")
     }
 
@@ -80,8 +86,26 @@ final class Prefs: ObservableObject {
         if kinds.contains(k) { kinds.remove(k) } else { kinds.insert(k) }
     }
 
+    /// 🔔 του αγώνα: ενεργό αν το ζήτησες για αυτόν ή ακολουθείς το άθλημα (και δεν το έκλεισες για αυτόν)
+    func alertOn(_ m: MatchCard) -> Bool {
+        all && (matchAlerts.contains(m.id) || (!mutedMatches.contains(m.id) && sports.contains(m.sport) && kinds.contains("\(m.sport):\(Kinds.reminder)")))
+    }
+    func toggleMatchAlert(_ m: MatchCard) {
+        if alertOn(m) {
+            if matchAlerts.contains(m.id) { matchAlerts.remove(m.id) }
+            if alertOn(m) { mutedMatches.insert(m.id) }
+        } else {
+            mutedMatches.remove(m.id)
+            matchAlerts.insert(m.id)
+            if !all { all = true }
+            Task { _ = await Notifier.shared.requestPermission() }
+        }
+        Task { await Notifier.shared.refresh(force: true) }
+    }
+
     /// Ήσυχες ώρες τώρα; (και πέρα από τα μεσάνυχτα, π.χ. 23:00–07:00)
     func isQuiet(_ now: Date = Date()) -> Bool {
+        if quietUntil > now.timeIntervalSince1970 { return true }
         guard quiet else { return false }
         let c = Fmt.cal.dateComponents([.hour, .minute], from: now)
         let m = (c.hour ?? 0) * 60 + (c.minute ?? 0)

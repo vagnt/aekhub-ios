@@ -205,13 +205,16 @@ struct MatchExtra {
     let potm: Potm?
     let ratingsHome, ratingsAway: [RatingRow]
     let boxHome, boxAway: [BoxRow]
+    let colorHome, colorAway, boxSrc: String
     init(_ j: J) {
+        colorHome = j["colorHome"].str; colorAway = j["colorAway"].str; boxSrc = j["box"]["src"].str
         resultOnly = j["resultOnly"].bool; htScore = j["htScore"].str; potm = j["potm"].opt(Potm.init)
         ratingsHome = j["ratings"]["home"].list(RatingRow.init); ratingsAway = j["ratings"]["away"].list(RatingRow.init)
         boxHome = j["box"]["home"].list(BoxRow.init); boxAway = j["box"]["away"].list(BoxRow.init)
     }
     var hasRatings: Bool { !ratingsHome.isEmpty || !ratingsAway.isEmpty }
     var hasBox: Bool { !boxHome.isEmpty || !boxAway.isEmpty }
+    var hasAnalysis: Bool { !resultOnly && (hasRatings || hasBox) }
 }
 
 struct MatchDetail: Identifiable {
@@ -224,6 +227,7 @@ struct MatchDetail: Identifiable {
     let lineupHome, lineupAway, subsHome, subsAway: [Player]
     let coachHome, coachAway, referee: String
     let timeline: Bool
+    let liveScore: Bool
     let scorersHome, scorersAway: [String]
     let stream: StreamInfo?
     let highlights: [Highlight]
@@ -237,7 +241,7 @@ struct MatchDetail: Identifiable {
         lineupHome = j["lineupHome"].list(Player.init); lineupAway = j["lineupAway"].list(Player.init)
         subsHome = j["subsHome"].list(Player.init); subsAway = j["subsAway"].list(Player.init)
         coachHome = j["coachHome"].str; coachAway = j["coachAway"].str; referee = j["referee"].str
-        timeline = j["timeline"].bool(true); scorersHome = j["scorersHome"].strs; scorersAway = j["scorersAway"].strs
+        timeline = j["timeline"].bool(true); liveScore = j["liveScore"].bool(true); scorersHome = j["scorersHome"].strs; scorersAway = j["scorersAway"].strs
         stream = j["stream"].opt(StreamInfo.init); highlights = j["highlights"].list(Highlight.init)
         sponsor = j["sponsor"].opt(Sponsor.init); pitch = j["pitch"].opt(Pitch.init); extra = j["extra"].opt(MatchExtra.init)
     }

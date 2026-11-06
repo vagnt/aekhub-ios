@@ -90,6 +90,7 @@ enum Route: Hashable {
     case feed
     case search
     case saved
+    case notifs
 }
 
 extension View {
@@ -99,10 +100,11 @@ extension View {
             case .post(let id, let card): ArticleView(id: id, card: card)
             case .match(let id): MatchView(id: id)
             case .event(let id): EventView(id: id)
-            case .category(let slug, let name): FeedView(cat: slug, title: name)
+            case .category(let slug, let name): FeedView(cat: slug, title: name, icon: AppState.shared.config?.categories.first { $0.slug == slug }?.icon ?? "eagle")
             case .feed: FeedView(cat: nil, title: "Ροή ειδήσεων")
             case .search: SearchView()
             case .saved: SavedView()
+            case .notifs: NotifSettingsView()
             }
         }
     }
@@ -133,6 +135,7 @@ struct RootView: View {
     @State private var paths: [Tab: NavigationPath] = [.home: NavigationPath(), .matches: NavigationPath(), .standings: NavigationPath(), .me: NavigationPath()]
     @State private var pinger: Task<Void, Never>?
     @State private var liveNow: MatchCard?
+    @State private var splash = true
 
     init() {
         let nb = UINavigationBarAppearance()
@@ -214,8 +217,14 @@ struct RootView: View {
                 try? await Task.sleep(nanoseconds: 30_000_000_000)
             }
         }
-        .fullScreenCover(isPresented: Binding(get: { !prefs.introDone }, set: { _ in })) {
-            IntroView { prefs.introDone = true }
+        .overlay {
+            if splash {
+                IntroSplash {
+                    splash = false
+                    if !prefs.introDone { prefs.introDone = true; Task { _ = await Notifier.shared.requestPermission() } }
+                }
+                .transition(.opacity)
+            }
         }
     }
 

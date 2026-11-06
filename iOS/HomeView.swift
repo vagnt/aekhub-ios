@@ -1,43 +1,33 @@
 import SwiftUI
 
-/// Αρχική (καρτέλα «Ειδήσεις»): λογότυπο + γυάλινα κουμπιά, κατηγορίες, κύριο θέμα, τελευταία νέα, αγώνες, ενότητες.
+/// Αρχική — όπως το Android HomeScreen: αντίστροφη μέτρηση · έκτακτο · social · κατηγορίες (πλακίδια) · live ·
+/// κύριο θέμα · τελευταία νέα · επόμενοι αγώνες · ενότητες κατηγοριών · social. iPad: 2–3 στήλες.
 struct HomeView: View {
     @EnvironmentObject var app: AppState
+    @Environment(\.horizontalSizeClass) var hsc
     @State private var data: HomeData? = Api.shared.peek(Api.pHome).map(HomeData.init)
+    @State private var matches: [MatchCard] = Api.shared.peek(Api.pMatches()).map { MatchList($0).items } ?? []
     @State private var error: String?
-    @State private var cat = ""
-    @State private var catItems: [PostCard] = []
-    @State private var catPage = 0
-    @State private var catPages = 1
-    @State private var catLoading = false
+
+    var wide: Bool { hsc == .regular }
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
+            LazyVStack(alignment: .leading, spacing: 12) {
                 header
-                ChipRow(items: [("", "Όλα")] + (app.config?.categories ?? []).map { ($0.slug, $0.name) }, selected: cat) { k in
-                    cat = k
-                    if !k.isEmpty { Task { await loadCat(reset: true) } }
-                }
-                .padding(.bottom, 16)
-
-                if cat.isEmpty {
-                    if let d = data { content(d) }
-                    else if let error { EmptyState(icon: "wifi.exclamationmark", text: error) { Task { await load() } } }
-                    else { ProgressView().tint(C.gold).frame(maxWidth: .infinity).padding(60) }
-                } else {
-                    category
-                }
+                if let d = data { content(d) }
+                else if let error { EmptyState(icon: "wifi.exclamationmark", text: error) { Task { await load() } } }
+                else { SkeletonList() }
             }
-            .padding(.bottom, 24)
+            .padding(.bottom, 28)
         }
         .background(C.ink)
-        .refreshable { if cat.isEmpty { await load() } else { await loadCat(reset: true) } }
+        .refreshable { haptic(); await load() }
         .task {
             Analytics.screen(2)
             await load()
             while !Task.isCancelled {
-                let live = data?.matches.contains { $0.live } == true || data?.next?.live == true
+                let live = matches.contains { $0.live }
                 try? await Task.sleep(nanoseconds: (live ? 15 : 60) * 1_000_000_000)
                 await load()
             }
@@ -45,107 +35,126 @@ struct HomeView: View {
     }
 
     var header: some View {
-        HStack {
-            LogoTitle(h: 34)
+        HStack(spacing: 4) {
+            LogoTitle(h: 30)
             Spacer()
-            HStack(spacing: 4) {
+            HStack(spacing: 0) {
                 NavigationLink(value: Route.feed) { icon("clock.arrow.circlepath") }
                 NavigationLink(value: Route.search) { icon("magnifyingglass") }
-                Button { app.tab = .me } label: {
-                    icon("bell").overlay(alignment: .topTrailing) { Circle().fill(C.gold).frame(width: 7, height: 7).offset(x: -10, y: 10) }
-                }
+                NavigationLink(value: Route.notifs) { icon("bell") }
             }
             .buttonStyle(.plain)
-            .padding(.horizontal, 6)
+            .padding(.horizontal, 4)
             .glass(Capsule())
         }
-        .padding(.horizontal, screenPad).padding(.top, 8).padding(.bottom, 16)
+        .padding(.horizontal, screenPad).padding(.top, 6).padding(.bottom, 2)
     }
     func icon(_ n: String) -> some View {
-        Image(systemName: n).font(.system(size: 18, weight: .semibold)).foregroundStyle(C.text).frame(width: 40, height: 44)
+        Image(systemName: n).font(.system(size: 17, weight: .semibold)).foregroundStyle(C.text).frame(width: 42, height: 42)
     }
 
     func load() async {
-        do { data = try await Api.shared.home(); error = nil }
-        catch { if data == nil { self.error = "Δεν ήταν δυνατή η σύνδεση με το aekhub.gr.\n" + error.localizedDescription } }
+        async let h = try? Api.shared.home()
+        async let l = try? Api.shared.matches()
+        let (hh, ll) = await (h, l)
+        if let hh { data = hh; error = nil } else if data == nil { error = "Δεν φόρτωσε. Έλεγξε τη σύνδεση." }
+        if let ll { matches = ll.items; Notifier.shared.check(ll.items) }
     }
-
-    // MARK: Όλα
 
     @ViewBuilder func content(_ d: HomeData) -> some View {
-        // 🔴 Live Hero (αγώνας ή γεγονός) → αλλιώς ο επόμενος αγώνας
-        if let h = d.liveHero, let m = h.match {
-            CountdownCard(m: m).padding(.bottom, 16)
-        } else if let h = d.liveHero, h.type == "event" {
-            NavigationLink(value: Route.event(h.id)) {
-                ZStack(alignment: .bottomLeading) {
-                    NetImage(url: h.image, w: 1200).frame(height: 230).frame(maxWidth: .infinity).clipped()
-                    LinearGradient(colors: [.clear, .black.opacity(0.92)], startPoint: .center, endPoint: .bottom)
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 6) { LiveDot(); Text("LIVE").font(.system(size: 12, weight: .heavy)).foregroundStyle(C.live) }
-                        Text(h.title.upperGr).font(F.disp(28)).foregroundStyle(.white).lineLimit(3)
-                    }.padding(20)
+        let pad = wide ? 24.0 : screenPad
+        Group {
+            // ⏱ Αντίστροφη μέτρηση (ίδιος αγώνας με την αρχική του site)
+            if let n = d.next, !n.live, !n.finished { NextMatchCountdown(m: n).padding(.top, 4) }
+
+            if let b = d.breaking, !b.text.isEmpty {
+                Link(destination: URL(string: b.url) ?? URL(string: Api.site)!) {
+                    HStack(spacing: 10) {
+                        Text("🚨 " + b.label).font(F.body(14, .heavy))
+                        Text(b.text).font(F.body(14, .bold)).lineLimit(2)
+                        Spacer(minLength: 0)
+                    }
+                    .foregroundStyle(C.text).padding(.horizontal, 12).padding(.vertical, 10)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(C.live))
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-                .padding(.horizontal, screenPad).padding(.bottom, 16)
-            }.buttonStyle(.plain)
+            }
+
+            if !d.socials.isEmpty { SocialStrip(list: d.socials) }
         }
+        .padding(.horizontal, pad)
 
-        if let f = d.featured { PostHero(p: f) }
+        if let cats = app.config?.categories, !cats.isEmpty { CategoryMenu(items: cats).padding(.horizontal, wide ? 8 : 0) }
 
-        if d.liveHero?.match == nil, let n = d.next {
-            CountdownCard(m: n).padding(.top, 16)
+        Group {
+            let lh = d.liveHero
+            let heroId = lh?.type == "match" ? lh?.id : nil
+            // Live αγώνες της ΑΕΚ (εκτός αυτού που είναι ήδη στη θέση του κύριου θέματος)
+            ForEach(matches.filter { $0.live && !$0.aek.isEmpty && $0.id != heroId }) { LiveBar(m: $0) }
+
+            if let lh, lh.type == "match", let m = lh.match {
+                LiveMatchHero(m: matches.first { $0.id == m.id } ?? m, image: lh.image)
+            } else if let lh, lh.type == "event" {
+                LiveEventHero(id: lh.id, title: lh.title, image: lh.image)
+            } else if wide, let f = d.featured, !d.top.isEmpty {
+                // Tablet: κύριο θέμα δίπλα στα «Τελευταία νέα»
+                HStack(alignment: .top, spacing: 24) {
+                    FeaturedCard(p: f, height: 400).frame(maxWidth: .infinity)
+                    VStack(alignment: .leading, spacing: 4) {
+                        GoldHeader(title: "Τελευταία νέα", action: "Ροή ειδήσεων", route: .feed).padding(.bottom, 4)
+                        ForEach(d.top.prefix(4)) { PostRow(p: $0) }
+                    }.frame(maxWidth: .infinity)
+                }
+            } else if let f = d.featured {
+                FeaturedCard(p: f, height: wide ? 380 : 300)
+            }
+
+            let topBeside = wide && lh == nil && d.featured != nil
+            if !d.top.isEmpty && !topBeside {
+                GoldHeader(title: "Τελευταία νέα", action: "Ροή ειδήσεων", route: .feed).padding(.top, 8)
+                LazyVGrid(columns: wide ? adaptiveCols : [GridItem(.flexible())], spacing: 0) { ForEach(d.top) { PostRow(p: $0) } }
+            }
+
+            // Επόμενοι αγώνες: της αρχικής + το ποδόσφαιρο από τη λίστα αγώνων (όπως στο Android)
+            let upcoming = nextMatches(d)
+            if !upcoming.isEmpty {
+                GoldHeader(title: "Επόμενοι αγώνες", action: "Όλοι", route: nil).padding(.top, 10)
+                    .overlay(alignment: .trailing) {
+                        Button { app.tab = .matches } label: { Text("Όλοι ›").font(F.body(13, .heavy)).foregroundStyle(C.gold) }.buttonStyle(.plain)
+                    }
+            }
         }
+        .padding(.horizontal, pad)
 
-        if !d.top.isEmpty {
-            GoldHeader(title: "Τελευταία νέα", action: "Ροή ειδήσεων", route: .feed)
-            LazyVGrid(columns: adaptiveCols, spacing: 0) { ForEach(d.top) { PostRow(p: $0) } }
-        }
-
-        if !d.matches.isEmpty {
-            HStack { GoldHeader(title: "Αγώνες") }
+        let upcoming = nextMatches(d)
+        if !upcoming.isEmpty {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) { ForEach(d.matches) { MatchMini(m: $0) } }.padding(.horizontal, screenPad)
+                HStack(spacing: 10) { ForEach(upcoming) { MatchMini(m: $0) } }.padding(.horizontal, pad)
             }
         }
 
-        ForEach(d.sections) { s in
-            if !s.items.isEmpty {
-                GoldHeader(title: s.name, action: "Όλα", route: .category(s.slug, s.name))
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(alignment: .top, spacing: 14) { ForEach(s.items) { PostTile(p: $0) } }.padding(.horizontal, screenPad)
+        // Ενότητες: τίτλος + μεσαία κάρτα + 3 γραμμές (iPad: σε στήλες)
+        LazyVGrid(columns: wide ? adaptiveCols : [GridItem(.flexible())], alignment: .leading, spacing: 14) {
+            ForEach(d.sections) { s in
+                if !s.items.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        GoldHeader(title: s.name, action: "Όλα", route: .category(s.slug, s.name))
+                        if let first = s.items.first { PostCardMedium(p: first) }
+                        ForEach(s.items.dropFirst().prefix(3)) { PostRow(p: $0) }
+                    }
+                    .padding(.top, 14)
                 }
             }
         }
+        .padding(.horizontal, pad)
+
+        if !d.socials.isEmpty { SocialSection(list: d.socials).padding(.horizontal, pad).padding(.top, 16).readable() }
     }
 
-    // MARK: Κατηγορία (στο ίδιο σημείο, όπως στο Android)
-
-    @ViewBuilder var category: some View {
-        if let first = catItems.first {
-            PostHero(p: first)
-            GoldHeader(title: (app.config?.categories.first { $0.slug == cat }?.name ?? "Άρθρα"))
-            LazyVGrid(columns: adaptiveCols, spacing: 0) {
-                ForEach(catItems.dropFirst()) { p in
-                    PostRow(p: p).onAppear { if p.id == catItems.last?.id { Task { await loadCat(reset: false) } } }
-                }
-            }
-        }
-        if catLoading { ProgressView().tint(C.gold).frame(maxWidth: .infinity).padding(30) }
-    }
-
-    func loadCat(reset: Bool) async {
-        if reset {
-            catPage = 0; catPages = 1
-            catItems = Api.shared.peek(Api.pFeed(cat)).map { Feed($0).items } ?? []
-        }
-        guard !catLoading, catPage < catPages else { return }
-        catLoading = true; defer { catLoading = false }
-        let want = cat
-        guard let f = try? await Api.shared.feed(want, page: catPage + 1), want == cat else { return }
-        var list = f.items
-        if catPage == 0, let feat = f.featured, !list.contains(where: { $0.id == feat.id }) { list.insert(feat, at: 0) }
-        catItems = catPage == 0 ? list : catItems + list.filter { n in !catItems.contains { $0.id == n.id } }
-        catPage = f.page; catPages = f.pages
+    func nextMatches(_ d: HomeData) -> [MatchCard] {
+        let lastDay = d.matches.map(\.date).max() ?? ""
+        let fb = matches.filter { $0.sport == "football" && $0.upcoming && !$0.aek.isEmpty }.sorted { ($0.date, $0.time) < ($1.date, $1.time) }
+        let fbIn = fb.enumerated().filter { $0.offset == 0 || $0.element.date <= lastDay }.map(\.element)
+        var seen = Set<Int>()
+        return (d.matches + fbIn).filter { !$0.live && seen.insert($0.id).inserted }.sorted { ($0.date, $0.time) < ($1.date, $1.time) }
     }
 }
