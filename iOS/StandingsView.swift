@@ -6,26 +6,70 @@ struct StandingsView: View {
     @State private var sport = ""
     @State private var sel = 0
     @State private var error = false
+    @Environment(\.horizontalSizeClass) var hsc
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ScreenTitle(text: "Βαθμολογίες").padding(.horizontal, screenPad).padding(.top, 14).padding(.bottom, 8)
+            ScreenTitle(text: "Βαθμολογίες").padding(.horizontal, hsc == .regular ? 28 : screenPad).padding(.top, 14).padding(.bottom, 8)
             if let l = list, !l.isEmpty {
                 let sports = unique(l.map { $0.sport.isEmpty ? "Άλλα" : $0.sport })
                 let sp = sports.contains(sport) ? sport : sports[0]
                 let ofSport = l.filter { ($0.sport.isEmpty ? "Άλλα" : $0.sport) == sp }
-                let t = ofSport.first { $0.id == sel } ?? ofSport.first { $0.rows.contains { $0.aek } } ?? ofSport[0]
-                HStack(spacing: 10) {
-                    AekDropdown(label: "Άθλημα", value: sp, options: sports.map { ($0, $0) }) { sport = $0; sel = 0 }
-                        .frame(width: 150)
-                    AekDropdown(label: "Διοργάνωση", value: t.league.isEmpty ? t.title : t.league, options: ofSport.map { (String($0.id), $0.league.isEmpty ? $0.title : $0.league) }) { sel = Int($0) ?? 0 }
-                        .frame(maxWidth: .infinity)
+                if hsc == .regular {
+                    // iPad: όλες οι διοργανώσεις αριστερά (ανά άθλημα), ο πίνακας δεξιά
+                    let t = l.first { $0.id == sel } ?? l.first { $0.rows.contains { $0.aek } } ?? l[0]
+                    HStack(alignment: .top, spacing: 24) {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 4) {
+                                ForEach(sports, id: \.self) { spn in
+                                    Text(spn.upperGr).font(F.body(11, .heavy)).tracking(1).foregroundStyle(C.muted).padding(.top, 14).padding(.bottom, 4).padding(.horizontal, 12)
+                                    ForEach(l.filter { ($0.sport.isEmpty ? "Άλλα" : $0.sport) == spn }) { x in
+                                        let on = x.id == t.id
+                                        Button { haptic(.soft); sel = x.id } label: {
+                                            HStack(spacing: 10) {
+                                                if !x.leagueLogo.isEmpty { NetImage(url: x.leagueLogo, w: 80, mode: .fit).frame(width: 22, height: 22) }
+                                                Text(x.league.isEmpty ? x.title : x.league).font(F.body(14, on ? .heavy : .medium)).foregroundStyle(on ? C.ink : C.text).lineLimit(2).multilineTextAlignment(.leading)
+                                                Spacer(minLength: 0)
+                                                if let a = x.rows.first(where: { $0.aek }) { Text("\(a.pos)η").font(F.body(12, .heavy)).foregroundStyle(on ? C.ink : C.gold) }
+                                            }
+                                            .padding(.horizontal, 12).padding(.vertical, 10)
+                                            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(on ? C.gold : .clear))
+                                            .contentShape(Rectangle())
+                                        }.buttonStyle(.plain)
+                                    }
+                                }
+                            }.padding(.bottom, 30)
+                        }
+                        .frame(width: 290)
+                        ScrollView {
+                            VStack(spacing: 12) {
+                                PresentedBy(place: "standings")
+                                StandingTable(s: t, wide: true)
+                                BannerAd(place: "home")
+                            }.padding(.top, 8).padding(.bottom, 28).frame(maxWidth: 820)
+                        }
+                        .refreshable { haptic(); await load() }
+                    }
+                    .padding(.horizontal, 28)
+                } else {
+                    let t = ofSport.first { $0.id == sel } ?? ofSport.first { $0.rows.contains { $0.aek } } ?? ofSport[0]
+                    HStack(spacing: 10) {
+                        AekDropdown(label: "Άθλημα", value: sp, options: sports.map { ($0, $0) }) { sport = $0; sel = 0 }
+                            .frame(width: 150)
+                        AekDropdown(label: "Διοργάνωση", value: t.league.isEmpty ? t.title : t.league, options: ofSport.map { (String($0.id), $0.league.isEmpty ? $0.title : $0.league) }) { sel = Int($0) ?? 0 }
+                            .frame(maxWidth: .infinity)
+                    }
+                    .padding(.horizontal, screenPad).padding(.vertical, 4)
+                    ScrollView {
+                        VStack(spacing: 10) {
+                            PresentedBy(place: "standings")
+                            StandingTable(s: t)
+                            BannerAd(place: "home")
+                        }
+                        .padding(.top, 8).padding(.bottom, 28).padding(.horizontal, screenPad)
+                    }
+                    .refreshable { haptic(); await load() }
                 }
-                .padding(.horizontal, screenPad).padding(.vertical, 4)
-                ScrollView {
-                    StandingTable(s: t).padding(.top, 8).padding(.bottom, 28).padding(.horizontal, screenPad).readable(760)
-                }
-                .refreshable { haptic(); await load() }
             } else if list != nil {
                 Text("Δεν υπάρχουν βαθμολογίες ακόμα.").font(F.body(15)).foregroundStyle(C.muted).padding(24)
                 Spacer()
@@ -57,6 +101,7 @@ struct StandingsView: View {
 /// Πίνακας βαθμολογίας: ζώνη (4px) · θέση σε κουτάκι · σήμα · όνομα · ΑΓ Ν (Ι) Η · +/- · Β
 struct StandingTable: View {
     let s: Standing
+    var wide = false
     var wdl: Bool { s.style != "wl" }
 
     var body: some View {
@@ -74,6 +119,7 @@ struct StandingTable: View {
                 Text("#").frame(width: 34)
                 Text("ΟΜΑΔΑ").frame(maxWidth: .infinity, alignment: .leading)
                 ForEach(wdl ? ["ΑΓ", "Ν", "Ι", "Η"] : ["ΑΓ", "Ν", "Η"], id: \.self) { Text($0).frame(width: 26, alignment: .trailing) }
+                if wide { Text("ΓΚΟΛ").frame(width: 62, alignment: .trailing) }
                 Text("+/-").frame(width: 34, alignment: .trailing)
                 Text("Β").foregroundStyle(C.gold).frame(width: 40, alignment: .trailing).padding(.trailing, 10)
             }
@@ -88,10 +134,11 @@ struct StandingTable: View {
                         .frame(width: 34)
                     HStack(spacing: 8) {
                         TeamLogo(url: r.logo, size: 24, name: r.name)
-                        Text(r.name.upperGr).font(F.disp(16)).foregroundStyle(r.aek ? C.gold : C.text).lineLimit(1).minimumScaleFactor(0.65)
+                        Text(r.name.upperGr).font(F.disp(wide ? 19 : 16)).foregroundStyle(r.aek ? C.gold : C.text).lineLimit(1).minimumScaleFactor(0.65)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     num(r.played); num(r.won); if wdl { num(r.drawn) }; num(r.lost)
+                    if wide { num(r.gf.isEmpty ? "" : "\(r.gf):\(r.ga)", w: 62) }
                     num(diff(r), color: diffColor(r), w: 34)
                     Text(r.points).font(F.disp(18)).foregroundStyle(r.aek ? C.gold : C.text).frame(width: 40, alignment: .trailing).padding(.trailing, 10)
                 }

@@ -10,6 +10,8 @@ struct MatchesView: View {
     @State private var error = false
     @State private var page = MatchesView.back
     @State private var showCal = false
+    /// iPad: ο αγώνας που φαίνεται δεξιά
+    @State private var selected: Int?
 
     static let back = 45
     static let fwd = 90
@@ -20,6 +22,54 @@ struct MatchesView: View {
     var byDay: [String: [MatchCard]] { Dictionary(grouping: list ?? [], by: \.date) }
 
     var body: some View {
+        Group {
+            if hsc == .regular {
+                // iPad: λίστα αριστερά, ο αγώνας ανοιχτός δεξιά (όπως Mail/Apple Sports)
+                let cur = selected ?? autoSel
+                HStack(spacing: 0) {
+                    listColumn.frame(width: 440)
+                    Rectangle().fill(C.line).frame(width: 1).ignoresSafeArea()
+                    ZStack {
+                        if let id = cur { MatchView(id: id, embedded: true).id(id).transition(.opacity) }
+                        else {
+                            VStack(spacing: 12) {
+                                Image(systemName: "sportscourt").font(.system(size: 44)).foregroundStyle(C.gold)
+                                Text("Διάλεξε έναν αγώνα").font(F.disp(26)).foregroundStyle(C.text)
+                                Text("Θα ανοίξει εδώ, με πορεία, στατιστικά και συνθέσεις.").font(F.body(14)).foregroundStyle(C.muted)
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .animation(.easeOut(duration: 0.2), value: cur)
+                }
+                .environment(\.matchPick) { selected = $0 }
+                .environment(\.matchSel, cur)
+            } else {
+                listColumn
+            }
+        }
+        .background(C.ink)
+        .sheet(isPresented: $showCal) { CalendarSheet().environmentObject(AppState.shared) }
+        .onChange(of: page) { _ in haptic(.soft); selected = nil }
+        .task {
+            Analytics.screen(6, name: "matches")
+            list = Api.shared.peek(Api.pMatches(from: startS, to: endS, sport: nil)).map { MatchList($0).items }
+            await load()
+            while !Task.isCancelled {
+                let live = list?.contains { $0.live } == true
+                try? await Task.sleep(nanoseconds: (live ? 15 : 90) * 1_000_000_000)
+                await load()
+            }
+        }
+    }
+
+    /// iPad: χωρίς επιλογή → ο live αγώνας της μέρας ή ο πρώτος
+    var autoSel: Int? {
+        let ms = (byDay[Fmt.ymdString(days[page])] ?? []).sorted { $0.time < $1.time }
+        return (ms.first { $0.live } ?? ms.first)?.id
+    }
+
+    var listColumn: some View {
         VStack(spacing: 0) {
             HStack {
                 ScreenTitle(text: "Αγώνες")
@@ -58,18 +108,6 @@ struct MatchesView: View {
             }
         }
         .background(C.ink)
-        .sheet(isPresented: $showCal) { CalendarSheet().environmentObject(AppState.shared) }
-        .onChange(of: page) { _ in haptic(.soft) }
-        .task {
-            Analytics.screen(6, name: "matches")
-            list = Api.shared.peek(Api.pMatches(from: startS, to: endS, sport: nil)).map { MatchList($0).items }
-            await load()
-            while !Task.isCancelled {
-                let live = list?.contains { $0.live } == true
-                try? await Task.sleep(nanoseconds: (live ? 15 : 90) * 1_000_000_000)
-                await load()
-            }
-        }
     }
 
     // MARK: Λωρίδα ημερών (κυλάει, ακολουθεί τη σελίδα)
@@ -158,10 +196,13 @@ struct MatchesView: View {
                 }
                 .frame(maxWidth: .infinity).padding(24)
             } else {
-                LazyVGrid(columns: hsc == .regular ? [GridItem(.adaptive(minimum: 320), spacing: 16)] : [GridItem(.flexible())], spacing: 12) {
-                    ForEach(ms) { MatchCardView(m: $0) }
+                LazyVStack(spacing: 12) {
+                    ForEach(Array(ms.enumerated()), id: \.element.id) { k, m in
+                        MatchCardView(m: m)
+                        if k == min(1, ms.count - 1), AppState.shared.config?.ads.matches == true { BannerAd(place: "matches") }
+                    }
                 }
-                .padding(hsc == .regular ? 24 : 16)
+                .padding(16)
             }
         }
         .refreshable { haptic(); await load() }

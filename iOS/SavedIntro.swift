@@ -1,19 +1,38 @@
 import SwiftUI
 
+/// Αποθηκευμένα άρθρα ή ιστορικό ανάγνωσης
 struct SavedView: View {
+    var history = false
     @ObservedObject var p = Prefs.shared
+    @Environment(\.dismiss) var dismiss
+    var list: [PostCard] { history ? p.history : p.saved }
     var body: some View {
-        ScrollView {
-            if p.saved.isEmpty { EmptyState(icon: "bookmark", text: "Δεν έχεις αποθηκεύσει άρθρα.\nΠάτα 🔖 πάνω σε ένα άρθρο για να το κρατήσεις εδώ.") }
-            LazyVGrid(columns: adaptiveCols, spacing: 0) {
-                ForEach(p.saved) { a in
-                    PostRow(p: a).contextMenu { Button(role: .destructive) { p.toggleSaved(a) } label: { Label("Αφαίρεση", systemImage: "trash") } }
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                Button { dismiss() } label: { Image(systemName: "chevron.left").font(.system(size: 19, weight: .semibold)).foregroundStyle(C.text).frame(width: 44, height: 44) }
+                ScreenTitle(text: history ? "Διάβασες πρόσφατα" : "Αποθηκευμένα")
+                Spacer()
+                if history && !p.history.isEmpty {
+                    Button { p.history = [] } label: { Text("Καθάρισμα").font(F.body(14, .heavy)).foregroundStyle(C.gold) }.buttonStyle(.plain)
                 }
+            }
+            .padding(.leading, 4).padding(.trailing, 16).padding(.vertical, 6)
+            ScrollView {
+                if list.isEmpty {
+                    EmptyState(icon: history ? "clock" : "bookmark", text: history ? "Τα άρθρα που διαβάζεις θα εμφανίζονται εδώ." : "Δεν έχεις αποθηκεύσει άρθρα.\nΠάτα 🔖 πάνω σε ένα άρθρο για να το κρατήσεις εδώ.")
+                }
+                LazyVGrid(columns: adaptiveCols, spacing: 0) {
+                    ForEach(list) { a in
+                        PostRow(p: a).contextMenu {
+                            if !history { Button(role: .destructive) { p.toggleSaved(a) } label: { Label("Αφαίρεση", systemImage: "trash") } }
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
             }
         }
         .background(C.ink)
-        .navigationTitle("Αποθηκευμένα")
-        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
     }
 }
 

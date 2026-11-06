@@ -148,24 +148,25 @@ struct ChipRow: View {
 
 // MARK: - Άρθρα
 
-/// Κύριο θέμα (Android FeaturedCard: 300, γωνία 20)
+/// Κύριο θέμα: η φωτογραφία ΟΛΟΚΛΗΡΗ (16:9) και από κάτω κατηγορία, τίτλος, ημερομηνία
 struct FeaturedCard: View {
     let p: PostCard
     var height: CGFloat = 300
+    var titleSize: CGFloat = 30
     var body: some View {
         NavigationLink(value: Route.post(p.id, p)) {
-            ZStack(alignment: .bottomLeading) {
-                FillImage(url: p.image, w: 1200, height: height)
-                LinearGradient(stops: [.init(color: .clear, location: 0.3), .init(color: C.ink.opacity(0.92), location: 0.7), .init(color: C.ink, location: 1)], startPoint: .top, endPoint: .bottom)
+            VStack(alignment: .leading, spacing: 0) {
+                FillImage(url: p.image, w: 1400).aspectRatio(16 / 9, contentMode: .fit)
+                    .overlay(alignment: .bottom) { LinearGradient(colors: [.clear, C.panel.opacity(0.9)], startPoint: .top, endPoint: .bottom).frame(height: 40) }
+                    .overlay(alignment: .topTrailing) { if p.video { PlayBadge(size: 46).padding(14) } }
                 VStack(alignment: .leading, spacing: 8) {
                     if !p.category.isEmpty { Tag(text: p.category) }
-                    Text(p.title.upperGr).font(F.disp(30)).foregroundStyle(C.text).lineLimit(4).multilineTextAlignment(.leading).minimumScaleFactor(0.8)
-                        .lineSpacing(-4)
+                    Text(p.title.upperGr).font(F.disp(titleSize)).foregroundStyle(C.text).lineLimit(4).multilineTextAlignment(.leading).minimumScaleFactor(0.8)
+                        .lineSpacing(-4).fixedSize(horizontal: false, vertical: true)
                     Text(Fmt.postDate(p.date)).font(F.body(12)).foregroundStyle(C.text2)
-                }.padding(16)
-                if p.video { PlayBadge(size: 46).padding(14).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing) }
+                }
+                .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 16)
             }
-            .frame(height: height)
             .background(C.panel)
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             .contentShape(Rectangle())
@@ -311,12 +312,29 @@ struct MatchCenter: View {
     }
 }
 
+/// iPad: η λίστα αγώνων ανοίγει τον αγώνα δεξιά (όχι σε νέα οθόνη)
+private struct MatchPickKey: EnvironmentKey { static let defaultValue: ((Int) -> Void)? = nil }
+private struct MatchSelKey: EnvironmentKey { static let defaultValue: Int? = nil }
+extension EnvironmentValues {
+    var matchPick: ((Int) -> Void)? { get { self[MatchPickKey.self] } set { self[MatchPickKey.self] = newValue } }
+    var matchSel: Int? { get { self[MatchSelKey.self] } set { self[MatchSelKey.self] = newValue } }
+}
+
 /// Κάρτα αγώνα (λίστα αγώνων) — Android MatchCardView
 struct MatchCardView: View {
     let m: MatchCard
     @EnvironmentObject var prefs: Prefs
+    @Environment(\.matchPick) var pick
+    @Environment(\.matchSel) var sel
     var body: some View {
-        NavigationLink(value: Route.match(m.id)) {
+        if let pick {
+            Button { haptic(.soft); pick(m.id) } label: { card.overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(C.gold, lineWidth: sel == m.id ? 2 : 0)) }
+                .buttonStyle(.plain)
+        } else {
+            NavigationLink(value: Route.match(m.id)) { card }.buttonStyle(.plain)
+        }
+    }
+    var card: some View {
             VStack(spacing: 0) {
                 HStack {
                     Text(matchMeta(m)).font(F.body(11, .heavy)).tracking(0.4).foregroundStyle(C.gold).lineLimit(1)
@@ -350,7 +368,6 @@ struct MatchCardView: View {
             .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(C.panel))
             .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(m.live ? C.live : C.line, lineWidth: 1))
             .contentShape(Rectangle())
-        }.buttonStyle(.plain)
     }
 }
 

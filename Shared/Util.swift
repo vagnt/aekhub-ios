@@ -92,8 +92,10 @@ extension String {
 
 enum Img {
     /// Εικόνες του aekhub.gr μέσω CDN (i0.wp.com, WebP, σωστό μέγεθος): κάποια πρωτότυπα είναι 4000px.
-    static func url(_ s: String, w: Int) -> URL? {
+    static func url(_ s: String, w w0: Int) -> URL? {
         guard !s.isEmpty else { return nil }
+        // 📉 Εξοικονόμηση δεδομένων (Εγώ): μικρότερες εικόνες
+        let w = UserDefaults.standard.bool(forKey: "data_saver") ? max(120, w0 * 3 / 5) : w0
         if s.contains("i0.wp.com") || s.contains("i1.wp.com") || s.contains("i2.wp.com") {
             guard var c = URLComponents(string: s) else { return URL(string: s) }
             var q = (c.queryItems ?? []).filter { !["w", "fit", "resize"].contains($0.name) }

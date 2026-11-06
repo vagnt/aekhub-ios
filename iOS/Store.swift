@@ -50,6 +50,10 @@ final class Prefs: ObservableObject {
     @Published var stats: Bool { didSet { d.set(stats, forKey: "stats_on") } }
     @Published var liveActivities: Bool { didSet { d.set(liveActivities, forKey: "n_la"); if !liveActivities { LiveActivities.shared.endAll() } } }
     @Published var saved: [PostCard] { didSet { saveSaved() } }
+    /// Ιστορικό ανάγνωσης (τα 30 τελευταία άρθρα)
+    @Published var history: [PostCard] { didSet { store(history, "history.json") } }
+    /// Εξοικονόμηση δεδομένων: μικρότερες εικόνες
+    @Published var dataSaver: Bool { didSet { d.set(dataSaver, forKey: "data_saver") } }
     @Published var introDone: Bool { didSet { d.set(introDone, forKey: "intro_done") } }
 
     init() {
@@ -70,7 +74,10 @@ final class Prefs: ObservableObject {
         liveActivities = d.object(forKey: "n_la") as? Bool ?? true
         introDone = d.bool(forKey: "intro_done")
         saved = []
+        history = []
+        dataSaver = d.bool(forKey: "data_saver")
         saved = loadSaved()
+        history = read("history.json")
     }
 
     /// Θέλει ο χρήστης αυτό το είδος σε αυτό το άθλημα; (ή έχει πατήσει 🔔 στον συγκεκριμένο αγώνα)
@@ -121,6 +128,20 @@ final class Prefs: ObservableObject {
     private func saveSaved() {
         let arr: [[String: Any]] = saved.map { ["id": $0.id, "title": $0.title, "excerpt": $0.excerpt, "date": $0.date, "image": $0.image, "category": $0.category, "link": $0.link, "video": $0.video] }
         if let data = try? JSONSerialization.data(withJSONObject: arr) { try? data.write(to: savedURL, options: .atomic) }
+    }
+    private func fileURL(_ n: String) -> URL { FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(n) }
+    private func read(_ n: String) -> [PostCard] {
+        guard let data = try? Data(contentsOf: fileURL(n)), let j = J.parse(data) else { return [] }
+        return j.list(PostCard.init)
+    }
+    private func store(_ l: [PostCard], _ n: String) {
+        let arr: [[String: Any]] = l.map { ["id": $0.id, "title": $0.title, "excerpt": $0.excerpt, "date": $0.date, "image": $0.image, "category": $0.category, "link": $0.link, "video": $0.video] }
+        if let data = try? JSONSerialization.data(withJSONObject: arr) { try? data.write(to: fileURL(n), options: .atomic) }
+    }
+    func addHistory(_ p: PostCard) {
+        var h = history.filter { $0.id != p.id }
+        h.insert(p, at: 0)
+        history = Array(h.prefix(30))
     }
     func isSaved(_ id: Int) -> Bool { saved.contains { $0.id == id } }
     func toggleSaved(_ p: PostCard) {

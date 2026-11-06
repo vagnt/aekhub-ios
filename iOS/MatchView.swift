@@ -5,6 +5,8 @@ import SwiftUI
 /// καρτέλες Πορεία / Στατιστικά / Συνθέσεις / Παίκτες. iPad οριζόντια: Πορεία αριστερά, τα υπόλοιπα δεξιά.
 struct MatchView: View {
     let id: Int
+    /// iPad: μέσα στη λίστα αγώνων (δεξιά στήλη), χωρίς κουμπί «πίσω»
+    var embedded = false
     @State private var d: MatchDetail?
     @State private var error = false
     @State private var tab = UserDefaults.standard.string(forKey: "mtab") ?? ""
@@ -13,8 +15,8 @@ struct MatchView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.horizontalSizeClass) var hsc
 
-    init(id: Int) {
-        self.id = id
+    init(id: Int, embedded: Bool = false) {
+        self.id = id; self.embedded = embedded
         _d = State(initialValue: Api.shared.peek(Api.pMatch(id)).map(MatchDetail.init))
     }
 
@@ -58,15 +60,15 @@ struct MatchView: View {
 
     @ViewBuilder func content(_ d: MatchDetail) -> some View {
         let tabs = tabsFor(d)
-        let split = hsc == .regular && tabs.contains("Πορεία") && tabs.count > 1
+        let split = !embedded && hsc == .regular && tabs.contains("Πορεία") && tabs.count > 1
         let rTabs = split ? tabs.filter { $0 != "Πορεία" } : tabs
         let cur = rTabs.contains(tab) ? tab : (rTabs.first ?? "")
         ScrollViewReader { proxy in
         ScrollView {
             VStack(spacing: 14) {
-                MatchHero(d: d, alert: prefs.alertOn(d.card), back: { dismiss() }) { prefs.toggleMatchAlert(d.card) }
+                MatchHero(d: d, alert: prefs.alertOn(d.card), back: embedded ? nil : { dismiss() }) { prefs.toggleMatchAlert(d.card) }
                 Group {
-                    if let s = d.sponsor, !s.logo.isEmpty || !s.name.isEmpty { SponsorBlock(s: s) }
+                    if let s = d.sponsor, !s.logo.isEmpty || !s.name.isEmpty { SponsorBlock(s: s) } else { PresentedBy(place: "match") }
                     if let s = d.stream { StreamCard(s: s) { openURL = URL(string: s.url) } }
                     if !d.highlights.isEmpty { highlights(d) }
                     if split {
@@ -185,14 +187,14 @@ struct SectionTitle: View {
 struct MatchHero: View {
     let d: MatchDetail
     let alert: Bool
-    let back: () -> Void
+    let back: (() -> Void)?
     let toggleAlert: () -> Void
     var c: MatchCard { d.card }
 
     var body: some View {
         VStack(spacing: 10) {
             HStack {
-                round("chevron.left", C.text, back)
+                if let back { round("chevron.left", C.text, back) } else { Color.clear.frame(width: 44, height: 44) }
                 Spacer()
                 if let u = URL(string: c.link), !c.link.isEmpty {
                     ShareLink(item: u) {

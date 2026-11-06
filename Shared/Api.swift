@@ -125,3 +125,16 @@ final class Api {
         session.dataTask(with: u).resume()
     }
 }
+
+extension Api {
+    /// Μέγεθος προσωρινών αρχείων (εικόνες + αποθηκευμένες απαντήσεις)
+    var cacheBytes: Int {
+        let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.fileSizeKey])) ?? []
+        return URLCache.shared.currentDiskUsage + files.reduce(0) { $0 + ((try? $1.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0) }
+    }
+    /// Καθάρισμα: φεύγουν οι εικόνες και οι παλιές απαντήσεις (ξαναφορτώνονται από το δίκτυο)
+    func clearCache() {
+        URLCache.shared.removeAllCachedResponses()
+        for f in (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? [] { try? FileManager.default.removeItem(at: f) }
+    }
+}

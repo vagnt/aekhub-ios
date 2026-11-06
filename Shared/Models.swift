@@ -65,9 +65,52 @@ struct AppConfig {
     let sports: [SportItem]
     let socials: [Social]
     let calendar: CalConfig?
+    let ads: AdsConfig
     init(_ j: J) {
         site = j["site"].str; categories = j["categories"].list(Category.init); sports = j["sports"].list(SportItem.init)
         socials = j["socials"].list(Social.init); calendar = j["calendar"].opt(CalConfig.init)
+        ads = AdsConfig(j["ads"])
+    }
+}
+
+/// Καμπάνια χορηγού (wp-admin → 📱 AEK Hub App → 📢 Διαφημίσεις)
+struct Campaign: Hashable, Identifiable {
+    let id, type, place, name, image, link, title, cta: String
+    let weight: Int
+    init(_ j: J) {
+        id = j["id"].str; type = j["type"].str; place = j["place"].str.isEmpty ? "all" : j["place"].str; name = j["name"].str
+        image = j["image"].str; link = j["link"].str; title = j["title"].str; cta = j["cta"].str; weight = max(1, j["weight"].int)
+    }
+}
+
+/// Διαφημίσεις: ίδιες θέσεις/συχνότητες με το Android, δικά τους ad units για iOS (`ads.ios`).
+struct AdsConfig {
+    let enabled, article, matches, splash: Bool
+    let everyN: Int
+    let banner, inter, native, reward: String
+    let interOn, interLiveOff, nativeOn, rewardOn: Bool
+    let interEvery, interGap, rewardHours: Int
+    let campaigns: [Campaign]
+    init(_ j: J) {
+        let ios = j["ios"]
+        enabled = j.exists && j["enabled"].bool(true)
+        article = j["article"].bool(true); matches = j["matches"].bool(true); splash = j["splash"].bool(true)
+        everyN = max(3, j["everyN"].int == 0 ? 5 : j["everyN"].int)
+        banner = ios["banner"].str; inter = ios["inter"].str; native = ios["native"].str; reward = ios["reward"].str
+        interOn = j["inter"]["on"].bool; interLiveOff = j["inter"]["liveOff"].bool(true)
+        interEvery = max(2, j["inter"]["every"].int == 0 ? 4 : j["inter"]["every"].int)
+        interGap = max(1, j["inter"]["gapMin"].int == 0 ? 3 : j["inter"]["gapMin"].int)
+        nativeOn = j["native"]["on"].bool
+        rewardOn = j["reward"]["on"].bool; rewardHours = max(1, j["reward"]["hours"].int == 0 ? 24 : j["reward"]["hours"].int)
+        campaigns = j["campaigns"].list(Campaign.init).filter { !$0.image.isEmpty }
+    }
+    /// Μια καμπάνια για τη θέση (με βάρος), αν υπάρχει.
+    func pick(_ type: String, place: String = "all") -> Campaign? {
+        let l = campaigns.filter { $0.type == type && ($0.place == "all" || $0.place == place || place == "all") }
+        guard !l.isEmpty else { return nil }
+        var r = Int.random(in: 0..<l.reduce(0) { $0 + $1.weight })
+        for c in l { r -= c.weight; if r < 0 { return c } }
+        return l.first
     }
 }
 

@@ -95,6 +95,7 @@ enum Route: Hashable {
     case feed
     case search
     case saved
+    case history
     case notifs
 }
 
@@ -109,6 +110,7 @@ extension View {
             case .feed: FeedView(cat: nil, title: "Ροή ειδήσεων")
             case .search: SearchView()
             case .saved: SavedView()
+            case .history: SavedView(history: true)
             case .notifs: NotifSettingsView()
             }
         }
@@ -141,6 +143,7 @@ struct RootView: View {
     @State private var pinger: Task<Void, Never>?
     @State private var liveNow: MatchCard?
     @State private var splash = !UserDefaults.standard.bool(forKey: "shots")
+    @ObservedObject private var ads = Ads.shared
 
     init() {
         let nb = UINavigationBarAppearance()
@@ -171,7 +174,7 @@ struct RootView: View {
         NavigationStack(path: binding(t)) {
             root(t)
                 .toolbar(.hidden, for: .navigationBar)
-                .safeAreaInset(edge: .bottom) { if bar { Color.clear.frame(height: 78) } }
+                .safeAreaInset(edge: .bottom) { if bar { Color.clear.frame(height: 80) } }
                 .withRoutes()
         }
     }
@@ -181,15 +184,17 @@ struct RootView: View {
     var body: some View {
         Group {
             if isPad {
-                HStack(spacing: 0) {
-                    Sidebar(tab: tabBinding, live: liveNow)
-                    ZStack { ForEach(Tab.allCases, id: \.self) { t in stack(t, bar: false).opacity(app.tab == t ? 1 : 0).allowsHitTesting(app.tab == t) } }
+                GeometryReader { g in
+                    HStack(spacing: 0) {
+                        Sidebar(tab: tabBinding, live: liveNow, compact: g.size.width < 1000)
+                        ZStack { ForEach(Tab.allCases, id: \.self) { t in stack(t, bar: false).opacity(app.tab == t ? 1 : 0).allowsHitTesting(app.tab == t) } }
+                    }
                 }
             } else {
                 ZStack(alignment: .bottom) {
                     ForEach(Tab.allCases, id: \.self) { t in stack(t, bar: true).opacity(app.tab == t ? 1 : 0).allowsHitTesting(app.tab == t) }
                     if (paths[app.tab]?.count ?? 0) == 0 {
-                        FloatingTabBar(tab: tabBinding) { go(.search) }
+                        FloatingTabBar(tab: tabBinding)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
@@ -224,19 +229,33 @@ struct RootView: View {
         .task {
             // «LIVE ΤΩΡΑ» στην πλαϊνή στήλη του iPad
             while !Task.isCancelled {
-                if let l = try? await Api.shared.matches() { liveNow = l.items.first { $0.live } }
+                if let l = try? await Api.shared.matches() {
+                    liveNow = l.items.first { $0.live && !$0.aek.isEmpty } ?? l.items.first { $0.live }
+                    Ads.shared.aekLive = l.items.contains { $0.live && !$0.aek.isEmpty }
+                }
                 try? await Task.sleep(nanoseconds: 30_000_000_000)
             }
+        }
+        .overlay {
+            if let o = ads.overlay { SponsorOverlay(s: o).id(o.id).transition(.opacity).zIndex(2) }
         }
         .overlay {
             if splash {
                 IntroSplash {
                     splash = false
-                    if !prefs.introDone { prefs.introDone = true; Task { _ = await Notifier.shared.requestPermission() } }
+                    if !prefs.introDone {
+                        prefs.introDone = true
+                        Task { _ = await Notifier.shared.requestPermission(); ads.start() }
+                    } else {
+                        ads.start()
+                        ads.maybeSplash()
+                    }
                 }
                 .transition(.opacity)
             }
         }
+        .animation(.easeOut(duration: 0.25), value: ads.overlay)
+        .onAppear { if !splash { ads.start() } }
     }
 
     func go(_ r: Route) {
@@ -254,72 +273,121 @@ struct RootView: View {
     }
 }
 
-/// Κάψουλα καρτελών που «αιωρείται» (ύψος 66) + ξεχωριστό γυάλινο κουμπί αναζήτησης
+/// Κάψουλα καρτελών που «αιωρείται», στο κέντρο (μόνο οι 4 καρτέλες — η αναζήτηση είναι πάνω στην αρχική)
 struct FloatingTabBar: View {
     @Binding var tab: Tab
-    var search: () -> Void
     var body: some View {
-        HStack(spacing: 10) {
-            HStack(spacing: 2) {
-                ForEach(Tab.allCases, id: \.self) { t in
-                    let on = t == tab
-                    Button { tab = t } label: {
-                        VStack(spacing: 3) {
-                            Image(systemName: on ? t.iconOn : t.icon).font(.system(size: 19, weight: .medium))
-                                .symbolRenderingMode(.monochrome)
-                            Text(t.label).font(.system(size: 11, weight: on ? .bold : .medium))
-                        }
-                        .foregroundStyle(on ? C.gold : C.text)
-                        .frame(maxWidth: .infinity).frame(height: 56)
-                        .background(Capsule().fill(on ? Color.white.opacity(0.12) : .clear))
-                        .contentShape(Capsule())
-                    }.buttonStyle(.plain)
-                }
-            }
-            .padding(5)
-            .glass(Capsule())
-            GlassCircle(icon: "magnifyingglass", size: 66, action: search)
-        }
-        .padding(.horizontal, 16).padding(.bottom, 4)
-    }
-}
-
-/// iPad: πλαϊνή στήλη (λογότυπο, καρτέλες, «LIVE ΤΩΡΑ»)
-struct Sidebar: View {
-    @Binding var tab: Tab
-    let live: MatchCard?
-    @EnvironmentObject var app: AppState
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            LogoTitle(h: 38).padding(.horizontal, 14).padding(.top, 30).padding(.bottom, 26)
+        HStack(spacing: 4) {
             ForEach(Tab.allCases, id: \.self) { t in
                 let on = t == tab
-                Button { tab = t } label: {
-                    HStack(spacing: 14) {
-                        Image(systemName: on ? t.iconOn : t.icon).font(.system(size: 19)).frame(width: 26)
-                        Text(t.long).font(F.body(17, on ? .semibold : .regular))
-                        Spacer()
+                Button { haptic(.soft); tab = t } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: on ? t.iconOn : t.icon).font(.system(size: 22, weight: .medium))
+                            .symbolRenderingMode(.monochrome)
+                        Text(t.label).font(.system(size: 11.5, weight: on ? .bold : .medium))
                     }
                     .foregroundStyle(on ? C.gold : C.text)
-                    .padding(.horizontal, 16).frame(height: 50)
-                    .background(Capsule().fill(on ? Color.white.opacity(0.1) : .clear))
+                    .frame(maxWidth: .infinity).frame(height: 62)
+                    .background(Capsule().fill(on ? Color.white.opacity(0.12) : .clear))
                     .contentShape(Capsule())
                 }.buttonStyle(.plain)
             }
-            Spacer()
+        }
+        .padding(6)
+        .frame(maxWidth: 380)
+        .glass(Capsule())
+        .shadow(color: .black.opacity(0.35), radius: 18, y: 6)
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 22).padding(.bottom, 2)
+    }
+}
+
+/// iPad: πλαϊνή στήλη τύπου Apple News — καρτέλες, κατηγορίες, αποθηκευμένα, αναζήτηση, «LIVE ΤΩΡΑ».
+/// Σε κάθετο iPad γίνεται στενή στήλη με εικονίδια.
+struct Sidebar: View {
+    @Binding var tab: Tab
+    let live: MatchCard?
+    var compact = false
+    @EnvironmentObject var app: AppState
+    var body: some View {
+        VStack(alignment: compact ? .center : .leading, spacing: 4) {
+            Group {
+                if compact { Image("Eagle").resizable().scaledToFit().frame(width: 34, height: 34).padding(.top, 26).padding(.bottom, 18) }
+                else { LogoTitle(h: 36).padding(.horizontal, 14).padding(.top, 26).padding(.bottom, 18) }
+            }
+            ForEach(Tab.allCases, id: \.self) { t in
+                item(t.long, t == tab ? t.iconOn : t.icon, on: t == tab) { tab = t }
+            }
+            item("Αναζήτηση", "magnifyingglass", on: false) { app.tab = .home; app.deepLink = .search }
+            item("Αποθηκευμένα", "bookmark", on: false) { app.tab = .home; app.deepLink = .saved }
+            if !compact, let cats = app.config?.categories, !cats.isEmpty {
+                Text("ΚΑΤΗΓΟΡΙΕΣ").font(F.body(11, .heavy)).tracking(1).foregroundStyle(C.muted).padding(.horizontal, 16).padding(.top, 18).padding(.bottom, 4)
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 2) {
+                        ForEach(cats, id: \.slug) { c in
+                            Button { app.tab = .home; app.deepLink = .category(c.slug, c.name) } label: {
+                                HStack(spacing: 12) {
+                                    Image(catIcon(c.icon)).renderingMode(.template).resizable().scaledToFit().frame(width: 20, height: 20).foregroundStyle(C.gold)
+                                    Text(c.name).font(F.body(15, .medium)).foregroundStyle(C.text2).lineLimit(1)
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 16).frame(height: 40).contentShape(Rectangle())
+                            }.buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+            Spacer(minLength: 8)
             if let m = live {
                 Button { app.tab = .matches; app.deepLink = .match(m.id) } label: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("LIVE ΤΩΡΑ").font(F.tag(11)).tracking(1).foregroundStyle(C.gold)
-                        Text("\(m.home) \(m.scoreHome)–\(m.scoreAway) \(m.away) · \(liveText(m))").font(F.body(14, .semibold)).foregroundStyle(C.text).lineLimit(2)
+                    if compact {
+                        VStack(spacing: 4) {
+                            LiveDot(size: 8)
+                            Text("\(m.scoreHome)–\(m.scoreAway)").font(F.disp(18)).foregroundStyle(C.text)
+                        }.padding(.vertical, 10).frame(maxWidth: .infinity).card(16, fill: C.ink)
+                    } else {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 6) { LiveDot(size: 7); Text("LIVE ΤΩΡΑ · " + liveText(m)).font(F.tag(11)).tracking(0.6).foregroundStyle(C.live) }
+                            HStack(spacing: 8) {
+                                TeamLogo(url: m.homeLogo, size: 26, name: m.home)
+                                Text("\(m.scoreHome) – \(m.scoreAway)").font(F.disp(26)).foregroundStyle(C.text).frame(maxWidth: .infinity)
+                                TeamLogo(url: m.awayLogo, size: 26, name: m.away)
+                            }
+                            Text("\(m.home) – \(m.away)").font(F.body(12, .bold)).foregroundStyle(C.text2).lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(14).card(18, fill: C.ink)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading).padding(14).card(18, fill: C.ink)
                 }.buttonStyle(.plain)
             }
         }
-        .padding(12)
-        .frame(width: 260)
+        .padding(compact ? 8 : 12)
+        .frame(width: compact ? 84 : 270)
+        .frame(maxHeight: .infinity)
         .glass(RoundedRectangle(cornerRadius: 30, style: .continuous))
         .padding(12)
+    }
+
+    func item(_ title: String, _ icon: String, on: Bool, _ action: @escaping () -> Void) -> some View {
+        Button { haptic(.soft); action() } label: {
+            Group {
+                if compact {
+                    VStack(spacing: 3) {
+                        Image(systemName: icon).font(.system(size: 20))
+                        Text(title).font(.system(size: 9.5, weight: on ? .bold : .medium)).lineLimit(1).minimumScaleFactor(0.7)
+                    }
+                    .frame(width: 66, height: 56)
+                } else {
+                    HStack(spacing: 14) {
+                        Image(systemName: icon).font(.system(size: 18)).frame(width: 26)
+                        Text(title).font(F.body(16, on ? .bold : .medium))
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16).frame(height: 46)
+                }
+            }
+            .foregroundStyle(on ? C.gold : C.text)
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(on ? Color.white.opacity(0.1) : .clear))
+            .contentShape(Rectangle())
+        }.buttonStyle(.plain)
     }
 }

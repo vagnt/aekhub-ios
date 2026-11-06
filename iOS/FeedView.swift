@@ -35,12 +35,24 @@ struct FeedView: View {
                 if items.isEmpty && error { EmptyState(icon: "wifi.exclamationmark", text: "Δεν φόρτωσε. Έλεγξε τη σύνδεση.") { Task { await load(reset: true) } } }
                 else if items.isEmpty { SkeletonList() }
                 else {
-                    LazyVGrid(columns: hsc == .regular ? adaptiveCols : [GridItem(.flexible())], spacing: 8) {
-                        ForEach(Array(items.enumerated()), id: \.element.id) { i, p in
-                            if i == 0 && cat != nil { PostCardMedium(p: p).padding(.bottom, 6) } else { PostRow(p: p) }
+                    // Διαφήμιση στη ροή κάθε Ν άρθρα (Ν από το wp-admin, όπως Android)
+                    let every = AppState.shared.config?.ads.everyN ?? 5
+                    let chunks = stride(from: 0, to: items.count, by: every).map { Array(items[$0..<min($0 + every, items.count)]) }
+                    LazyVStack(spacing: 8) {
+                        ForEach(Array(chunks.enumerated()), id: \.offset) { ci, chunk in
+                            if hsc == .regular {
+                                LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 20, alignment: .top)], spacing: 22) {
+                                    ForEach(chunk) { PostTile(p: $0) }
+                                }
+                            } else {
+                                ForEach(chunk) { p in
+                                    if p.id == items.first?.id && cat != nil { PostCardMedium(p: p).padding(.bottom, 6) } else { PostRow(p: p) }
+                                }
+                            }
+                            if chunk.count == every { FeedAd().frame(maxWidth: 620) }
                         }
                     }
-                    .padding(.horizontal, hsc == .regular ? 24 : 16)
+                    .padding(.horizontal, hsc == .regular ? 28 : 16)
                     if page < pages {
                         Button { Task { await load(reset: false) } } label: {
                             Group {
