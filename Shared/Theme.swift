@@ -64,7 +64,10 @@ extension View {
         #endif
     }
     @ViewBuilder func glassFallback<S: Shape>(_ shape: S, tint: Color?) -> some View {
-        self.background(shape.fill(.ultraThinMaterial))
+        self
+            #if os(iOS)
+            .background(shape.fill(.ultraThinMaterial))
+            #endif
             .background(shape.fill((tint ?? C.panel2).opacity(tint == nil ? 0.55 : 0.85)))
             .overlay(shape.stroke(LinearGradient(colors: [.white.opacity(0.22), .white.opacity(0.04)], startPoint: .top, endPoint: .bottom), lineWidth: 1))
             .clipShape(shape)
