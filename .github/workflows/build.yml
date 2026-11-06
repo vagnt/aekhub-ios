@@ -53,13 +53,21 @@ jobs:
           IPA="AEKHub-iOS-$V-build${{ github.run_number }}.ipa"
           zip -qry "$IPA" Payload
           echo "IPA=$IPA" >> $GITHUB_ENV
+          ls "Payload/AEKHub.app/PlugIns" "Payload/AEKHub.app/Watch/AEKHubWatch.app/PlugIns" || true
+          # Δεύτερο .ipa ΧΩΡΙΣ Apple Watch (αν ο δωρεάν λογαριασμός Apple σκαλώσει στο όριο εφαρμογών/App IDs)
+          rm -rf Payload/AEKHub.app/Watch
+          LITE="AEKHub-iOS-$V-build${{ github.run_number }}-xoris-roloi.ipa"
+          zip -qry "$LITE" Payload
+          echo "LITE=$LITE" >> $GITHUB_ENV
           echo "VER=$V" >> $GITHUB_ENV
           ls -la "$IPA"
 
       - uses: actions/upload-artifact@v4
         with:
           name: ipa
-          path: ${{ env.IPA }}
+          path: |
+            ${{ env.IPA }}
+            ${{ env.LITE }}
 
       - name: Release
         uses: softprops/action-gh-release@v2
@@ -68,4 +76,6 @@ jobs:
           name: AEK Hub iOS ${{ env.VER }} (build ${{ github.run_number }})
           target_commitish: ${{ github.sha }}
           prerelease: true
-          files: ${{ env.IPA }}
+          files: |
+            ${{ env.IPA }}
+            ${{ env.LITE }}
