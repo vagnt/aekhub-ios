@@ -2,6 +2,9 @@ import SwiftUI
 #if canImport(UIKit)
 import UIKit
 #endif
+#if os(iOS)
+import Vision
+#endif
 
 /// Design system «iOS 26 · Liquid Glass» (το σχέδιο του χρήστη) — ίδια χρώματα με το Android/site.
 enum C {
@@ -94,35 +97,72 @@ extension View {
 }
 
 /// Φόρτωση εικόνων με δική μας μνήμη (γρήγορο ξανα-άνοιγμα, γνωστό μέγεθος εικόνας → σωστό κάδρο).
+/// Βρίσκει και το «σημαντικό σημείο» κάθε φωτογραφίας (πρόσωπα, αλλιώς ό,τι τραβάει το μάτι — Vision του iPhone),
+/// ώστε όταν η φωτογραφία γεμίζει ένα κουτί άλλου σχήματος να κόβεται γύρω από αυτό (όχι κεφάλια).
 @MainActor
 final class ImageLoader: ObservableObject {
     static let cache: NSCache<NSURL, UIImage> = { let c = NSCache<NSURL, UIImage>(); c.totalCostLimit = 120 << 20; return c }()
+    /// Σημαντικό σημείο ανά εικόνα (0–1, πάνω-αριστερά = 0,0)
+    static var focals: [URL: CGPoint] = [:]
     @Published var image: UIImage?
+    @Published var focal = CGPoint(x: 0.5, y: 0.35)
     private var url: URL?
     private var task: Task<Void, Never>?
 
-    func load(_ u: URL?) {
+    func load(_ u: URL?, focus: Bool = false) {
         guard u != url else { return }
         url = u; task?.cancel()
         guard let u else { image = nil; return }
-        if let i = ImageLoader.cache.object(forKey: u as NSURL) { image = i; return }
+        if let i = ImageLoader.cache.object(forKey: u as NSURL), !focus || ImageLoader.focals[u] != nil {
+            image = i; if let f = ImageLoader.focals[u] { focal = f }; return
+        }
         image = nil
         task = Task { [weak self] in
-            guard let res = try? await URLSession.shared.data(from: u), !Task.isCancelled else { return }
-            let d = res.0
-            let img: UIImage? = await Task.detached(priority: .userInitiated) { () -> UIImage? in
+            let cached = ImageLoader.cache.object(forKey: u as NSURL)
+            var d = Data()
+            if cached == nil {
+                guard let res = try? await URLSession.shared.data(from: u), !Task.isCancelled else { return }
+                d = res.0
+            }
+            let out: (UIImage?, CGPoint?) = await Task.detached(priority: .userInitiated) { () -> (UIImage?, CGPoint?) in
                 #if os(iOS)
-                return UIImage(data: d)?.preparingForDisplay() ?? UIImage(data: d)
+                let img = cached ?? (UIImage(data: d)?.preparingForDisplay() ?? UIImage(data: d))
+                return (img, focus ? img.flatMap(Focus.point) : nil)
                 #else
-                return UIImage(data: d)
+                return (cached ?? UIImage(data: d), nil)
                 #endif
             }.value
-            guard let img, !Task.isCancelled else { return }
-            ImageLoader.cache.setObject(img, forKey: u as NSURL, cost: Int(img.size.width * img.size.height * img.scale * img.scale * 4))
+            guard let img = out.0, !Task.isCancelled else { return }
+            if cached == nil { ImageLoader.cache.setObject(img, forKey: u as NSURL, cost: Int(img.size.width * img.size.height * img.scale * img.scale * 4)) }
+            if let f = out.1 { ImageLoader.focals[u] = f; self?.focal = f }
             withAnimation(.easeOut(duration: 0.2)) { self?.image = img }
         }
     }
 }
+
+#if os(iOS)
+/// Πού «κοιτάει» μια φωτογραφία: πρόσωπα (όλα μαζί) → αλλιώς το πιο ενδιαφέρον σημείο → αλλιώς λίγο πάνω από το κέντρο.
+enum Focus {
+    static func point(_ img: UIImage) -> CGPoint? {
+        guard let cg = img.cgImage else { return nil }
+        let h = VNImageRequestHandler(cgImage: cg, options: [:])
+        let faces = VNDetectFaceRectanglesRequest()
+        let sal = VNGenerateAttentionBasedSaliencyImageRequest()
+        try? h.perform([faces, sal])
+        // Vision: 0–1 με αρχή κάτω-αριστερά
+        if let fs = faces.results, !fs.isEmpty {
+            let u = fs.map(\.boundingBox).reduce(fs[0].boundingBox) { $0.union($1) }
+            // λίγο πάνω από τα πρόσωπα, για να χωράει και το κεφάλι ολόκληρο
+            return CGPoint(x: u.midX, y: max(0, 1 - u.midY - u.height * 0.15))
+        }
+        if let o = sal.results?.first?.salientObjects, !o.isEmpty {
+            let u = o.map(\.boundingBox).reduce(o[0].boundingBox) { $0.union($1) }
+            return CGPoint(x: u.midX, y: max(0, 1 - u.maxY + u.height * 0.35))
+        }
+        return CGPoint(x: 0.5, y: 0.35)
+    }
+}
+#endif
 
 /// Εικόνα από το δίκτυο με γκρι φόντο μέχρι να φορτώσει.
 struct NetImage: View {
@@ -140,36 +180,35 @@ struct NetImage: View {
     }
 }
 
-/// Φωτογραφία ΟΛΟΚΛΗΡΗ και κεντραρισμένη μέσα σε κουτί: αν το σχήμα της ταιριάζει περίπου με το κουτί γεμίζει
-/// (χάνεται ελάχιστο), αλλιώς φαίνεται όλη και το υπόλοιπο γεμίζει με θολό αντίγραφό της (όπως Apple News).
+/// Φωτογραφία που ΓΕΜΙΖΕΙ πάντα το κουτί της (χωρίς κενά), κομμένη γύρω από τα πρόσωπα / το σημαντικό σημείο
+/// (όχι στο κέντρο στα τυφλά → δεν κόβονται κεφάλια). Όταν το σχήμα ταιριάζει, φαίνεται σχεδόν ολόκληρη.
 struct WholeImage: View {
     let url: String
     var w: Int = 800
     @StateObject private var l = ImageLoader()
     var body: some View {
         GeometryReader { g in
-            if let i = l.image, i.size.height > 0, g.size.height > 0 {
-                let ri = i.size.width / i.size.height, rb = g.size.width / g.size.height
-                if abs(log(ri / rb)) < 0.18 {
-                    Image(uiImage: i).resizable().scaledToFill().frame(width: g.size.width, height: g.size.height).clipped()
-                } else {
-                    ZStack {
-                        Image(uiImage: i).resizable().scaledToFill().frame(width: g.size.width, height: g.size.height)
-                            .blur(radius: 22, opaque: true).overlay(Color.black.opacity(0.28)).clipped()
-                        Image(uiImage: i).resizable().scaledToFit().frame(width: g.size.width, height: g.size.height)
-                    }
-                }
+            if let i = l.image, i.size.width > 0, i.size.height > 0, g.size.width > 0, g.size.height > 0 {
+                let s = max(g.size.width / i.size.width, g.size.height / i.size.height)
+                let sw = i.size.width * s, sh = i.size.height * s
+                // θέση ώστε το σημαντικό σημείο να πέφτει όσο πιο κοντά στο κέντρο γίνεται, χωρίς κενά
+                let x = min(0, max(g.size.width - sw, g.size.width / 2 - l.focal.x * sw))
+                let y = min(0, max(g.size.height - sh, g.size.height / 2 - l.focal.y * sh))
+                Image(uiImage: i).resizable().frame(width: sw, height: sh)
+                    .offset(x: x, y: y)
+                    .frame(width: g.size.width, height: g.size.height, alignment: .topLeading)
+                    .clipped()
             } else {
                 Rectangle().fill(C.panel2)
             }
         }
-        .onAppear { l.load(Img.url(url, w: w)) }
-        .onChange(of: url) { _ in l.load(Img.url(url, w: w)) }
+        .onAppear { l.load(Img.url(url, w: w), focus: true) }
+        .onChange(of: url) { _ in l.load(Img.url(url, w: w), focus: true) }
     }
 }
 
 /// Εικόνα σε κουτί σταθερού ύψους, χωρίς ποτέ να το μεγαλώνει (αλλιώς το scaledToFill «φαρδαίνει» την οθόνη).
-/// Η φωτογραφία φαίνεται ολόκληρη (WholeImage).
+/// Γεμίζει το κουτί με έξυπνο κάδρο (WholeImage).
 struct FillImage: View {
     let url: String
     var w: Int = 800
