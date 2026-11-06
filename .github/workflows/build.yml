@@ -130,7 +130,7 @@ jobs:
       - name: Build (simulator)
         run: |
           brew install xcodegen && xcodegen generate
-          xcodebuild -project AEKHub.xcodeproj -scheme AEKHub -configuration Debug -sdk iphonesimulator \
+          xcodebuild -project AEKHub.xcodeproj -scheme AEKHub -configuration Debug \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath sim CODE_SIGNING_ALLOWED=NO build > sim.log 2>&1 || { grep -E "error:" sim.log | head -40; exit 1; }
       - name: Screenshots
         env:
