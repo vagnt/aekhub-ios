@@ -26,3 +26,8 @@
 - 💬 Σχόλια (`/app/comments/{id}`, header `X-Aek-Device`), 🔖 αποθηκευμένα (τοπικά, `saved.json`), 📅 ημερολόγιο (ICS `amc_ics` → webcal/Google/Outlook), συντομεύσεις εικονιδίου (Αγώνες/Βαθμολογίες/Αναζήτηση).
 - 📊 Στατιστικά: `/aekhub/v1/hit` με `s:15` (= «Εφαρμογή iOS», θέμα 2.10.5) + παλμός `/aekhub-an/v1/ping`· UA `AEKHubApp/x (iOS)` → os 10 «Εφαρμογή iOS» στο `aekhub-analytics` 1.4.0. Διακόπτης στο «Εγώ».
 - Δεν έγιναν: διαφημίσεις (ζήτησε ο χρήστης να μη γίνουν), Live Activities/Dynamic Island (θέλουν push για να ενημερώνονται με κλειστό app).
+
+## 📦 Διανομή σε φίλους (δωρεάν)
+- Δημόσιο repo **`vagnt/aekhub-ios-dist`** (μόνο αρχεία, όχι κώδικας): σε κάθε build του κύριου branch το workflow ανεβάζει release με τα δύο .ipa και ενημερώνει το **`source.json`** (μορφή AltStore/SideStore, `dist/make_source.py`, κρατά τις 10 τελευταίες εκδόσεις· η πηγή δείχνει το .ipa **χωρίς ρολόι** για να χωράει στα όρια App IDs του δωρεάν λογαριασμού).
+- Θέλει το secret **`DIST_TOKEN`** στο `aekhub-ios` (fine-grained token, Contents: Read and write, μόνο στο `aekhub-ios-dist`). Χωρίς αυτό τα βήματα απλώς παραλείπονται.
+- Link πηγής για τους φίλους: `https://raw.githubusercontent.com/vagnt/aekhub-ios-dist/main/source.json` (AltStore/SideStore → Sources → «+»).

@@ -12,6 +12,8 @@ permissions:
 jobs:
   build:
     runs-on: macos-15
+    env:
+      DIST_TOKEN: ${{ secrets.DIST_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -79,3 +81,33 @@ jobs:
           files: |
             ${{ env.IPA }}
             ${{ env.LITE }}
+
+      # 📦 Δημόσια διανομή σε φίλους (AltStore/SideStore «πηγή»): ανεβαίνει στο ΔΗΜΟΣΙΟ repo vagnt/aekhub-ios-dist.
+      # Μόνο από το κύριο branch και μόνο αν υπάρχει το secret DIST_TOKEN (token με δικαίωμα γραφής ΜΟΝΟ σε εκείνο το repo).
+      - name: Public release (aekhub-ios-dist)
+        id: pub
+        if: github.ref_name == github.event.repository.default_branch && env.DIST_TOKEN != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: vagnt/aekhub-ios-dist
+          token: ${{ secrets.DIST_TOKEN }}
+          tag_name: v${{ env.VER }}-build${{ github.run_number }}
+          name: AEK Hub ${{ env.VER }} (build ${{ github.run_number }})
+          make_latest: true
+          body: |
+            Εγκατάσταση: AltStore / SideStore → Sources → «+» → https://raw.githubusercontent.com/vagnt/aekhub-ios-dist/main/source.json
+            Ή κατέβασε το .ipa και πέρασέ το με Sideloadly (δωρεάν Apple ID, ανανέωση κάθε 7 μέρες).
+          files: |
+            ${{ env.IPA }}
+            ${{ env.LITE }}
+
+      - name: AltStore source (source.json)
+        if: steps.pub.outcome == 'success'
+        run: |
+          git clone -q "https://x-access-token:${DIST_TOKEN}@github.com/vagnt/aekhub-ios-dist.git" distrepo
+          cp dist/icon.png distrepo/icon.png
+          URL="https://github.com/vagnt/aekhub-ios-dist/releases/download/v${VER}-build${{ github.run_number }}/${LITE}"
+          python3 dist/make_source.py distrepo "$VER" "${{ github.run_number }}" "$URL" "$(stat -f%z "$LITE")"
+          cd distrepo
+          git config user.name "AEK Hub build"; git config user.email "actions@users.noreply.github.com"
+          git add -A && git commit -qm "AEK Hub $VER (build ${{ github.run_number }})" && git push -q origin HEAD:main || echo "τίποτα νέο"
