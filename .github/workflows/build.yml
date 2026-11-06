@@ -115,3 +115,29 @@ jobs:
           cd distrepo
           git config user.name "AEK Hub build"; git config user.email "actions@users.noreply.github.com"
           git add -A && git commit -qm "AEK Hub $VER (build ${{ github.run_number }})" && git push -q origin HEAD:main || echo "τίποτα νέο"
+
+  # 📸 Screenshots από προσομοιωτή (iPhone + iPad): έλεγχος εμφάνισης χωρίς συσκευή
+  screens:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -v -i beta | sort -V | tail -1)
+          [ -z "$X" ] && X=$(ls -d /Applications/Xcode_16*.app | sort -V | tail -1)
+          sudo xcode-select -s "$X"
+          xcrun simctl list devices available | grep -E "iPhone|iPad" | head -20
+      - name: Build (simulator)
+        run: |
+          brew install xcodegen && xcodegen generate
+          xcodebuild -project AEKHub.xcodeproj -scheme AEKHub -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath sim CODE_SIGNING_ALLOWED=NO build > sim.log 2>&1 || { grep -E "error:" sim.log | head -40; exit 1; }
+      - name: Screenshots
+        env:
+          MATCH: "214093"
+          MATCH2: "215042"
+        run: bash ci/screens.sh sim/Build/Products/Debug-iphonesimulator/AEKHub.app shots
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screens
+          path: shots/*.png

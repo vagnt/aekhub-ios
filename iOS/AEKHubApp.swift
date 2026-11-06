@@ -68,6 +68,9 @@ final class AppState: ObservableObject {
         case "matches": tab = .matches
         case "standings": tab = .standings
         case "news": tab = .home
+        case "me": tab = .me
+        case "notifs": tab = .me; deepLink = .notifs
+        case "back": deepLink = nil
         default: break
         }
     }
@@ -135,7 +138,7 @@ struct RootView: View {
     @State private var paths: [Tab: NavigationPath] = [.home: NavigationPath(), .matches: NavigationPath(), .standings: NavigationPath(), .me: NavigationPath()]
     @State private var pinger: Task<Void, Never>?
     @State private var liveNow: MatchCard?
-    @State private var splash = true
+    @State private var splash = !UserDefaults.standard.bool(forKey: "shots")
 
     init() {
         let nb = UINavigationBarAppearance()
