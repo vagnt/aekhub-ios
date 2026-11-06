@@ -13,6 +13,15 @@
 - **Sideload** (δωρεάν Apple ID): λήξη 7 ημερών, **χωρίς push**. Push/App Store όταν ο χρήστης γίνει Apple Developer (τότε: APNs/FCM, υπογραφή, `DEVELOPMENT_TEAM`).
 - Κάθε έκδοση: `MARKETING_VERSION` στο `project.yml` (το build number = αριθμός run).
 
+## 0.7.0 — προετοιμασία App Store
+- **AdMob πραγματικό**: `ADMOB_APP_ID` = `ca-app-pub-7943059111940021~6196572715` (ad units iOS στο wp-admin → 🍏).
+- **Δήλωση απορρήτου** `Resources/Privacy/PrivacyInfo.xcprivacy` (tracking με ATT, device ID/advertising data/αλληλεπίδραση/σχόλια/όνομα/crash· UserDefaults CA92.1 + 1C8F.1, file timestamp C617.1).
+- **Σχόλια (Apple 1.2)**: όροι πριν το 1ο σχόλιο (`c_terms`, link `/oroi-xrisis/`, μηδενική ανοχή) · μενού ⋯ ανά σχόλιο: Αναφορά + **Απόκρυψη χρήστη** (`c_blocked`, ανά όνομα, όχι στα AEK HUB)· αναίρεση από Εγώ → «Κρυμμένοι χρήστες σχολίων».
+- **Push όπως Android**: φίλτρο κατηγοριών = topics `ios_news_<slug>` αντί για `news_breaking` (server aekhub-app 1.5.2)· **Notification Service Extension** `AEKHubNotify` (`Notify/`, App Group `group.gr.aekhub.app`, ρυθμίσεις από `Push.share()`): ήσυχες ώρες → αθόρυβη (`.passive`, χωρίς ήχο· εξαίρεση γκολ ΑΕΚ αν `quietAek`), χωρίς spoilers → σβήνει το σκορ από τίτλο/κείμενο.
+- **Screenshots App Store**: `ci/appstore.sh` (iPhone 17 Pro Max 6,9″, iPad Pro 13″, ρολόι· `-noads YES`, ώρα 9:41) → artifact `appstore`, με «[appstore]» στο commit ή χειροκίνητο run.
+- **Κείμενα σελίδας**: `appstore/listing.md` (όνομα «AEK Hub – ΑΕΚ Νέα & Live Σκορ», κατηγορία Αθλητικά, contact@aekhub.gr). Ο χρήστης **ΔΕΝ θέλει «ανεπίσημη»** πουθενά (news site).
+- ⚠ 7/11/2026: τα jobs του GitHub Actions δεν ξεκίνησαν («recent account payments have failed or your spending limit needs to be increased») → θέλει διόρθωση χρέωσης στο GitHub ή δημόσιο repo.
+
 ## 0.6.0 — Apple Developer (Team `H3BX78S223`, ενεργό ως 7/11/2027)
 - **TestFlight αυτόματα**: job `testflight` στο `build.yml` → archive με αυτόματη υπογραφή (`-allowProvisioningUpdates` + κλειδί App Store Connect API από τα secrets `ASC_ISSUER_ID`/`ASC_KEY_ID`/`ASC_KEY_P8`, ρόλος Admin) → `-exportArchive` με `ci/ExportOptions.plist` (`app-store-connect`, `destination: upload`). Το archive ξαναδοκιμάζεται έως 3 φορές (την 1η το Xcode «δεν βρίσκει» τα προφίλ που μόλις κατέβασε). Build number = αριθμός run. Η εφαρμογή στο App Store Connect: «AEK Hub», bundle `gr.aekhub.app`. Πρώτο ανέβασμα: build 26 (6/11/2026).
 - **Push** (`iOS/Push.swift`, Firebase Messaging 11.x μέσω SPM, `Resources/Firebase/GoogleService-Info.plist`, entitlement `aps-environment`): ίδια topics με το Android (`m_<άθλημα>_<είδος>`, `match_<id>`, `news_breaking`), sync μόνο της διαφοράς (`push_topics`). Ο server (aekhub-app 1.5.1) βάζει κομμάτι `apns` με alert σε κάθε μήνυμα. Μόλις έρθει token (`push_on`) σταματούν οι τοπικές ειδοποιήσεις/υπενθυμίσεις του `Notifier` (όχι διπλές)· στα sideload χωρίς push συνεχίζει το τοπικό. ⚠ Κατηγορίες ειδήσεων / ήσυχες ώρες / spoilers δεν φιλτράρονται στο iPhone με push (ο server στέλνει σε όλο το topic).
