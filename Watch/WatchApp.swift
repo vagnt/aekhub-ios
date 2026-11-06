@@ -333,7 +333,7 @@ struct WatchFeedView: View {
             var out = reset ? [] : items
             for n in all where !out.contains(where: { $0.id == n.id }) { out.append(n) }
             items = out; page = f.page; pages = f.pages; error = false
-        } catch { error = true }
+        } catch { self.error = true }
     }
 }
 
