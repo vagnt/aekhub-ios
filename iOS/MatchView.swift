@@ -432,10 +432,10 @@ struct PitchView: View {
                 ZStack {
                     Image("PitchBg").resizable().frame(width: w, height: h)
                     ForEach(Array(p.home.enumerated()), id: \.offset) { _, pl in
-                        dot(pl, home: true).position(x: w * (100 - pl.x) / 100, y: h * 0.5 * (pl.y / 100) * 0.92 + h * 0.03)
+                        dot(pl, home: true).position(x: w * CGFloat((100 - pl.x) / 100), y: h * CGFloat(0.5 * (pl.y / 100) * 0.92 + 0.03))
                     }
                     ForEach(Array(p.away.enumerated()), id: \.offset) { _, pl in
-                        dot(pl, home: false).position(x: w * pl.x / 100, y: h - (h * 0.5 * (pl.y / 100) * 0.92 + h * 0.03))
+                        dot(pl, home: false).position(x: w * CGFloat(pl.x / 100), y: h - h * CGFloat(0.5 * (pl.y / 100) * 0.92 + 0.03))
                     }
                 }
             }
