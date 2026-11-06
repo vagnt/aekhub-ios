@@ -13,6 +13,11 @@
 - **Sideload** (δωρεάν Apple ID): λήξη 7 ημερών, **χωρίς push**. Push/App Store όταν ο χρήστης γίνει Apple Developer (τότε: APNs/FCM, υπογραφή, `DEVELOPMENT_TEAM`).
 - Κάθε έκδοση: `MARKETING_VERSION` στο `project.yml` (το build number = αριθμός run).
 
+## 0.6.0 — Apple Developer (Team `H3BX78S223`, ενεργό ως 7/11/2027)
+- **TestFlight αυτόματα**: job `testflight` στο `build.yml` → archive με αυτόματη υπογραφή (`-allowProvisioningUpdates` + κλειδί App Store Connect API από τα secrets `ASC_ISSUER_ID`/`ASC_KEY_ID`/`ASC_KEY_P8`, ρόλος Admin) → `-exportArchive` με `ci/ExportOptions.plist` (`app-store-connect`, `destination: upload`). Το archive ξαναδοκιμάζεται έως 3 φορές (την 1η το Xcode «δεν βρίσκει» τα προφίλ που μόλις κατέβασε). Build number = αριθμός run. Η εφαρμογή στο App Store Connect: «AEK Hub», bundle `gr.aekhub.app`. Πρώτο ανέβασμα: build 26 (6/11/2026).
+- **Push** (`iOS/Push.swift`, Firebase Messaging 11.x μέσω SPM, `Resources/Firebase/GoogleService-Info.plist`, entitlement `aps-environment`): ίδια topics με το Android (`m_<άθλημα>_<είδος>`, `match_<id>`, `news_breaking`), sync μόνο της διαφοράς (`push_topics`). Ο server (aekhub-app 1.5.1) βάζει κομμάτι `apns` με alert σε κάθε μήνυμα. Μόλις έρθει token (`push_on`) σταματούν οι τοπικές ειδοποιήσεις/υπενθυμίσεις του `Notifier` (όχι διπλές)· στα sideload χωρίς push συνεχίζει το τοπικό. ⚠ Κατηγορίες ειδήσεων / ήσυχες ώρες / spoilers δεν φιλτράρονται στο iPhone με push (ο server στέλνει σε όλο το topic).
+- Το κλειδί APNs (Key ID DG5W2ULMZA) στάλθηκε κατά λάθος στη συνομιλία → προτάθηκε στον χρήστη να το ανακαλέσει και να βάλει νέο στο Firebase.
+
 ## 0.5.0 (ζήτησε ο χρήστης)
 - **Μπάρα καρτελών**: μόνο οι 4 καρτέλες, στο κέντρο, μεγαλύτερη (η αναζήτηση είναι πάνω στην αρχική).
 - **Άρθρο** (`iOS/ArticleView.swift`): πίσω/Aa/🔖/κοινοποίηση στη **μπάρα του συστήματος** (`.toolbar`) — τα δικά μας κουμπιά πάνω από το WKWebView δεν πατιόντουσαν. Επικεφαλίδα native (φωτογραφία ολόκληρη, τίτλος, περίληψη, **φωτογραφία συντάκτη** `authorAvatar`), κείμενο σε WKWebView που παίρνει το ύψος του (ResizeObserver → `h`), κομμένο μετά την 3η/8η παράγραφο για διαφήμιση. **Video post** → εικόνα με ▶ → **pop up** (`VideoPopup`, iframe με βάση aekhub.gr ή AVPlayer για mp4). «Διάβασε επίσης» (στο iPad δεξιά). Ιστορικό ανάγνωσης (`Prefs.history`).
