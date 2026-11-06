@@ -114,6 +114,9 @@ targets:
         CFBundleDevelopmentRegion: el
         WKApplication: true
         WKCompanionAppBundleIdentifier: gr.aekhub.app
+        CFBundleURLTypes:
+          - CFBundleURLName: gr.aekhub.app.watchkitapp
+            CFBundleURLSchemes: [aekhub]
         WKRunsIndependentlyOfCompanionApp: true
     dependencies:
       - target: AEKHubWatchWidgets

@@ -5,7 +5,10 @@ import SwiftUI
 
 @main
 struct AEKWatchWidgets: WidgetBundle {
-    var body: some Widget { WatchMatchComplication() }
+    var body: some Widget {
+        WatchMatchComplication()
+        WatchNewsComplication()
+    }
 }
 
 struct WEntry: TimelineEntry { let date: Date; let m: MatchCard? }
@@ -84,5 +87,65 @@ struct WatchMatchComplication: Widget {
             .configurationDisplayName("Αγώνας ΑΕΚ")
             .description("Επόμενος αγώνας ή live σκορ.")
             .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline, .accessoryCorner])
+    }
+}
+
+// MARK: - 📰 Τελευταίο νέο (complication)
+
+struct NEntry: TimelineEntry { let date: Date; let p: PostCard? }
+
+struct NProvider: TimelineProvider {
+    func placeholder(in context: Context) -> NEntry { NEntry(date: Date(), p: nil) }
+    func getSnapshot(in context: Context, completion: @escaping (NEntry) -> Void) { Task { completion(await load()) } }
+    func getTimeline(in context: Context, completion: @escaping (Timeline<NEntry>) -> Void) {
+        Task { completion(Timeline(entries: [await load()], policy: .after(Date().addingTimeInterval(20 * 60)))) }
+    }
+    func load() async -> NEntry {
+        let h = (try? await Api.shared.home()) ?? Api.shared.peek(Api.pHome).map(HomeData.init)
+        // το νεότερο άρθρο (κύριο θέμα ή «Τελευταία νέα»)
+        let all = [h?.featured].compactMap { $0 } + (h?.top ?? [])
+        return NEntry(date: Date(), p: all.max { $0.date < $1.date })
+    }
+}
+
+struct NView: View {
+    @Environment(\.widgetFamily) var family
+    let e: NEntry
+    var body: some View {
+        Group {
+            if let p = e.p {
+                switch family {
+                case .accessoryInline:
+                    Text("📰 " + p.title)
+                case .accessoryCircular:
+                    ZStack {
+                        AccessoryWidgetBackground()
+                        VStack(spacing: 0) {
+                            Image(systemName: "newspaper.fill").font(.system(size: 14))
+                            Text(Fmt.ago(p.date)).font(.system(size: 9, weight: .bold)).minimumScaleFactor(0.6)
+                        }
+                    }
+                default:
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("AEK HUB" + (p.category.isEmpty ? "" : " · " + p.category.upperGr)).font(.system(size: 11, weight: .heavy)).foregroundStyle(C.gold).lineLimit(1)
+                        Text(p.title).font(.system(size: 13, weight: .semibold)).lineLimit(3)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            } else {
+                Image(systemName: "newspaper")
+            }
+        }
+        .widgetURL(URL(string: e.p.map { "aekhub://post/\($0.id)" } ?? "aekhub://news"))
+        .modifier(WBG())
+    }
+}
+
+struct WatchNewsComplication: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "watchnews", provider: NProvider()) { NView(e: $0) }
+            .configurationDisplayName("Τελευταίο νέο")
+            .description("Το πιο πρόσφατο άρθρο του AEK Hub.")
+            .supportedFamilies([.accessoryRectangular, .accessoryInline, .accessoryCircular])
     }
 }

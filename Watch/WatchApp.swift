@@ -8,7 +8,7 @@ struct AEKHubWatchApp: App {
     }
 }
 
-enum WRoute: Hashable { case match(Int), post(PostCard), standings }
+enum WRoute: Hashable { case match(Int), post(PostCard), postId(Int), standings, feed(String, String), categories }
 
 struct WatchRoot: View {
     @State private var path = NavigationPath()
@@ -19,6 +19,16 @@ struct WatchRoot: View {
                 guard let o = UserDefaults.standard.string(forKey: "open") else { return }
                 if o == "standings" { path.append(WRoute.standings) }
                 else if o.hasPrefix("match/"), let id = Int(o.dropFirst(6)) { path.append(WRoute.match(id)) }
+                else if o == "feed" { path.append(WRoute.feed("", "Ροή ειδήσεων")) }
+                else if o == "categories" { path.append(WRoute.categories) }
+                else if o.hasPrefix("category/") { path.append(WRoute.feed(String(o.dropFirst(9)), "Κατηγορία")) }
+                else if o.hasPrefix("post/"), let id = Int(o.dropFirst(5)) { path.append(WRoute.postId(id)) }
+            }
+            // complication «Τελευταίο νέο» → άνοιγμα του άρθρου
+            .onOpenURL { u in
+                guard u.scheme == "aekhub" else { return }
+                if u.host == "post", let id = Int(u.lastPathComponent) { path = NavigationPath(); path.append(WRoute.postId(id)) }
+                else if u.host == "match", let id = Int(u.lastPathComponent) { path = NavigationPath(); path.append(WRoute.match(id)) }
             }
     }
 }
@@ -62,6 +72,12 @@ struct WatchHome: View {
                             }.padding(.vertical, 2)
                         }.listRowBackground(rowBG)
                     }
+                    NavigationLink(value: WRoute.feed("", "Ροή ειδήσεων")) {
+                        Label("Ροή ειδήσεων", systemImage: "newspaper").font(.system(size: 15, weight: .semibold)).foregroundStyle(C.gold)
+                    }.listRowBackground(rowBG)
+                    NavigationLink(value: WRoute.categories) {
+                        Label("Κατηγορίες", systemImage: "square.grid.2x2").font(.system(size: 15, weight: .semibold)).foregroundStyle(C.gold)
+                    }.listRowBackground(rowBG)
                 } header: { head("Νέα", "") }
             }
             if home == nil && list == nil {
@@ -73,8 +89,11 @@ struct WatchHome: View {
         .navigationDestination(for: WRoute.self) { r in
             switch r {
             case .match(let id): WatchMatchView(id: id)
-            case .post(let p): WatchPostView(card: p)
+            case .post(let p): WatchPostView(id: p.id, card: p)
+            case .postId(let id): WatchPostView(id: id, card: nil)
             case .standings: WatchStandingsView()
+            case .feed(let cat, let title): WatchFeedView(cat: cat, title: title)
+            case .categories: WatchCategoriesView()
             }
         }
         .task {
@@ -268,20 +287,130 @@ func eventIconW(_ t: String) -> String {
     }
 }
 
-struct WatchPostView: View {
-    let card: PostCard
-    @State private var post: Post?
+/// Ροή ειδήσεων (όλες ή μίας κατηγορίας) — με «Περισσότερα» στο τέλος
+struct WatchFeedView: View {
+    let cat: String
+    let title: String
+    @State private var items: [PostCard] = []
+    @State private var page = 0
+    @State private var pages = 1
+    @State private var loading = false
+    @State private var error = false
+    @State private var name = ""
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 8) {
-                NetImage(url: card.image, w: 400).frame(height: 90).frame(maxWidth: .infinity).clipped().clipShape(RoundedRectangle(cornerRadius: 12))
-                if !card.category.isEmpty { Text(card.category.upperGr).font(.system(size: 10, weight: .bold)).foregroundStyle(C.gold) }
-                Text(card.title).font(.system(size: 15, weight: .bold))
-                Text(Fmt.postDate(card.date, withYear: false)).font(.system(size: 11)).foregroundStyle(C.muted)
-                if let p = post { Text(p.html.plainText).font(.system(size: 13)) }
-                else if !card.excerpt.isEmpty { Text(card.excerpt).font(.system(size: 13)).foregroundStyle(C.text2); ProgressView() }
+        List {
+            ForEach(items) { p in
+                NavigationLink(value: WRoute.post(p)) { WatchPostRow(p: p) }
+                    .listRowBackground(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(C.panel2))
+            }
+            if loading { ProgressView().frame(maxWidth: .infinity) }
+            else if error && items.isEmpty {
+                VStack(spacing: 6) { Text("Χωρίς σύνδεση").font(.headline); Button("Ξανά") { Task { await load(reset: true) } } }
+            } else if page < pages {
+                Button { Task { await load(reset: false) } } label: {
+                    Text("Περισσότερα").font(.system(size: 15, weight: .heavy)).foregroundStyle(C.ink).frame(maxWidth: .infinity)
+                }
+                .listRowBackground(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(C.gold))
             }
         }
-        .task { post = try? await Api.shared.post(card.id) }
+        .navigationTitle(name.isEmpty ? title : name)
+        .task {
+            if items.isEmpty {
+                if let j = Api.shared.peek(Api.pFeed(cat.isEmpty ? nil : cat)) { let f = Feed(j); items = ([f.featured].compactMap { $0 } + f.items) }
+                if !cat.isEmpty, name.isEmpty, let c = try? await Api.shared.config() { name = c.categories.first { $0.slug == cat }?.name ?? "" }
+                await load(reset: true)
+            }
+        }
+    }
+
+    func load(reset: Bool) async {
+        guard !loading else { return }
+        loading = true; defer { loading = false }
+        do {
+            let f = try await Api.shared.feed(cat.isEmpty ? nil : cat, page: reset ? 1 : page + 1)
+            let all = (reset ? [f.featured].compactMap { $0 } : []) + f.items
+            var out = reset ? [] : items
+            for n in all where !out.contains(where: { $0.id == n.id }) { out.append(n) }
+            items = out; page = f.page; pages = f.pages; error = false
+        } catch { error = true }
+    }
+}
+
+/// Γραμμή άρθρου στο ρολόι: μικρή φωτογραφία, κατηγορία, τίτλος, ημερομηνία
+struct WatchPostRow: View {
+    let p: PostCard
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if !p.image.isEmpty {
+                Color.clear.frame(height: 70).overlay(NetImage(url: p.image, w: 400)).clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+            if !p.category.isEmpty { Text(p.category.upperGr).font(.system(size: 10, weight: .bold)).foregroundStyle(C.gold) }
+            Text(p.title).font(.system(size: 14, weight: .semibold)).lineLimit(4)
+            Text(Fmt.postDate(p.date, withYear: false)).font(.system(size: 10)).foregroundStyle(C.muted)
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+/// Κατηγορίες (ίδιες με το site/app)
+struct WatchCategoriesView: View {
+    @State private var cats: [Category] = Api.shared.peek(Api.pConfig).map { AppConfig($0).categories } ?? []
+    var body: some View {
+        List {
+            ForEach(cats) { c in
+                NavigationLink(value: WRoute.feed(c.slug, c.name)) {
+                    HStack(spacing: 10) {
+                        Image(systemName: icon(c.icon)).font(.system(size: 16, weight: .semibold)).foregroundStyle(C.gold).frame(width: 24)
+                        Text(c.name).font(.system(size: 16, weight: .semibold))
+                    }.padding(.vertical, 4)
+                }
+                .listRowBackground(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(C.panel2))
+            }
+            if cats.isEmpty { ProgressView() }
+        }
+        .navigationTitle("Κατηγορίες")
+        .task { if let c = try? await Api.shared.config() { cats = c.categories } }
+    }
+    func icon(_ k: String) -> String {
+        switch k {
+        case "football": return "soccerball"
+        case "basketball": return "basketball.fill"
+        case "erasitechniki": return "trophy.fill"
+        case "hubplus": return "plus.circle.fill"
+        default: return "newspaper.fill"
+        }
+    }
+}
+
+struct WatchPostView: View {
+    let id: Int
+    let card: PostCard?
+    @State private var post: Post?
+    init(id: Int, card: PostCard?) {
+        self.id = id; self.card = card
+        _post = State(initialValue: Api.shared.peek(Api.pPost(id)).map(Post.init))
+    }
+    var body: some View {
+        let image = post?.image ?? card?.image ?? ""
+        let cat = post?.category ?? card?.category ?? ""
+        let title = post?.title ?? card?.title ?? ""
+        let date = post?.date ?? card?.date ?? ""
+        ScrollView {
+            VStack(alignment: .leading, spacing: 8) {
+                if !image.isEmpty { Color.clear.frame(height: 95).overlay(NetImage(url: image, w: 400)).clipShape(RoundedRectangle(cornerRadius: 12)) }
+                if !cat.isEmpty { Text(cat.upperGr).font(.system(size: 10, weight: .bold)).foregroundStyle(C.gold) }
+                Text(title).font(.system(size: 16, weight: .bold))
+                if !date.isEmpty { Text(Fmt.postDate(date, withYear: false)).font(.system(size: 11)).foregroundStyle(C.muted) }
+                if let p = post {
+                    if !p.excerpt.isEmpty { Text(p.excerpt).font(.system(size: 13, weight: .semibold)).foregroundStyle(C.text2).padding(.leading, 8).overlay(alignment: .leading) { Rectangle().fill(C.gold).frame(width: 2) } }
+                    Text(p.html.plainText).font(.system(size: 14))
+                } else {
+                    if let e = card?.excerpt, !e.isEmpty { Text(e).font(.system(size: 13)).foregroundStyle(C.text2) }
+                    ProgressView()
+                }
+            }
+        }
+        .task { if let p = try? await Api.shared.post(id) { post = p } }
     }
 }

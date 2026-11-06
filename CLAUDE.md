@@ -23,6 +23,7 @@
 - **Splash** όπως Android (`IntroSplash`: τα κομμάτια a/e/hub/k «χτίζουν» το λογότυπο).
 - ⚠ Εικόνες με `scaledToFill` ΠΑΝΤΑ μέσα σε `FillImage`/`Color.clear.overlay(...)`: αλλιώς «φαρδαίνουν» την οθόνη (λάθος 0.3.0: κομμένα λογότυπα/τίτλοι).
 - **📸 CI screenshots** (job `screens`, `ci/screens.sh`): χτίζει για προσομοιωτή iPhone 17 Pro + iPad Pro 13 και βγάζει εικόνες κάθε οθόνης (παράμετροι εκκίνησης `-shots YES -open match/ID -mtab Συνθέσεις -scroll 1`) → artifact `screens`. Κατέβασμα: `actions_get download_workflow_run_artifact` → curl. ΚΟΙΤΑ ΤΙΣ πριν πεις στον χρήστη ότι κάτι είναι έτοιμο.
+- **⌚ Ρολόι — ειδήσεις** (ζήτησε ο χρήστης): στην αρχική ενότητα «Νέα» (8 τελευταία) + «Ροή ειδήσεων» (σελίδες, «Περισσότερα») + «Κατηγορίες» → ροή κατηγορίας· άρθρο με όλο το κείμενο (χωρίς βίντεο/embeds). Complication «Τελευταίο νέο» (rectangular/inline/circular) → ανοίγει το άρθρο (`aekhub://post/ID`, `onOpenURL` στο `WatchRoot`).
 - Apple Watch με sideload: Sideloadly 0.71 υπογράφει εφαρμογές ρολογιού μόνο για πληρωμένο λογαριασμό («free coming next version»)· με δωρεάν μόνο Xcode.
 
 ## Εμφάνιση (0.3.0) — ΣΧΕΔΙΟ ΤΟΥ ΧΡΗΣΤΗ «iOS 26 · Liquid Glass» (αντικαταστάθηκε από την 0.4.0 όπου διαφέρει)

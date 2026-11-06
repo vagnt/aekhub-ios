@@ -37,7 +37,7 @@ watch() {
   xcrun simctl install "$UDID" "$WAPP" || { ls "$(dirname "$WAPP")"; return; }
   xcrun simctl launch "$UDID" gr.aekhub.app.watchkitapp; sleep 14
   xcrun simctl io "$UDID" screenshot "$OUT/watch-1-home.png"
-  for u in "match/$MATCH" "match/$MATCH2" standings; do
+  for u in "match/$MATCH" "match/$MATCH2" standings feed categories category/mpasket "post/$POST"; do
     xcrun simctl terminate "$UDID" gr.aekhub.app.watchkitapp; xcrun simctl launch "$UDID" gr.aekhub.app.watchkitapp -open "$u"; sleep 12
     xcrun simctl io "$UDID" screenshot "$OUT/watch-$(echo $u | tr '/' '-').png"
   done
