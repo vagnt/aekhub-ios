@@ -11,14 +11,14 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.6.0"
+    MARKETING_VERSION: "0.7.0"
     CURRENT_PROJECT_VERSION: "1"
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: H3BX78S223
     ENABLE_USER_SCRIPT_SANDBOXING: NO
     SWIFT_STRICT_CONCURRENCY: minimal
-    # AdMob App ID της εφαρμογής iOS (AdMob → Apps → AEK Hub iOS → App settings). Μέχρι να δοθεί: το δοκιμαστικό της Google.
-    ADMOB_APP_ID: ca-app-pub-3940256099942544~1458002511
+    # AdMob App ID της εφαρμογής iOS (AdMob → Apps → AEK Hub iOS → App settings)
+    ADMOB_APP_ID: ca-app-pub-7943059111940021~6196572715
 
 # Διαφημίσεις: Google Mobile Ads (AdMob) + συγκατάθεση GDPR (UMP) — μόνο στην εφαρμογή iPhone/iPad
 packages:
@@ -45,6 +45,9 @@ targets:
       # Firebase (push μέσω FCM): δημόσιες ρυθμίσεις, όπως το google-services.json του Android
       - path: Resources/Firebase
         buildPhase: resources
+      # Δήλωση απορρήτου (Apple): τι δεδομένα μαζεύει η εφαρμογή και γιατί
+      - path: Resources/Privacy
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: gr.aekhub.app
@@ -56,6 +59,7 @@ targets:
       path: iOS/AEKHub.entitlements
       properties:
         aps-environment: development
+        com.apple.security.application-groups: [group.gr.aekhub.app]
     info:
       path: iOS/Info.plist
       properties:
@@ -156,6 +160,8 @@ targets:
         product: FirebaseMessaging
       - target: AEKHubWidgets
         embed: true
+      - target: AEKHubNotify
+        embed: true
       # Η εφαρμογή του ρολογιού μπαίνει ΜΕΣΑ στο .ipa του iPhone (φάκελος Watch)
       - target: AEKHubWatch
         embed: true
@@ -163,6 +169,32 @@ targets:
           destination: productsDirectory
           subpath: $(CONTENTS_FOLDER_PATH)/Watch
     scheme: {}
+
+  # Ειδοποιήσεις push: ήσυχες ώρες / χωρίς spoilers στο κινητό, πριν εμφανιστεί η ειδοποίηση
+  AEKHubNotify:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Notify
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: gr.aekhub.app.notify
+        PRODUCT_NAME: AEKHubNotify
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: YES
+    entitlements:
+      path: Notify/AEKHubNotify.entitlements
+      properties:
+        com.apple.security.application-groups: [group.gr.aekhub.app]
+    info:
+      path: Notify/Info.plist
+      properties:
+        CFBundleDisplayName: AEK Hub Notify
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.usernotifications.service
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationService
 
   AEKHubWatch:
     type: application

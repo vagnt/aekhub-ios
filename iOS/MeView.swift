@@ -14,6 +14,7 @@ struct MeView: View {
     @State private var tick = 0
     @State private var cache = 0
     @State private var busy = false
+    @AppStorage("c_blocked") private var blockedRaw = ""
 
     var body: some View {
         ScrollView {
@@ -94,6 +95,10 @@ struct MeView: View {
                     sep
                     rowButton("trash", "Καθάρισμα μνήμης", cache > 0 ? "Προσωρινά αρχεία: " + ByteCountFormatter.string(fromByteCount: Int64(cache), countStyle: .file) : "Εικόνες και αποθηκευμένες σελίδες") {
                         Api.shared.clearCache(); ImageLoader.cache.removeAllObjects(); haptic(.medium); cache = Api.shared.cacheBytes
+                    }
+                    if !blockedRaw.isEmpty {
+                        sep
+                        rowButton("person.crop.circle.badge.xmark", "Κρυμμένοι χρήστες σχολίων (\(blockedRaw.split(separator: "\n").count))", "Πάτα για να ξαναβλέπεις τα σχόλιά τους") { blockedRaw = "" }
                     }
                     if ads.privacyButton {
                         sep

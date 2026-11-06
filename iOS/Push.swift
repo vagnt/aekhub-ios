@@ -27,8 +27,17 @@ final class Push: NSObject, MessagingDelegate {
         // Κάθε αλλαγή στις ρυθμίσεις ειδοποιήσεων → γράψιμο/ξεγράψιμο στα θέματα (με μικρή καθυστέρηση)
         Prefs.shared.objectWillChange
             .debounce(for: .seconds(1.5), scheduler: RunLoop.main)
-            .sink { [weak self] _ in self?.sync() }
+            .sink { [weak self] _ in self?.sync(); self?.share() }
             .store(in: &bag)
+        share()
+    }
+
+    /// Ρυθμίσεις που χρειάζεται το Notification Service Extension (ήσυχες ώρες, spoilers) → App Group
+    func share() {
+        guard let g = UserDefaults(suiteName: "group.gr.aekhub.app") else { return }
+        let p = Prefs.shared
+        g.set(p.quiet, forKey: "quiet"); g.set(p.quietFrom, forKey: "quietFrom"); g.set(p.quietTo, forKey: "quietTo")
+        g.set(p.quietAek, forKey: "quietAek"); g.set(p.quietUntil, forKey: "quietUntil"); g.set(p.spoiler, forKey: "spoiler")
     }
 
     nonisolated func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
@@ -52,7 +61,13 @@ final class Push: NSObject, MessagingDelegate {
                 s.insert("m_\(sp)_\(k)")
             }
         }
-        if p.news { s.insert("news_breaking") }
+        if p.news {
+            // Φίλτρο κατηγοριών: ios_news_<slug> (ο server στέλνει εκεί κάθε άρθρο της κύριας κατηγορίας του)
+            let cats = AppState.shared.config?.categories ?? []
+            let slugs = p.newsCats.compactMap { n in cats.first { $0.name == n }?.slug }
+            if p.newsCats.isEmpty || slugs.isEmpty { s.insert("news_breaking") }
+            else { for sl in slugs { s.insert("ios_news_" + sl.lowercased().replacingOccurrences(of: #"[^a-z0-9_\-]"#, with: "_", options: .regularExpression)) } }
+        }
         for m in p.matchAlerts { s.insert("match_\(m)") }
         return s
     }

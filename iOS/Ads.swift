@@ -45,6 +45,7 @@ final class Ads: NSObject, ObservableObject {
     // MARK: Έναρξη: συγκατάθεση → (ATT) → AdMob
 
     func start() {
+        if UserDefaults.standard.bool(forKey: "noads") { return } // screenshots για το App Store
         if Ads.shots { initAds(); return } // screenshots του CI: χωρίς παράθυρα
         let ci = UMPConsentInformation.sharedInstance
         let params = UMPRequestParameters()

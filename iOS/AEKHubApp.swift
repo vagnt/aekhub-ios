@@ -60,7 +60,7 @@ final class AppState: ObservableObject {
         Task { await load() }
     }
     func load() async {
-        if let c = try? await Api.shared.config() { config = c }
+        if let c = try? await Api.shared.config() { config = c; Push.shared.sync() } // κατηγορίες → topics ειδήσεων
     }
 
     /// aekhub://match/123 · aekhub://post/123 · aekhub://event/123 · aekhub://matches · aekhub://standings

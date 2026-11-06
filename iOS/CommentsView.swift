@@ -62,6 +62,18 @@ struct CommentsView: View {
     @State private var info: String?
     @State private var openedAt = Date()
     @FocusState private var focus: Bool
+    /// Όροι χρήσης (Apple 1.2: περιεχόμενο χρηστών) — μία φορά πριν από το πρώτο σχόλιο
+    @AppStorage("c_terms") private var termsOK = false
+    @State private var askTerms = false
+    /// Χρήστες που έκρυψες (μόνο σε αυτό το κινητό)
+    @AppStorage("c_blocked") private var blockedRaw = ""
+    var blocked: Set<String> { Set(blockedRaw.split(separator: "\n").map(String.init)) }
+    func hidden(_ c: CItem) -> Bool { !c.staff && blocked.contains(c.name) }
+    func block(_ name: String) {
+        var b = blocked; b.insert(name)
+        blockedRaw = b.sorted().joined(separator: "\n")
+        info = "Δεν θα βλέπεις πια σχόλια από «\(name)». Το αναίρεις από Εγώ → Κρυμμένοι χρήστες."
+    }
 
     var body: some View {
         NavigationStack {
@@ -75,8 +87,14 @@ struct CommentsView: View {
                             EmptyState(icon: "bubble.left.and.bubble.right", text: error ?? (open ? "Κανένα σχόλιο ακόμα. Γράψε πρώτος!" : (closedMsg.isEmpty ? "Τα σχόλια είναι κλειστά." : closedMsg)))
                         }
                         ForEach($items) { $c in
-                            CommentRow(c: $c, onReply: { replyTo = c; focus = true })
-                            ForEach($c.replies) { $r in CommentRow(c: $r, onReply: { replyTo = c; focus = true }).padding(.leading, 36) }
+                            if !hidden(c) {
+                                CommentRow(c: $c, onReply: { replyTo = c; focus = true }, onBlock: { block(c.name) }, onReported: { info = "Ευχαριστούμε — το σχόλιο θα ελεγχθεί από την ομάδα του AEK Hub." })
+                                ForEach($c.replies) { $r in
+                                    if !hidden(r) {
+                                        CommentRow(c: $r, onReply: { replyTo = c; focus = true }, onBlock: { block(r.name) }, onReported: { info = "Ευχαριστούμε — το σχόλιο θα ελεγχθεί από την ομάδα του AEK Hub." }).padding(.leading, 36)
+                                    }
+                                }
+                            }
                         }
                         if more { Button("Περισσότερα σχόλια") { Task { await load(reset: false) } }.font(F.body(14, .bold)).foregroundStyle(C.gold).frame(maxWidth: .infinity) }
                         if loading { ProgressView().tint(C.gold).frame(maxWidth: .infinity) }
@@ -89,6 +107,13 @@ struct CommentsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("Κλείσιμο") { dismiss() } } }
             .task { await load(reset: true) }
+            .alert("Όροι σχολίων", isPresented: $askTerms) {
+                Button("Αποδέχομαι") { termsOK = true; Task { await send() } }
+                Button("Διάβασε τους όρους") { if let u = URL(string: Api.site + "/oroi-xrisis/") { UIApplication.shared.open(u) } }
+                Button("Άκυρο", role: .cancel) {}
+            } message: {
+                Text("Στο AEK Hub δεν επιτρέπονται προσβολές, ρατσισμός, απειλές, spam ή άλλο ακατάλληλο περιεχόμενο — μηδενική ανοχή. Τα σχόλια ελέγχονται και όσα παραβιάζουν τους όρους σβήνονται, ενώ ο χρήστης αποκλείεται. Μπορείς να αναφέρεις ένα σχόλιο (σημαία) ή να κρύψεις έναν χρήστη.")
+            }
         }
         .preferredColorScheme(.dark)
     }
@@ -103,7 +128,7 @@ struct CommentsView: View {
             HStack(alignment: .bottom, spacing: 8) {
                 TextField("Γράψε ένα σχόλιο…", text: $text, axis: .vertical).lineLimit(1...5).focused($focus)
                     .font(F.body(14, .medium)).padding(10).background(RoundedRectangle(cornerRadius: 10).fill(C.panel2))
-                Button { Task { await send() } } label: {
+                Button { if termsOK { Task { await send() } } else { askTerms = true } } label: {
                     if sending { ProgressView().tint(C.ink).frame(width: 42, height: 42) }
                     else { Image(systemName: "paperplane.fill").foregroundStyle(C.ink).frame(width: 42, height: 42) }
                 }
@@ -147,6 +172,8 @@ struct CommentsView: View {
 private struct CommentRow: View {
     @Binding var c: CItem
     var onReply: () -> Void
+    var onBlock: () -> Void
+    var onReported: () -> Void
     @State private var reported = false
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -167,7 +194,10 @@ private struct CommentRow: View {
                         .foregroundStyle(c.liked ? C.live : C.muted)
                     Button("Απάντηση", action: onReply).foregroundStyle(C.muted)
                     Spacer()
-                    Button { Task { await report() } } label: { Image(systemName: reported ? "flag.fill" : "flag") }.foregroundStyle(C.muted).disabled(reported)
+                    Menu {
+                        Button(role: .destructive) { Task { await report() } } label: { Label(reported ? "Αναφέρθηκε" : "Αναφορά σχολίου", systemImage: "flag") }.disabled(reported)
+                        if !c.staff { Button(role: .destructive) { onBlock() } label: { Label("Απόκρυψη χρήστη «\(c.name)»", systemImage: "person.crop.circle.badge.xmark") } }
+                    } label: { Image(systemName: reported ? "flag.fill" : "ellipsis").frame(width: 30, height: 22) }.foregroundStyle(C.muted)
                 }.font(F.body(12, .bold)).buttonStyle(.plain).padding(.top, 2)
             }
         }
@@ -180,6 +210,7 @@ private struct CommentRow: View {
     }
     func report() async {
         reported = true
+        onReported()
         _ = try? await CommentsApi.call("comment/\(c.id)/report", form: ["x": "1"])
     }
 }
