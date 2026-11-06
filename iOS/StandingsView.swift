@@ -15,7 +15,7 @@ struct StandingsView: View {
                 let sports = unique(l.map { $0.sport.isEmpty ? "Άλλα" : $0.sport })
                 let sp = sports.contains(sport) ? sport : sports[0]
                 let ofSport = l.filter { ($0.sport.isEmpty ? "Άλλα" : $0.sport) == sp }
-                if hsc == .regular {
+                if hsc == .regular && UIScreen.main.bounds.width > UIScreen.main.bounds.height {
                     // iPad: όλες οι διοργανώσεις αριστερά (ανά άθλημα), ο πίνακας δεξιά
                     let t = l.first { $0.id == sel } ?? l.first { $0.rows.contains { $0.aek } } ?? l[0]
                     HStack(alignment: .top, spacing: 24) {
@@ -40,11 +40,11 @@ struct StandingsView: View {
                                 }
                             }.padding(.bottom, 30)
                         }
-                        .frame(width: 290)
+                        .frame(width: 270)
                         ScrollView {
                             VStack(spacing: 12) {
                                 PresentedBy(place: "standings")
-                                StandingTable(s: t, wide: true)
+                                StandingTable(s: t, wide: UIScreen.main.bounds.width > 1150)
                                 BannerAd(place: "home")
                             }.padding(.top, 8).padding(.bottom, 28).frame(maxWidth: 820)
                         }
@@ -59,14 +59,15 @@ struct StandingsView: View {
                         AekDropdown(label: "Διοργάνωση", value: t.league.isEmpty ? t.title : t.league, options: ofSport.map { (String($0.id), $0.league.isEmpty ? $0.title : $0.league) }) { sel = Int($0) ?? 0 }
                             .frame(maxWidth: .infinity)
                     }
-                    .padding(.horizontal, screenPad).padding(.vertical, 4)
+                    .padding(.horizontal, hsc == .regular ? 28 : screenPad).padding(.vertical, 4)
                     ScrollView {
                         VStack(spacing: 10) {
                             PresentedBy(place: "standings")
                             StandingTable(s: t)
                             BannerAd(place: "home")
                         }
-                        .padding(.top, 8).padding(.bottom, 28).padding(.horizontal, screenPad)
+                        .padding(.top, 8).padding(.bottom, 28).padding(.horizontal, hsc == .regular ? 28 : screenPad)
+                        .readable(820)
                     }
                     .refreshable { haptic(); await load() }
                 }

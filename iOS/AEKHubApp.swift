@@ -327,7 +327,7 @@ struct Sidebar: View {
                         ForEach(cats, id: \.slug) { c in
                             Button { app.tab = .home; app.deepLink = .category(c.slug, c.name) } label: {
                                 HStack(spacing: 12) {
-                                    Image(catIcon(c.icon)).renderingMode(.template).resizable().scaledToFit().frame(width: 20, height: 20).foregroundStyle(C.gold)
+                                    Image(catIcon(c.icon)).resizable().scaledToFit().frame(width: 24, height: 24)
                                     Text(c.name).font(F.body(15, .medium)).foregroundStyle(C.text2).lineLimit(1)
                                     Spacer()
                                 }

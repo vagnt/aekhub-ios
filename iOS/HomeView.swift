@@ -217,12 +217,12 @@ struct HomeView: View {
                     }
                     VStack(spacing: 16) {
                         PadLead(p: f)
-                        LazyVGrid(columns: grid, spacing: 18) { ForEach(d.top.prefix(2)) { PostTile(p: $0) } }
+                        LazyVGrid(columns: grid, spacing: 18) { ForEach(d.top.prefix(cols)) { PostTile(p: $0) } }
                     }
                 }
             }
             if let cats = app.config?.categories, !cats.isEmpty { CategoryMenu(items: cats).padding(.horizontal, -16) }
-            let rest = Array(d.top.dropFirst(d.featured == nil ? 0 : 2))
+            let rest = Array(d.top.dropFirst(d.featured == nil ? 0 : cols))
             if !rest.isEmpty {
                 GoldHeader(title: "Τελευταία νέα", action: "Ροή ειδήσεων", route: .feed).id("latest")
                 LazyVGrid(columns: grid, spacing: 20) { ForEach(rest) { PostTile(p: $0) } }
