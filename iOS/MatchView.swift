@@ -328,8 +328,8 @@ struct StatsSection: View {
                     }
                     GeometryReader { g in
                         HStack(spacing: 4) {
-                            HStack { Spacer(minLength: 0); Capsule().fill(h >= a ? C.gold : C.line2).frame(width: (g.size.width / 2 - 2) * h / tot) }
-                            HStack { Capsule().fill(a > h ? C.text2 : C.line2).frame(width: (g.size.width / 2 - 2) * a / tot); Spacer(minLength: 0) }
+                            HStack { Spacer(minLength: 0); Capsule().fill(h >= a ? C.gold : C.line2).frame(width: (g.size.width / 2 - 2) * CGFloat(h / tot)) }
+                            HStack { Capsule().fill(a > h ? C.text2 : C.line2).frame(width: (g.size.width / 2 - 2) * CGFloat(a / tot)); Spacer(minLength: 0) }
                         }
                     }.frame(height: 6)
                 }
