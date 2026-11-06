@@ -100,7 +100,7 @@ struct HomeView: View {
 }
 
 private struct SectionBlock: View {
-    let s: Section
+    let s: HomeSection
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {

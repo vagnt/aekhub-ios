@@ -51,6 +51,8 @@ final class Api {
         return dir.appendingPathComponent(String(h, radix: 16) + ".json")
     }
 
+    private func remember(_ path: String, _ data: Data) { lock.lock(); mem[path] = data; lock.unlock() }
+
     /// Η αποθηκευμένη απάντηση (χωρίς δίκτυο).
     func peek(_ path: String) -> J? {
         lock.lock(); let m = mem[path]; lock.unlock()
@@ -78,7 +80,7 @@ final class Api {
             guard (200..<300).contains(code) else { throw ApiError.http(code) }
             guard let first = data.first(where: { !($0 == 32 || $0 == 10 || $0 == 13 || $0 == 9) }), first == UInt8(ascii: "{") || first == UInt8(ascii: "["),
                   let j = J.parse(data) else { throw ApiError.notJSON }
-            lock.lock(); mem[path] = data; lock.unlock()
+            remember(path, data)
             try? data.write(to: file(path), options: .atomic)
             lastOk = Date()
             return j

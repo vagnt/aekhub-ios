@@ -244,7 +244,7 @@ struct MatchDetail: Identifiable {
     var hasLineups: Bool { !lineupHome.isEmpty || !lineupAway.isEmpty }
 }
 
-struct Section: Identifiable { let slug, name, icon: String; let items: [PostCard]; var id: String { slug }
+struct HomeSection: Identifiable { let slug, name, icon: String; let items: [PostCard]; var id: String { slug }
     init(_ j: J) { slug = j["slug"].str; name = j["name"].str; icon = j["icon"].str; items = j["items"].list(PostCard.init) }
 }
 struct Breaking { let text, url, label: String
@@ -261,11 +261,11 @@ struct HomeData {
     let featured: PostCard?
     let top: [PostCard]
     let matches: [MatchCard]
-    let sections: [Section]
+    let sections: [HomeSection]
     init(_ j: J) {
         next = j["next"].opt(MatchCard.init); liveHero = j["liveHero"].opt(LiveHero.init); breaking = j["breaking"].opt(Breaking.init)
         socials = j["socials"].list(Social.init); featured = j["featured"].opt(PostCard.init); top = j["top"].list(PostCard.init)
-        matches = j["matches"].list(MatchCard.init); sections = j["sections"].list(Section.init)
+        matches = j["matches"].list(MatchCard.init); sections = j["sections"].list(HomeSection.init)
     }
 }
 
