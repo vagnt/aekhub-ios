@@ -144,3 +144,63 @@ jobs:
         with:
           name: screens
           path: shots/*.png
+
+  # ── TestFlight: υπογραφή με τον λογαριασμό Apple Developer και ανέβασμα (χωρίς Mac) ──
+  # Θέλει τα secrets ASC_ISSUER_ID, ASC_KEY_ID, ASC_KEY_P8 (κλειδί App Store Connect API, ρόλος Admin).
+  # Χωρίς αυτά απλώς παραλείπεται. Το Xcode φτιάχνει μόνο του πιστοποιητικά/προφίλ (-allowProvisioningUpdates).
+  testflight:
+    runs-on: macos-15
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+    steps:
+      - name: Έλεγχος κλειδιών
+        id: keys
+        run: |
+          if [ -n "$ASC_KEY_P8" ] && [ -n "$ASC_KEY_ID" ] && [ -n "$ASC_ISSUER_ID" ]; then echo "ok=1" >> $GITHUB_OUTPUT; else echo "Λείπουν τα secrets ASC_* — παράλειψη TestFlight"; fi
+
+      - uses: actions/checkout@v4
+        if: steps.keys.outputs.ok == '1'
+
+      - name: Xcode
+        if: steps.keys.outputs.ok == '1'
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -v -i beta | sort -V | tail -1)
+          [ -z "$X" ] && X=$(ls -d /Applications/Xcode_16*.app | sort -V | tail -1)
+          sudo xcode-select -s "$X"
+          xcodebuild -version
+          xcodebuild -showsdks | grep -q watchos || xcodebuild -downloadPlatform watchOS
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Archive (υπογραφή)
+        if: steps.keys.outputs.ok == '1'
+        run: |
+          KEY="$RUNNER_TEMP/AuthKey_$ASC_KEY_ID.p8"
+          printf '%s\n' "$ASC_KEY_P8" > "$KEY"
+          echo "AUTHKEY=$KEY" >> $GITHUB_ENV
+          set -o pipefail
+          xcodebuild -project AEKHub.xcodeproj -scheme AEKHub -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/AEKHub.xcarchive" \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            -allowProvisioningUpdates -authenticationKeyPath "$KEY" \
+            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            archive > archive.log 2>&1 || { grep -E "error|Error|requires|No profiles|no devices" archive.log | sed 's/^/::error::/' | head -40; exit 1; }
+          grep -E "\*\* ARCHIVE" archive.log
+
+      - name: Ανέβασμα στο TestFlight
+        if: steps.keys.outputs.ok == '1'
+        run: |
+          set -o pipefail
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/AEKHub.xcarchive" \
+            -exportOptionsPlist ci/ExportOptions.plist -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates -authenticationKeyPath "$AUTHKEY" \
+            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            > export.log 2>&1 || { grep -iE "error|fail|invalid|missing" export.log | sed 's/^/::error::/' | head -60; exit 1; }
+          tail -20 export.log
+          echo "✅ Ανέβηκε στο TestFlight (build ${{ github.run_number }}). Σε 5–30′ εμφανίζεται στο App Store Connect → TestFlight."
+
+      - name: Καθάρισμα κλειδιού
+        if: always()
+        run: rm -f "$RUNNER_TEMP"/AuthKey_*.p8

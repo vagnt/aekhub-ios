@@ -107,6 +107,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func post(_ m: MatchCard, title: String, body: String, aek: Bool) {
+        if Push.shared.on { return } // έρχονται από τον server (push)
         if Prefs.shared.isQuiet() && !(aek && Prefs.shared.quietAek) { return }
         let c = UNMutableNotificationContent()
         c.title = Sports.emoji(m.sport) + " " + title
@@ -119,6 +120,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     /// ⏰ Υπενθύμιση 30′ πριν (τοπικά προγραμματισμένη → έρχεται και με κλειστό app)
     func scheduleReminders(_ items: [MatchCard]) {
+        if Push.shared.on { return } // τις υπενθυμίσεις τις στέλνει ο server
         let p = Prefs.shared
         center.getPendingNotificationRequests { reqs in
             let old = reqs.map(\.identifier).filter { $0.hasPrefix("rem-") }
@@ -145,6 +147,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     // MARK: Νέα άρθρα
 
     func checkNews(_ h: HomeData) {
+        if Push.shared.on { return }
         let p = Prefs.shared
         let posts = ([h.featured].compactMap { $0 } + h.top)
         guard let newest = posts.max(by: { $0.id < $1.id }) else { return }
@@ -162,6 +165,14 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         center.add(UNNotificationRequest(identifier: "p\(a.id)", content: c, trigger: nil))
     }
 
+    /// Ήρθε κανονικό push: σβήνουν οι τοπικά προγραμματισμένες υπενθυμίσεις (αλλιώς θα έρχονταν διπλές)
+    func clearLocal() {
+        center.getPendingNotificationRequests { reqs in
+            let ids = reqs.map(\.identifier).filter { $0.hasPrefix("rem-") }
+            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ids)
+        }
+    }
+
     func test() {
         let c = UNMutableNotificationContent()
         c.title = "⚽ Δοκιμή · ΑΕΚ [1]–0 Αντίπαλος"
@@ -177,8 +188,15 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        if let s = response.notification.request.content.userInfo["url"] as? String, let u = URL(string: s) {
-            await MainActor.run { AppState.shared.open(u) }
+        let info = response.notification.request.content.userInfo
+        // Τοπικές: url = aekhub://… · Push του server: match / post (ίδια δεδομένα με το Android)
+        var target: String?
+        if let s = info["url"] as? String, s.hasPrefix("aekhub://") { target = s }
+        else if let m = info["match"] as? String, let id = Int(m), id > 0 { target = "aekhub://match/\(id)" }
+        else if let p = info["post"] as? String, let id = Int(p), id > 0 { target = "aekhub://post/\(id)" }
+        else if let s = info["url"] as? String, let u = URL(string: s), u.host?.contains("aekhub.gr") == true {
+            await MainActor.run { UIApplication.shared.open(u) }
         }
+        if let target, let u = URL(string: target) { await MainActor.run { AppState.shared.open(u) } }
     }
 }

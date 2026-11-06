@@ -8,6 +8,7 @@ struct NotifSettingsView: View {
     @EnvironmentObject var p: Prefs
     @State private var status: UNAuthorizationStatus = .authorized
     @State private var open: Set<String> = []
+    @State private var pushMsg: String?
     @Environment(\.openURL) var openURL
     @Environment(\.dismiss) var dismiss
 
@@ -99,12 +100,15 @@ struct NotifSettingsView: View {
                         toggleRow("eye.slash", "Χωρίς spoilers", "Ειδοποιήσεις αγώνων χωρίς το σκορ.", $p.spoiler, last: true)
                     }
 
-                    Button { haptic(.medium); Notifier.shared.test() } label: {
+                    Button {
+                        haptic(.medium)
+                        if Push.shared.on { Task { pushMsg = await Push.shared.serverTest() } } else { Notifier.shared.test() }
+                    } label: {
                         HStack(spacing: 12) {
                             iconBox("bell.badge", true)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Δοκιμή ειδοποίησης").font(F.body(15, .heavy)).foregroundStyle(C.text)
-                                Text("Έρχεται σε 3″ — για να δεις ότι όλα δουλεύουν.").font(F.body(12)).foregroundStyle(C.muted)
+                                Text(pushMsg ?? (Push.shared.on ? "Από τον server, όπως οι κανονικές ειδοποιήσεις." : "Έρχεται σε 3″ — για να δεις ότι όλα δουλεύουν.")).font(F.body(12)).foregroundStyle(pushMsg?.hasPrefix("✗") == true ? C.live : C.muted)
                             }
                             Spacer()
                         }

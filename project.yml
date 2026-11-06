@@ -11,7 +11,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.5.0"
+    MARKETING_VERSION: "0.6.0"
     CURRENT_PROJECT_VERSION: "1"
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: H3BX78S223
@@ -28,6 +28,10 @@ packages:
   GoogleUserMessagingPlatform:
     url: https://github.com/googleads/swift-package-manager-google-user-messaging-platform
     majorVersion: 2.7.0
+  # Ειδοποιήσεις push μέσω Firebase Cloud Messaging (ίδια topics με το Android)
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk
+    majorVersion: 11.15.0
 
 targets:
   AEKHub:
@@ -48,6 +52,10 @@ targets:
         TARGETED_DEVICE_FAMILY: "1,2"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_CFBundleDisplayName: AEK Hub
+    entitlements:
+      path: iOS/AEKHub.entitlements
+      properties:
+        aps-environment: development
     info:
       path: iOS/Info.plist
       properties:
@@ -125,7 +133,7 @@ targets:
           - SKAdNetworkIdentifier: 3rd42ekr43.skadnetwork
           - SKAdNetworkIdentifier: 3qcr597p9d.skadnetwork
         # Έλεγχος αγώνων στο παρασκήνιο (τοπικές ειδοποιήσεις χωρίς push) — το iOS αποφασίζει πόσο συχνά
-        UIBackgroundModes: [fetch]
+        UIBackgroundModes: [fetch, remote-notification]
         BGTaskSchedulerPermittedIdentifiers: [gr.aekhub.app.refresh]
         # aekhub://match/123 · aekhub://post/123 (widgets, ειδοποιήσεις)
         CFBundleURLTypes:
@@ -144,6 +152,8 @@ targets:
     dependencies:
       - package: GoogleMobileAds
       - package: GoogleUserMessagingPlatform
+      - package: Firebase
+        product: FirebaseMessaging
       - target: AEKHubWidgets
         embed: true
       # Η εφαρμογή του ρολογιού μπαίνει ΜΕΣΑ στο .ipa του iPhone (φάκελος Watch)

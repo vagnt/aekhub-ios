@@ -1,12 +1,18 @@
 import SwiftUI
 import UIKit
+import FirebaseMessaging
 
 /// Συντομεύσεις εικονιδίου (παρατεταμένο πάτημα) + έναρξη ειδοποιήσεων/παρασκηνίου
 @MainActor
 final class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         Notifier.shared.setup()
+        Push.shared.setup()
         return true
+    }
+    /// Push: το token της Apple → Firebase (ρητά, εκτός από το swizzling του Firebase)
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Messaging.messaging().apnsToken = deviceToken
     }
     func application(_ application: UIApplication, configurationForConnecting s: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
         if let item = options.shortcutItem { AppState.shared.shortcut(item.type) }
