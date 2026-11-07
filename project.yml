@@ -243,6 +243,10 @@ targets:
         PRODUCT_NAME: AEKHubWidgets
         TARGETED_DEVICE_FAMILY: "1,2"
         SKIP_INSTALL: YES
+    entitlements:
+      path: Widgets/AEKHubWidgets.entitlements
+      properties:
+        com.apple.security.application-groups: [group.gr.aekhub.app]  # λογότυπα Live Activity (LiveLogos)
     info:
       path: Widgets/Info.plist
       properties:
