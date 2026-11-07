@@ -18,7 +18,7 @@
 - Server `aekhub-site` → `plugins/aekhub-app/inc/live-activity.php` (1.6.0): σε κάθε αλλαγή σκορ/κατάστασης/ρολογιού/γεγονότων → Firebase `apns.live_activity_token` (update · end στη λήξη · start όταν ο αγώνας γίνεται live). Τα πεδία του `ContentState` πρέπει να είναι ΙΔΙΑ και στα δύο· νέα πεδία ΜΟΝΟ optional.
 - `clk` = στιγμή του 0′ → το λεπτό «τρέχει» μόνο του στην οθόνη (`minuteText`, μορφή 67:12). Γκολ ΑΕΚ → alert χωρίς ήχο (τον ήχο τον έχει η κανονική ειδοποίηση).
 - **Λογότυπα** (ζήτησε ο χρήστης: «και στο CarPlay και στο ρολόι», «να μην είναι βαρύ»): `Shared/LiveLogos.swift` — το app κατεβάζει τα σήματα των αγώνων της ΑΕΚ (72px PNG, ~3–6 KB, ανά εβδομάδα, σβήνονται μετά από 45 μέρες) στο App Group → το widget τα διαβάζει (`crest`). ⚠ Το widget extension `gr.aekhub.app.widgets` θέλει App Group (χειροκίνητα στο developer.apple.com, όπως το notify) + entitlement στο `project.yml`· χωρίς αυτό → αρχικά γράμματα.
-- **iOS 18+** `LiveMatchWidget18` με `.supplementalActivityFamilies([.small, .medium])` → `SmallView` (σήματα + σκορ + λεπτό) για Apple Watch Smart Stack και CarPlay· στο `AEKWidgets` με `if #available`.
+- **iOS 18+** `.smallFamilyIfAvailable()` (= `.supplementalActivityFamilies([.small, .medium])` με `if #available` μέσα σε συνάρτηση `some WidgetConfiguration`, SE-0360) + `AdaptiveView` → `SmallView` (σήματα + σκορ + λεπτό) για Apple Watch Smart Stack και CarPlay. ⚠ Το `WidgetBundle` ΔΕΝ δέχεται `if #available`.
 - Μπάρα προόδου: μπάσκετ/πόλο ανά Q, βόλεϊ ανά σετ (ίδιο με server `aekhub_la_progress`).
 - ⚠ Δοκιμάστηκε μόνο με προσομοίωση του server· ζωντανά όχι.
 

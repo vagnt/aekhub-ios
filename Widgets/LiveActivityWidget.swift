@@ -6,13 +6,14 @@ import ActivityKit
 struct LiveMatchWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: LiveMatchAttributes.self) { ctx in
-            LockView(a: ctx.attributes, s: ctx.state)
+            AdaptiveView(a: ctx.attributes, s: ctx.state)
                 .activityBackgroundTint(Color.black.opacity(0.78))
                 .activitySystemActionForegroundColor(C.gold)
                 .widgetURL(URL(string: "aekhub://match/\(ctx.attributes.matchId)"))
         } dynamicIsland: { ctx in
             Self.island(ctx)
         }
+        .smallFamilyIfAvailable()
     }
 
     static func island(_ ctx: ActivityViewContext<LiveMatchAttributes>) -> DynamicIsland {
@@ -63,19 +64,19 @@ struct LiveMatchWidget: Widget {
     }
 }
 
-/// iOS 18+: ίδιο Live Activity + μικρή εμφάνιση (.small) για Apple Watch (Smart Stack) και CarPlay, με τα λογότυπα.
-@available(iOS 18.0, *)
-struct LiveMatchWidget18: Widget {
-    var body: some WidgetConfiguration {
-        ActivityConfiguration(for: LiveMatchAttributes.self) { ctx in
-            FamilyView(a: ctx.attributes, s: ctx.state)
-                .activityBackgroundTint(Color.black.opacity(0.78))
-                .activitySystemActionForegroundColor(C.gold)
-                .widgetURL(URL(string: "aekhub://match/\(ctx.attributes.matchId)"))
-        } dynamicIsland: { ctx in
-            LiveMatchWidget.island(ctx)
-        }
-        .supplementalActivityFamilies([.small, .medium])
+/// iOS 18+: μικρή εμφάνιση (.small) για Apple Watch (Smart Stack) και CarPlay, με τα λογότυπα.
+extension WidgetConfiguration {
+    func smallFamilyIfAvailable() -> some WidgetConfiguration {
+        if #available(iOS 18.0, *) { return self.supplementalActivityFamilies([.small, .medium]) }
+        else { return self }
+    }
+}
+
+struct AdaptiveView: View {
+    let a: LiveMatchAttributes
+    let s: LiveMatchAttributes.ContentState
+    var body: some View {
+        if #available(iOS 18.0, *) { FamilyView(a: a, s: s) } else { LockView(a: a, s: s) }
     }
 }
 
