@@ -186,7 +186,7 @@ final class LiveActivities {
             return min(5, max(1, n)) / 5 - 0.1
         }
         if ["halftime", "eth"].contains(m.status) { return 0.5 }
-        let mn = Double(liveMinute(m.clock, fallback: m.minute).filter(\.isNumber).prefix(3)) ?? 0
+        let mn = Double(liveMinute(m.clock, fallback: m.minute).trimmingCharacters(in: .whitespaces).prefix(while: \.isNumber)) ?? 0 // «45+3′» → 45
         let total: Double = m.sport.contains("football") ? 90 : (m.sport == "futsal" ? 40 : (m.sport == "handball" ? 60 : 40))
         return min(1, mn / total)
     }

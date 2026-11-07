@@ -33,7 +33,7 @@ struct LiveMatchWidget: Widget {
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(spacing: 6) {
-                        if s.status != "finished" && hasClock(a) { bar(s.progress) }
+                        if s.status != "finished" && hasClock(a) { bar(s.progress, segments(a)) }
                         HStack {
                             Text(footLine(a, s).isEmpty ? s.phase : footLine(a, s)).font(.system(size: 13)).foregroundStyle(.white.opacity(0.8)).lineLimit(1)
                             Spacer()
@@ -215,13 +215,44 @@ func footLine(_ a: LiveMatchAttributes, _ s: LiveMatchAttributes.ContentState) -
     return s.last
 }
 
-func bar(_ p: Double) -> some View {
-    GeometryReader { g in
+/// Τμήματα της μπάρας: μπάσκετ/πόλο 4 περίοδοι, τα άλλα 2 ημίχρονα
+func segments(_ a: LiveMatchAttributes) -> Int { ["basketball", "waterpolo"].contains(a.sport) ? 4 : 2 }
+
+/// Μπάρα χρόνου χωρισμένη ανά περίοδο/ημίχρονο: σήμα (ρόμβος) στο τέλος κάθε περιόδου,
+/// χρυσό όταν έχει περάσει, και φωτεινή «κεφαλή» στο σημείο που βρίσκεται ο αγώνας.
+func bar(_ p: Double, _ n: Int = 2) -> some View {
+    let p = max(0, min(1, p)), gap: CGFloat = 4
+    return GeometryReader { g in
+        let w = g.size.width, seg = (w - gap * CGFloat(n - 1)) / CGFloat(n)
         ZStack(alignment: .leading) {
-            Capsule().fill(Color.white.opacity(0.15))
-            Capsule().fill(C.goldGrad).frame(width: g.size.width * CGFloat(max(0, min(1, p))))
-        }
-    }.frame(height: 5)
+            ForEach(0..<n, id: \.self) { i in
+                let f = max(0, min(1, p * Double(n) - Double(i)))
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.white.opacity(0.13))
+                    Capsule().fill(C.goldGrad).frame(width: seg * CGFloat(f)).opacity(f > 0 ? 1 : 0)
+                }
+                .frame(width: seg, height: 4)
+                .offset(x: CGFloat(i) * (seg + gap))
+            }
+            // σήματα τέλους περιόδου / ημιχρόνου
+            ForEach(1..<n, id: \.self) { i in
+                let done = p >= Double(i) / Double(n) - 0.0001
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(done ? C.gold : Color(white: 0.22))
+                    .overlay(RoundedRectangle(cornerRadius: 1.5).stroke(done ? Color.white.opacity(0.55) : Color.white.opacity(0.35), lineWidth: 1))
+                    .frame(width: 7, height: 7).rotationEffect(.degrees(45))
+                    .shadow(color: done ? C.gold.opacity(0.7) : .clear, radius: 3)
+                    .offset(x: CGFloat(i) * (seg + gap) - gap / 2 - 3.5)
+            }
+            // κεφαλή προόδου
+            if p > 0 && p < 1 && abs(p * Double(n) - (p * Double(n)).rounded()) > 0.01 {
+                let i = min(n - 1, Int(p * Double(n))), f = p * Double(n) - Double(i)
+                Circle().fill(Color.white).frame(width: 6, height: 6)
+                    .shadow(color: C.gold, radius: 4)
+                    .offset(x: CGFloat(i) * (seg + gap) + seg * CGFloat(f) - 3)
+            }
+        }.frame(height: 10)
+    }.frame(height: 10)
 }
 
 /// Κλειδωμένη οθόνη
@@ -250,7 +281,7 @@ struct LockView: View {
                 Spacer(minLength: 4)
                 VStack(spacing: 4) { crest(a.away, a.aek == "away", 42); name(a.away, a.aek == "away") }.frame(minWidth: 60, maxWidth: 90)
             }
-            if s.status != "finished" && hasClock(a) { bar(s.progress) }
+            if s.status != "finished" && hasClock(a) { bar(s.progress, segments(a)) }
             HStack {
                 Text(footLine(a, s).isEmpty ? (a.venue.isEmpty ? " " : a.venue) : footLine(a, s)).font(.system(size: 13)).foregroundStyle(.white.opacity(0.75)).lineLimit(1)
                 Spacer()
