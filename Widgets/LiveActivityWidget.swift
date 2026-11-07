@@ -33,9 +33,9 @@ struct LiveMatchWidget: Widget {
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(spacing: 6) {
-                        if s.status != "finished" { bar(s.progress) }
+                        if s.status != "finished" && hasClock(a) { bar(s.progress) }
                         HStack {
-                            Text(s.last.isEmpty ? s.phase : s.last).font(.system(size: 13)).foregroundStyle(.white.opacity(0.8)).lineLimit(1)
+                            Text(footLine(a, s).isEmpty ? s.phase : footLine(a, s)).font(.system(size: 13)).foregroundStyle(.white.opacity(0.8)).lineLimit(1)
                             Spacer()
                             Text(a.competition).font(.system(size: 13)).foregroundStyle(.white.opacity(0.6)).lineLimit(1)
                         }
@@ -45,7 +45,7 @@ struct LiveMatchWidget: Widget {
                 Image("HubLogo").resizable().scaledToFit().frame(width: 22, height: 22).clipShape(Circle())
             } compactTrailing: {
                 HStack(spacing: 4) {
-                    Text("\(s.sh)–\(s.sa)").font(.system(size: 15, weight: .heavy)).foregroundStyle(s.goal ? C.gold : .white).monospacedDigit()
+                    Text("\(s.ph ?? s.sh)–\(s.pa ?? s.sa)").font(.system(size: 15, weight: .heavy)).foregroundStyle(s.goal ? C.gold : .white).monospacedDigit()
                     if s.status != "finished" { minuteText(s).font(.system(size: 12, weight: .bold)).foregroundStyle(C.live).lineLimit(1).frame(maxWidth: 44) }
                 }
             } minimal: {
@@ -138,12 +138,34 @@ func name(_ n: String, _ aek: Bool) -> some View {
 }
 
 func score(_ a: LiveMatchAttributes, _ s: LiveMatchAttributes.ContentState, _ size: CGFloat) -> some View {
-    HStack(spacing: 8) {
-        Text(s.sh).foregroundStyle(a.aek == "home" ? C.gold : .white)
-        Text("–").foregroundStyle(.white.opacity(0.35))
-        Text(s.sa).foregroundStyle(a.aek == "away" ? C.gold : .white)
+    VStack(spacing: 0) {
+        if let per = s.per { Text(per).font(.system(size: max(9, size * 0.22), weight: .heavy)).tracking(0.8).foregroundStyle(C.gold) }
+        HStack(spacing: size * 0.16) {
+            if s.ph != nil { setBadge(s.sh, a.aek == "home", size) }
+            Text(s.ph ?? s.sh).foregroundStyle(a.aek == "home" ? C.gold : .white)
+            Text("–").foregroundStyle(.white.opacity(0.35))
+            Text(s.pa ?? s.sa).foregroundStyle(a.aek == "away" ? C.gold : .white)
+            if s.ph != nil { setBadge(s.sa, a.aek == "away", size) }
+        }
+        .font(F.disp(size)).monospacedDigit()
     }
-    .font(F.disp(size)).monospacedDigit()
+}
+
+/// 🏐 Σετ δίπλα στους πόντους (μικρό κουτάκι)
+func setBadge(_ v: String, _ aek: Bool, _ size: CGFloat) -> some View {
+    Text(v).font(F.disp(size * 0.5)).monospacedDigit()
+        .foregroundStyle(aek ? C.ink : .white)
+        .frame(minWidth: size * 0.5).padding(.vertical, 1)
+        .background(RoundedRectangle(cornerRadius: 5).fill(aek ? C.gold : Color.white.opacity(0.18)))
+}
+
+/// Μπάρα χρόνου μόνο σε αθλήματα με ρολόι (όχι βόλεϊ)
+func hasClock(_ a: LiveMatchAttributes) -> Bool { a.sport != "volleyball" }
+
+/// Κάτω γραμμή: σκορ ανά σετ/περίοδο (βόλεϊ πάντα, τα άλλα στο τελικό) αλλιώς τελευταίο γεγονός
+func footLine(_ a: LiveMatchAttributes, _ s: LiveMatchAttributes.ContentState) -> String {
+    if !s.periods.isEmpty && (a.sport == "volleyball" || s.status == "finished") { return s.periods.joined(separator: " · ") }
+    return s.last
 }
 
 func bar(_ p: Double) -> some View {
@@ -181,9 +203,9 @@ struct LockView: View {
                 Spacer()
                 VStack(spacing: 4) { crest(a.away, a.aek == "away", 42); name(a.away, a.aek == "away") }.frame(width: 90)
             }
-            if s.status != "finished" { bar(s.progress) }
+            if s.status != "finished" && hasClock(a) { bar(s.progress) }
             HStack {
-                Text(s.last.isEmpty ? (a.venue.isEmpty ? " " : a.venue) : s.last).font(.system(size: 13)).foregroundStyle(.white.opacity(0.75)).lineLimit(1)
+                Text(footLine(a, s).isEmpty ? (a.venue.isEmpty ? " " : a.venue) : footLine(a, s)).font(.system(size: 13)).foregroundStyle(.white.opacity(0.75)).lineLimit(1)
                 Spacer()
                 Text(s.phase).font(.system(size: 13)).foregroundStyle(.white.opacity(0.75)).lineLimit(1)
             }

@@ -98,7 +98,7 @@ final class LiveActivities {
 
     /// Από κάθε φρέσκια κατάσταση αγώνα (λίστα αγώνων, σελίδα αγώνα, έλεγχος παρασκηνίου)
     private var ccAt = Date.distantPast
-    func update(_ m: MatchCard, last: String = "") {
+    func update(_ m: MatchCard, last: String = "", periods: [String]? = nil) {
         prefetch([m])
         // 🎛 Control Center: φρέσκο σκορ το πολύ ανά λεπτό
         if #available(iOS 18.0, *), m.live || m.finished, Date().timeIntervalSince(ccAt) > 60 {
@@ -123,6 +123,19 @@ final class LiveActivities {
             status: m.status, minute: m.live ? liveMinute(m.clock, fallback: m.minute.isEmpty ? m.statusLabel : m.minute) : (m.finished ? "ΤΕΛΙΚΟ" : m.time),
             phase: m.statusLabel, last: last.isEmpty ? (existing?.content.state.last ?? "") : last, progress: progress(m), periods: [], goal: goal)
         st.clk = clockZero(m)
+        st.periods = periods ?? existing?.content.state.periods ?? []
+        // 🏐 Βόλεϊ live: μεγάλο = πόντοι του σετ («2ο Σετ · 12–8» από την πηγή), μικρά = σετ — όπως ο server
+        if m.sport == "volleyball" && m.live {
+            let set = (Int(st.sh) ?? 0) + (Int(st.sa) ?? 0) + 1
+            st.per = set >= 5 ? "TIE-BREAK" : "ΣΕΤ \(set)"
+            st.minute = st.per ?? ""
+            if let r = m.minute.range(of: #"(\d+)\s*[–-]\s*(\d+)\s*$"#, options: .regularExpression) {
+                let nums = m.minute[r].split(whereSeparator: { !$0.isNumber }).map(String.init)
+                if nums.count == 2 { st.ph = nums[0]; st.pa = nums[1] }
+            }
+            if st.ph == nil { st.ph = existing?.content.state.ph ?? "0"; st.pa = existing?.content.state.pa ?? "0" }
+            st.periods = Array(st.periods.prefix(max(0, set - 1)))
+        }
         let content = ActivityContent(state: st, staleDate: Date().addingTimeInterval(m.live ? 30 * 60 : 3600))
 
         if let a = existing {

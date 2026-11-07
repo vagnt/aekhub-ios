@@ -16,6 +16,9 @@ struct LiveMatchAttributes: ActivityAttributes {
         var periods: [String]   // «Q1 18–15» …
         var goal: Bool          // μόλις μπήκε γκολ της ΑΕΚ
         var clk: Double? = nil  // χρονική στιγμή (epoch, δευτ.) του 0′ → το λεπτό «τρέχει» μόνο του χωρίς push
+        var ph: String? = nil   // 🏐 βόλεϊ live: πόντοι του τρέχοντος σετ (μεγάλα)· τότε sh/sa = σετ (μικρά)
+        var pa: String? = nil
+        var per: String? = nil  // «ΣΕΤ 2» / «TIE-BREAK»
     }
     var matchId: Int
     var home: String
