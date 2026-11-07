@@ -106,30 +106,52 @@ struct FamilyView: View {
     }
 }
 
-/// Apple Watch / CarPlay: δύο σήματα, σκορ, λεπτό
+/// Apple Watch / CarPlay (μικρή οθόνη): σήματα στις άκρες, ΕΝΑ κείμενο σκορ στη μέση που μικραίνει αν δεν χωράει.
+/// Βόλεϊ: τα σετ σε κουτάκι κάτω από κάθε σήμα (όχι δίπλα στο σκορ — εκεί δεν χωρούσαν και έκοβαν τους πόντους).
 struct SmallView: View {
     let a: LiveMatchAttributes
     let s: LiveMatchAttributes.ContentState
     var body: some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 6) {
-                VStack(spacing: 2) { crest(a.home, a.aek == "home", 30); short(a.home, a.aek == "home") }
-                Spacer(minLength: 2)
-                score(a, s, 34).lineLimit(1).minimumScaleFactor(0.6)
-                Spacer(minLength: 2)
-                VStack(spacing: 2) { crest(a.away, a.aek == "away", 30); short(a.away, a.aek == "away") }
+        VStack(spacing: 3) {
+            HStack(spacing: 4) {
+                side(a.home, a.aek == "home", s.ph != nil ? s.sh : nil)
+                Spacer(minLength: 0)
+                (Text(s.ph ?? s.sh).foregroundColor(a.aek == "home" ? C.gold : .white)
+                 + Text("–").foregroundColor(.white.opacity(0.4))
+                 + Text(s.pa ?? s.sa).foregroundColor(a.aek == "away" ? C.gold : .white))
+                    .font(F.disp(32)).monospacedDigit()
+                    .lineLimit(1).minimumScaleFactor(0.5).layoutPriority(1)
+                Spacer(minLength: 0)
+                side(a.away, a.aek == "away", s.ph != nil ? s.sa : nil)
             }
             Group {
                 if s.status == "finished" { Text("ΤΕΛΙΚΟ").foregroundStyle(C.gold) }
                 else if ["halftime", "ht", "break", "eth"].contains(s.status) { Text("ΗΜΙΧΡΟΝΟ").foregroundStyle(C.gold) }
-                else { HStack(spacing: 4) { Circle().fill(C.live).frame(width: 6, height: 6); minuteText(s).foregroundStyle(.white) } }
+                else {
+                    HStack(spacing: 4) {
+                        Circle().fill(C.live).frame(width: 6, height: 6)
+                        if let per = s.per { Text(per).foregroundStyle(.white) } else { minuteText(s).foregroundStyle(.white) }
+                    }
+                }
             }
             .font(.system(size: 12, weight: .heavy)).lineLimit(1)
         }
         .padding(.horizontal, 8).padding(.vertical, 6)
     }
-    func short(_ n: String, _ aek: Bool) -> some View {
-        Text(String(n.upperGr.prefix(3))).font(.system(size: 10, weight: .heavy)).foregroundStyle(aek ? C.gold : .white.opacity(0.85))
+    /// Σήμα + από κάτω: τα σετ (βόλεϊ) ή τα 3 πρώτα γράμματα
+    @ViewBuilder func side(_ n: String, _ aek: Bool, _ sets: String?) -> some View {
+        VStack(spacing: 2) {
+            crest(n, aek, 28)
+            if let sets {
+                Text("σετ \(sets)").font(.system(size: 9, weight: .heavy))
+                    .foregroundStyle(aek ? C.ink : .white)
+                    .padding(.horizontal, 5).padding(.vertical, 1)
+                    .background(Capsule().fill(aek ? C.gold : Color.white.opacity(0.18)))
+            } else {
+                Text(String(n.upperGr.prefix(3))).font(.system(size: 10, weight: .heavy)).foregroundStyle(aek ? C.gold : .white.opacity(0.85))
+            }
+        }
+        .frame(width: 40)
     }
 }
 
