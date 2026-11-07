@@ -124,7 +124,7 @@ final class LiveActivities {
         let prev = lastScore[m.id]
         lastScore[m.id] = score
         var goal = false
-        if let prev, prev != score {
+        if let prev, prev != score, m.sport == "football" { // «ΓΚΟΛ!» μόνο στο ποδόσφαιρο ανδρών (ζήτησε ο χρήστης)
             let ph = Int(prev.split(separator: "-").first ?? "") ?? 0, pa = Int(prev.split(separator: "-").last ?? "") ?? 0
             goal = (m.aek == "home" && (Int(m.scoreHome) ?? 0) > ph) || (m.aek == "away" && (Int(m.scoreAway) ?? 0) > pa)
         }

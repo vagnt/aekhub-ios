@@ -45,7 +45,7 @@ struct MatchView: View {
     func load() async {
         do {
             let x = try await Api.shared.match(id)
-            if let old = d, old.card.scoreHome != x.card.scoreHome || old.card.scoreAway != x.card.scoreAway { haptic(.heavy) }
+            if let old = d, x.card.sport == "football", old.card.scoreHome != x.card.scoreHome || old.card.scoreAway != x.card.scoreAway { haptic(.heavy) } // δόνηση μόνο σε γκολ ποδοσφαίρου ανδρών
             d = x; error = false
             LiveActivities.shared.update(x.card, periods: x.periods.filter { !$0.home.isEmpty }.map { "\(Int($0.home) ?? 0)–\(Int($0.away) ?? 0)" })
         } catch { if d == nil { self.error = true } }
