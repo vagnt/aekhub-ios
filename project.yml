@@ -163,6 +163,8 @@ targets:
         embed: true
       - target: AEKHubNotify
         embed: true
+      - target: AEKHubControls
+        embed: true
       # Η εφαρμογή του ρολογιού μπαίνει ΜΕΣΑ στο .ipa του iPhone (φάκελος Watch)
       - target: AEKHubWatch
         embed: true
@@ -259,6 +261,29 @@ targets:
           - Manrope-ExtraBold.ttf
           - SofiaSans-ExtraBold.ttf
           - SofiaSans-Black.ttf
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+
+  # 🎛 Control Center (iOS 18+): «Αγώνας ΑΕΚ»
+  AEKHubControls:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: Controls
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: gr.aekhub.app.controls
+        PRODUCT_NAME: AEKHubControls
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: YES
+    info:
+      path: Controls/Info.plist
+      properties:
+        CFBundleDisplayName: AEK Hub
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
 

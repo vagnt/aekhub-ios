@@ -45,6 +45,8 @@ final class Prefs: ObservableObject {
     @Published var spoiler: Bool { didSet { d.set(spoiler, forKey: "n_spoiler") } }
     @Published var matchAlerts: Set<Int> { didSet { d.set(Array(matchAlerts), forKey: "n_alerts") } }
     @Published var mutedMatches: Set<Int> { didSet { d.set(Array(mutedMatches), forKey: "n_muted") } }
+    /// 📲 Αγώνες που ο χρήστης ζήτησε «στην οθόνη κλειδώματος» από πριν (ανοίγει μόνο του στη σέντρα)
+    @Published var laPins: Set<Int> { didSet { d.set(Array(laPins), forKey: "n_lapins") } }
     /// «Σίγαση για λίγο» (1 ώρα, 2 ώρες, ως το πρωί): ως πότε
     @Published var quietUntil: Double { didSet { d.set(quietUntil, forKey: "n_quntil") } }
     @Published var stats: Bool { didSet { d.set(stats, forKey: "stats_on") } }
@@ -68,6 +70,7 @@ final class Prefs: ObservableObject {
         quietAek = d.object(forKey: "n_qaek") as? Bool ?? true
         spoiler = d.bool(forKey: "n_spoiler")
         matchAlerts = Set((d.array(forKey: "n_alerts") as? [Int]) ?? [])
+        laPins = Set((d.array(forKey: "n_lapins") as? [Int]) ?? [])
         mutedMatches = Set((d.array(forKey: "n_muted") as? [Int]) ?? [])
         quietUntil = d.double(forKey: "n_quntil")
         stats = d.object(forKey: "stats_on") as? Bool ?? true
@@ -97,6 +100,11 @@ final class Prefs: ObservableObject {
     func alertOn(_ m: MatchCard) -> Bool {
         all && (matchAlerts.contains(m.id) || (!mutedMatches.contains(m.id) && sports.contains(m.sport) && kinds.contains("\(m.sport):\(Kinds.reminder)")))
     }
+    func toggleLaPin(_ m: MatchCard) {
+        if laPins.contains(m.id) { laPins.remove(m.id); LiveActivities.shared.end(m.id) }
+        else { laPins.insert(m.id); if m.live { LiveActivities.shared.update(m) } }
+    }
+
     func toggleMatchAlert(_ m: MatchCard) {
         if alertOn(m) {
             if matchAlerts.contains(m.id) { matchAlerts.remove(m.id) }

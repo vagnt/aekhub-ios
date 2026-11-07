@@ -1,5 +1,6 @@
 import Foundation
 import ActivityKit
+import WidgetKit
 
 /// Ξεκινά / ενημερώνει / κλείνει τα Live Activities των αγώνων (ρύθμιση «Live Activities» στο «Εγώ»).
 /// Με push (λογαριασμός Developer): κάθε activity δίνει token στον server (`/app/la-token`) → ο server
@@ -64,7 +65,7 @@ final class LiveActivities {
         var f = ["kind": "start", "token": t]
         if on {
             f["sports"] = p.sports.sorted().joined(separator: ",")
-            f["matches"] = p.matchAlerts.map(String.init).joined(separator: ",")
+            f["matches"] = p.matchAlerts.union(p.laPins).map(String.init).joined(separator: ",")
         } else { f["off"] = "1" }
         let sig = f.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: "&") + "|" + (Push.shared.token ?? "")
         guard UserDefaults.standard.string(forKey: "la_start_sig") != sig else { return }
@@ -96,11 +97,16 @@ final class LiveActivities {
     }
 
     /// Από κάθε φρέσκια κατάσταση αγώνα (λίστα αγώνων, σελίδα αγώνα, έλεγχος παρασκηνίου)
+    private var ccAt = Date.distantPast
     func update(_ m: MatchCard, last: String = "") {
         prefetch([m])
+        // 🎛 Control Center: φρέσκο σκορ το πολύ ανά λεπτό
+        if #available(iOS 18.0, *), m.live || m.finished, Date().timeIntervalSince(ccAt) > 60 {
+            ccAt = Date(); ControlCenter.shared.reloadControls(ofKind: "gr.aekhub.control.match")
+        }
         let p = Prefs.shared
         guard p.liveActivities, p.all, ActivityAuthorizationInfo().areActivitiesEnabled else { return }
-        let follow = p.matchAlerts.contains(m.id) || p.sports.contains(m.sport)
+        let follow = p.laPins.contains(m.id) || p.matchAlerts.contains(m.id) || p.sports.contains(m.sport)
         let existing = find(m.id)
         guard existing != nil || (m.live && follow) else { return }
 
@@ -161,6 +167,11 @@ final class LiveActivities {
         let total: Double = m.sport.contains("football") ? 90 : (m.sport == "futsal" ? 40 : (m.sport == "handball" ? 60 : 40))
         return min(1, mn / total)
     }
+
+    /// Μπορεί αυτή η συσκευή να δείξει Live Activity;
+    var available: Bool { ActivityAuthorizationInfo().areActivitiesEnabled }
+    func isOn(_ id: Int) -> Bool { find(id) != nil }
+    func end(_ id: Int) { if let a = find(id) { Task { await a.end(nil, dismissalPolicy: .immediate) } } }
 
     func endAll() {
         for a in Activity<LiveMatchAttributes>.activities { Task { await a.end(nil, dismissalPolicy: .immediate) } }

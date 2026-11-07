@@ -70,6 +70,7 @@ struct MatchView: View {
             VStack(spacing: 14) {
                 MatchHero(d: d, alert: prefs.alertOn(d.card), back: embedded ? nil : { dismiss() }) { prefs.toggleMatchAlert(d.card) }
                 Group {
+                    lockScreenButton(d.card)
                     if let s = d.sponsor, !s.logo.isEmpty || !s.name.isEmpty { SponsorBlock(s: s) } else { PresentedBy(place: "match") }
                     if let s = d.stream { StreamCard(s: s) { openURL = URL(string: s.url) } }
                     if !d.highlights.isEmpty { highlights(d) }
@@ -125,6 +126,32 @@ struct MatchView: View {
             .padding(16)
             .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(C.panel))
             .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(C.line, lineWidth: 1))
+            .padding(.horizontal, screenPad)
+        }
+    }
+
+    /// 📲 «Στην οθόνη κλειδώματος» (όπως το Apple Sports): πριν τη σέντρα το κλείνεις από πριν και ανοίγει μόνο του· live → αμέσως
+    @ViewBuilder func lockScreenButton(_ m: MatchCard) -> some View {
+        if prefs.liveActivities, LiveActivities.shared.available, m.upcoming || m.live {
+            let on = prefs.laPins.contains(m.id)
+            Button { haptic(); prefs.toggleLaPin(m) } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: on ? "lock.iphone" : "iphone.radiowaves.left.and.right").font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(on ? C.ink : C.gold).frame(width: 36, height: 36)
+                        .background(Circle().fill(on ? C.gold : C.panel3))
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(on ? "Στην οθόνη κλειδώματος ✓" : "Στην οθόνη κλειδώματος").font(F.body(14, .heavy)).foregroundStyle(C.text)
+                        Text(on ? (m.live ? "Σκορ και λεπτό ζωντανά — πάτα για να το βγάλεις" : "Θα ανοίξει μόνο του στη σέντρα")
+                                : (m.live ? "Ζωντανό σκορ στην κλειδωμένη οθόνη και στο Dynamic Island" : "Άνοιξέ το από πριν — ξεκινά μόνο του στη σέντρα"))
+                            .font(F.body(12)).foregroundStyle(C.text2).lineLimit(2)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 12).padding(.vertical, 10)
+                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(C.panel))
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(on ? C.gold.opacity(0.5) : C.line, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
             .padding(.horizontal, screenPad)
         }
     }
