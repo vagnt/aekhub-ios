@@ -136,6 +136,14 @@ final class LiveActivities {
     func progress(_ m: MatchCard) -> Double {
         if m.finished { return 1 }
         guard m.live else { return 0 }
+        // Ίδια λογική με τον server (aekhub_la_progress): μπάσκετ/πόλο ανά Q, βόλεϊ ανά σετ, αλλιώς λεπτό
+        if m.status.count == 2, m.status.hasPrefix("q"), let q = Int(m.status.dropFirst()) { return (Double(q) - 0.5) / 4 }
+        if m.status == "ot" { return 0.98 }
+        if m.sport == "volleyball" {
+            let n = Double(m.minute.filter(\.isNumber).prefix(1)) ?? 1
+            return min(5, max(1, n)) / 5 - 0.1
+        }
+        if ["halftime", "eth"].contains(m.status) { return 0.5 }
         let mn = Double(liveMinute(m.clock, fallback: m.minute).filter(\.isNumber).prefix(3)) ?? 0
         let total: Double = m.sport.contains("football") ? 90 : (m.sport == "futsal" ? 40 : (m.sport == "handball" ? 60 : 40))
         return min(1, mn / total)
