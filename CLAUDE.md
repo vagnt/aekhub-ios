@@ -21,6 +21,7 @@
 - **📲 «Στην οθόνη κλειδώματος»** (ζήτησε ο χρήστης, όπως Apple Sports): κουμπί στον αγώνα (upcoming/live) → `Prefs.laPins` → στέλνεται στον server μαζί με τα `matches` του push-to-start (iOS 17.2+: ανοίγει μόνο του στη σέντρα, ακόμα και με κλειστό app)· παλιότερα iOS: το ανοίγει το app όταν δει τον αγώνα live. Live → ανοίγει αμέσως· ξανά πάτημα → κλείνει.
 - **🗣 Siri / Αναζήτηση iPhone / Συντομεύσεις** (`iOS/Intents.swift`, App Intents): «Πότε παίζει η ΑΕΚ», «Σκορ ΑΕΚ», «Αγώνες»· κείμενα από `Shared/AEKNow.swift` (ο αγώνας του `/app/home` → `next`). Η Siri δεν μιλά ελληνικά → φράσεις και στα αγγλικά.
 - **🎛 Control Center** (iOS 18+): ξεχωριστό extension `AEKHubControls` (`Controls/`, bundle `gr.aekhub.app.controls`, deployment 18.0) — «Αγώνας ΑΕΚ» με σκορ/επόμενο, πάτημα → αγώνες· το app το ανανεώνει (`ControlCenter.reloadControls`) το πολύ ανά λεπτό όσο παίζει.
+- **💥 Crash στο πάτημα ειδοποίησης (build 48, διορθώθηκε)**: οι async εκδοχές `userNotificationCenter(didReceive:)`/`willPresent` (μαζί με το «τύλιγμα» του Firebase) καλούσαν το completion εκτός main → η εφαρμογή έκλεινε. ΠΑΝΤΑ οι εκδοχές με `withCompletionHandler` + `DispatchQueue.main`· `match`/`post` διαβάζονται και ως αριθμός και ως κείμενο· ο αγώνας ανοίγει 0,35″ μετά (κρύα εκκίνηση).
 - **StandBy** (κινητό οριζόντια στον φορτιστή): δουλεύουν ήδη τα widgets (έχουν `containerBackground`) και το Live Activity — δεν χρειάστηκε κώδικας.
 
 ## Εικονίδιο ρολογιού (για την 1.1, ζήτησε ο χρήστης)

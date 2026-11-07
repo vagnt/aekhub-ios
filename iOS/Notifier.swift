@@ -184,20 +184,31 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     // MARK: Delegate
 
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
-        [.banner, .list, .sound]
+    // ⚠ ΜΑΘΗΜΑ (build 48: «πατάω την ειδοποίηση και κλείνει η εφαρμογή»): οι async εκδοχές αυτών των μεθόδων
+    // καλούν το completion της Apple εκτός main thread (και το Firebase τις «τυλίγει») → crash. Πάντα completionHandler + main.
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+                                            withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .list, .sound])
     }
 
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
+                                            withCompletionHandler completionHandler: @escaping () -> Void) {
         let info = response.notification.request.content.userInfo
-        // Τοπικές: url = aekhub://… · Push του server: match / post (ίδια δεδομένα με το Android)
-        var target: String?
-        if let s = info["url"] as? String, s.hasPrefix("aekhub://") { target = s }
-        else if let m = info["match"] as? String, let id = Int(m), id > 0 { target = "aekhub://match/\(id)" }
-        else if let p = info["post"] as? String, let id = Int(p), id > 0 { target = "aekhub://post/\(id)" }
-        else if let s = info["url"] as? String, let u = URL(string: s), u.host?.contains("aekhub.gr") == true {
-            await MainActor.run { UIApplication.shared.open(u) }
+        // Τοπικές: url = aekhub://… · Push του server: match / post (ίδια δεδομένα με το Android· μπορεί να έρθουν ως κείμενο ή αριθμός)
+        func num(_ k: String) -> Int { if let s = info[k] as? String { return Int(s) ?? 0 }; return (info[k] as? NSNumber)?.intValue ?? 0 }
+        let url = info["url"] as? String ?? ""
+        let target: URL? = url.hasPrefix("aekhub://") ? URL(string: url)
+            : num("match") > 0 ? URL(string: "aekhub://match/\(num("match"))")
+            : num("post") > 0 ? URL(string: "aekhub://post/\(num("post"))") : nil
+        let web: URL? = target == nil ? URL(string: url).flatMap { $0.host?.contains("aekhub.gr") == true ? $0 : nil } : nil
+        DispatchQueue.main.async {
+            completionHandler()
+            // Λίγη καθυστέρηση: αν η εφαρμογή ήταν κλειστή, πρώτα να στηθεί η οθόνη και μετά να ανοίξει ο αγώνας
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                Task { @MainActor in
+                    if let target { AppState.shared.open(target) } else if let web { UIApplication.shared.open(web) }
+                }
+            }
         }
-        if let target, let u = URL(string: target) { await MainActor.run { AppState.shared.open(u) } }
     }
 }
