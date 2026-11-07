@@ -149,6 +149,9 @@ struct RootView: View {
     @State private var paths: [Tab: NavigationPath] = [.home: NavigationPath(), .matches: NavigationPath(), .standings: NavigationPath(), .me: NavigationPath()]
     @State private var pinger: Task<Void, Never>?
     @State private var liveNow: MatchCard?
+    /// iPad: πλαϊνή στήλη μαζεμένη/ανοιχτή με κουμπί (ζήτησε ο χρήστης) — χωριστά για στενή (κάθετο) και φαρδιά οθόνη
+    @AppStorage("side_min") private var sideMin = false
+    @AppStorage("side_wide_narrow") private var sideWideNarrow = false
     @State private var splash = !UserDefaults.standard.bool(forKey: "shots")
     @ObservedObject private var ads = Ads.shared
 
@@ -193,7 +196,10 @@ struct RootView: View {
             if isPad {
                 GeometryReader { g in
                     HStack(spacing: 0) {
-                        Sidebar(tab: tabBinding, live: liveNow, compact: g.size.width < 1000)
+                        let narrow = g.size.width < 1000
+                        Sidebar(tab: tabBinding, live: liveNow, compact: narrow ? !sideWideNarrow : sideMin) {
+                            withAnimation(.easeOut(duration: 0.22)) { if narrow { sideWideNarrow.toggle() } else { sideMin.toggle() } }
+                        }
                         ZStack { ForEach(Tab.allCases, id: \.self) { t in stack(t, bar: false).opacity(app.tab == t ? 1 : 0).allowsHitTesting(app.tab == t) } }
                     }
                 }
@@ -315,12 +321,23 @@ struct Sidebar: View {
     @Binding var tab: Tab
     let live: MatchCard?
     var compact = false
+    var toggle: (() -> Void)? = nil
     @EnvironmentObject var app: AppState
     var body: some View {
         VStack(alignment: compact ? .center : .leading, spacing: 4) {
             Group {
-                if compact { Image("Eagle").resizable().scaledToFit().frame(width: 34, height: 34).padding(.top, 26).padding(.bottom, 18) }
-                else { LogoTitle(h: 36).padding(.horizontal, 14).padding(.top, 26).padding(.bottom, 18) }
+                if compact {
+                    VStack(spacing: 10) {
+                        Image("Eagle").resizable().scaledToFit().frame(width: 34, height: 34)
+                        collapseButton
+                    }.padding(.top, 22).padding(.bottom, 14)
+                } else {
+                    HStack(spacing: 8) {
+                        LogoTitle(h: 36)
+                        Spacer(minLength: 0)
+                        collapseButton
+                    }.padding(.horizontal, 14).padding(.top, 26).padding(.bottom, 18)
+                }
             }
             ForEach(Tab.allCases, id: \.self) { t in
                 item(t.long, t == tab ? t.iconOn : t.icon, on: t == tab) { tab = t }
@@ -372,6 +389,19 @@ struct Sidebar: View {
         .frame(maxHeight: .infinity)
         .glass(RoundedRectangle(cornerRadius: 30, style: .continuous))
         .padding(12)
+    }
+
+    /// Σύμπτυξη / άνοιγμα της στήλης (μεγαλώνει ό,τι είναι δεξιά)
+    @ViewBuilder var collapseButton: some View {
+        if let toggle {
+            Button { haptic(.soft); toggle() } label: {
+                Image(systemName: compact ? "sidebar.left" : "chevron.left.2").font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(C.text2).frame(width: 34, height: 34)
+                    .background(Circle().fill(Color.white.opacity(0.08)))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(compact ? "Άνοιγμα μενού" : "Σύμπτυξη μενού")
+        }
     }
 
     func item(_ title: String, _ icon: String, on: Bool, _ action: @escaping () -> Void) -> some View {

@@ -174,6 +174,13 @@ struct MatchCard: Identifiable, Hashable {
     }
 
     var finished: Bool { status == "finished" }
+    /// 🏐 Βόλεϊ σε εξέλιξη: πόντοι του τρέχοντος σετ από «2ο Σετ · 10–8» → (10, 8, 2). Μεγάλοι οι πόντοι, μικρά τα σετ.
+    var vbLive: (h: String, a: String, set: Int)? {
+        guard sport.hasPrefix("volleyball"), live, let r = minute.range(of: #"(\d+)\s*[–-]\s*(\d+)\s*$"#, options: .regularExpression) else { return nil }
+        let n = minute[r].split(whereSeparator: { !$0.isNumber }).map(String.init)
+        guard n.count == 2 else { return nil }
+        return (n[0], n[1], (Int(scoreHome) ?? 0) + (Int(scoreAway) ?? 0) + 1)
+    }
     var upcoming: Bool { status == "upcoming" }
     var postponed: Bool { status == "postponed" }
     var hasScore: Bool { !scoreHome.isEmpty || !scoreAway.isEmpty }

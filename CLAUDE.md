@@ -22,6 +22,9 @@
 - **🗣 Siri / Αναζήτηση iPhone / Συντομεύσεις** (`iOS/Intents.swift`, App Intents): «Πότε παίζει η ΑΕΚ», «Σκορ ΑΕΚ», «Αγώνες»· κείμενα από `Shared/AEKNow.swift` (ο αγώνας του `/app/home` → `next`). Η Siri δεν μιλά ελληνικά → φράσεις και στα αγγλικά.
 - **🎛 Control Center** (iOS 18+): ξεχωριστό extension `AEKHubControls` (`Controls/`, bundle `gr.aekhub.app.controls`, deployment 18.0) — «Αγώνας ΑΕΚ» με σκορ/επόμενο, πάτημα → αγώνες· το app το ανανεώνει (`ControlCenter.reloadControls`) το πολύ ανά λεπτό όσο παίζει.
 - **💥 Crash στο πάτημα ειδοποίησης (build 48, διορθώθηκε)**: οι async εκδοχές `userNotificationCenter(didReceive:)`/`willPresent` (μαζί με το «τύλιγμα» του Firebase) καλούσαν το completion εκτός main → η εφαρμογή έκλεινε. ΠΑΝΤΑ οι εκδοχές με `withCompletionHandler` + `DispatchQueue.main`· `match`/`post` διαβάζονται και ως αριθμός και ως κείμενο· ο αγώνας ανοίγει 0,35″ μετά (κρύα εκκίνηση).
+- **🏐 Σκορ βόλεϊ στη σελίδα αγώνα** (ζήτησε ο χρήστης «όπως στο Live Activity»): `MatchCard.vbLive` (πόντοι από «2ο Σετ · 10–8») → `MatchHero`: «ΣΕΤ 2» + μεγάλοι οι πόντοι (`ScoreBox`) + μικρά τα σετ (`setChip`). Ίδιο και στη σελίδα αγώνα του site (Match Center).
+- **iPad: κουμπί σύμπτυξης της πλαϊνής στήλης** (ζήτησε ο χρήστης: «όταν πατάω από τους αγώνες είναι πολύ μικρό»): `Sidebar.collapseButton` → στενή (84) ή φαρδιά (270)· θυμάται χωριστά για κάθετο (`side_wide_narrow`) και οριζόντιο (`side_min`) iPad.
+- **Live Activity σε κάθε οθόνη**: τα σήματα/ονόματα στενεύουν (60–90), το σκορ μικραίνει αν δεν χωράει· στο βόλεϊ το «ΣΕΤ 2» μόνο πάνω από το σκορ (όχι και πάνω δεξιά).
 - **StandBy** (κινητό οριζόντια στον φορτιστή): δουλεύουν ήδη τα widgets (έχουν `containerBackground`) και το Live Activity — δεν χρειάστηκε κώδικας.
 
 ## Εικονίδιο ρολογιού (για την 1.1, ζήτησε ο χρήστης)

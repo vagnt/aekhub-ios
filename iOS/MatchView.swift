@@ -253,6 +253,18 @@ struct MatchHero: View {
                 teamCol(c.homeLogo, c.home, c.aek == "home")
                 if c.upcoming || c.postponed {
                     Text("VS").font(F.disp(36)).foregroundStyle(C.line2).padding(.horizontal, 6)
+                } else if let v = c.vbLive {
+                    // 🏐 μεγάλοι οι πόντοι του σετ, μικρά δίπλα τα σετ (όπως στο Live Activity)
+                    VStack(spacing: 4) {
+                        Text(v.set >= 5 ? "TIE-BREAK" : "ΣΕΤ \(v.set)").font(F.body(11, .heavy)).tracking(1).foregroundStyle(C.gold)
+                        HStack(spacing: 5) {
+                            setChip(c.scoreHome, c.aek == "home")
+                            ScoreBox(v: v.h, aek: c.aek == "home")
+                            Text(":").font(F.disp(30)).foregroundStyle(C.muted)
+                            ScoreBox(v: v.a, aek: c.aek == "away")
+                            setChip(c.scoreAway, c.aek == "away")
+                        }
+                    }
                 } else {
                     HStack(spacing: 6) {
                         ScoreBox(v: c.scoreHome.isEmpty ? "0" : c.scoreHome, aek: c.aek == "home")
@@ -320,6 +332,14 @@ struct MatchHero: View {
             Text(name.upperGr).font(F.disp(19)).foregroundStyle(aek ? C.gold : C.text).multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.6)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    /// Σετ (μικρό κουτάκι δίπλα στους πόντους)
+    func setChip(_ v: String, _ aek: Bool) -> some View {
+        Text(v.isEmpty ? "0" : v).font(F.disp(22)).monospacedDigit()
+            .foregroundStyle(aek ? C.ink : C.text)
+            .frame(minWidth: 26).padding(.vertical, 2)
+            .background(RoundedRectangle(cornerRadius: 7).fill(aek ? C.gold : C.panel3))
     }
 
     func chip(_ icon: String, _ t: String) -> some View {

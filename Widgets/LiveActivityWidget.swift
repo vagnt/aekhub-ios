@@ -28,7 +28,7 @@ struct LiveMatchWidget: Widget {
                 DynamicIslandExpandedRegion(.center) {
                     VStack(spacing: 2) {
                         Self.status(s)
-                        score(a, s, 44)
+                        score(a, s, 44).lineLimit(1).minimumScaleFactor(0.55)
                     }
                 }
                 DynamicIslandExpandedRegion(.bottom) {
@@ -71,7 +71,11 @@ struct LiveMatchWidget: Widget {
         if s.status == "finished" { Text("ΤΕΛΙΚΟ").font(.system(size: 12, weight: .heavy)).foregroundStyle(C.gold) }
         else if ["halftime", "ht", "break", "eth"].contains(s.status) { Text("ΗΜΙΧΡΟΝΟ").font(.system(size: 12, weight: .heavy)).foregroundStyle(C.gold) }
         else {
-            HStack(spacing: 4) { Circle().fill(C.live).frame(width: 7, height: 7); minuteText(s).font(.system(size: 13, weight: .bold)).foregroundStyle(.white).frame(maxWidth: 52) }
+            HStack(spacing: 4) {
+                Circle().fill(C.live).frame(width: 7, height: 7)
+                if s.per == nil { minuteText(s).font(.system(size: 13, weight: .bold)).foregroundStyle(.white).frame(maxWidth: 52) }
+                else { Text("LIVE").font(.system(size: 12, weight: .heavy)).foregroundStyle(C.live) }
+            }
         }
     }
 }
@@ -216,16 +220,16 @@ struct LockView: View {
                     HStack(spacing: 5) {
                         Circle().fill(C.live).frame(width: 8, height: 8)
                         Text("LIVE").font(.system(size: 13, weight: .heavy)).foregroundStyle(C.live)
-                        minuteText(s).font(.system(size: 14, weight: .heavy)).foregroundStyle(.white).frame(maxWidth: 56)
+                        if s.per == nil { minuteText(s).font(.system(size: 14, weight: .heavy)).foregroundStyle(.white).frame(maxWidth: 56) }
                     }
                 }
             }
             HStack {
-                VStack(spacing: 4) { crest(a.home, a.aek == "home", 42); name(a.home, a.aek == "home") }.frame(width: 90)
-                Spacer()
-                score(a, s, 52)
-                Spacer()
-                VStack(spacing: 4) { crest(a.away, a.aek == "away", 42); name(a.away, a.aek == "away") }.frame(width: 90)
+                VStack(spacing: 4) { crest(a.home, a.aek == "home", 42); name(a.home, a.aek == "home") }.frame(minWidth: 60, maxWidth: 90)
+                Spacer(minLength: 4)
+                score(a, s, 52).lineLimit(1).minimumScaleFactor(0.55).layoutPriority(1)
+                Spacer(minLength: 4)
+                VStack(spacing: 4) { crest(a.away, a.aek == "away", 42); name(a.away, a.aek == "away") }.frame(minWidth: 60, maxWidth: 90)
             }
             if s.status != "finished" && hasClock(a) { bar(s.progress) }
             HStack {
