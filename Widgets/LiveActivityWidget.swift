@@ -107,7 +107,7 @@ struct FamilyView: View {
 }
 
 /// Apple Watch / CarPlay (μικρή οθόνη): σήματα στις άκρες, ΕΝΑ κείμενο σκορ στη μέση που μικραίνει αν δεν χωράει.
-/// Βόλεϊ: τα σετ σε κουτάκι κάτω από κάθε σήμα (όχι δίπλα στο σκορ — εκεί δεν χωρούσαν και έκοβαν τους πόντους).
+/// Βόλεϊ: τα σετ (μόνο ο αριθμός, σε κουτάκι) κάτω από κάθε σήμα (όχι δίπλα στο σκορ — εκεί δεν χωρούσαν και έκοβαν τους πόντους).
 struct SmallView: View {
     let a: LiveMatchAttributes
     let s: LiveMatchAttributes.ContentState
@@ -143,10 +143,7 @@ struct SmallView: View {
         VStack(spacing: 2) {
             crest(n, aek, 28)
             if let sets {
-                Text("σετ \(sets)").font(.system(size: 9, weight: .heavy))
-                    .foregroundStyle(aek ? C.ink : .white)
-                    .padding(.horizontal, 5).padding(.vertical, 1)
-                    .background(Capsule().fill(aek ? C.gold : Color.white.opacity(0.18)))
+                setBadge(sets, aek, 30) // μόνο ο αριθμός σε κουτάκι, όπως στη μεγάλη οθόνη
             } else {
                 Text(String(n.upperGr.prefix(3))).font(.system(size: 10, weight: .heavy)).foregroundStyle(aek ? C.gold : .white.opacity(0.85))
             }
