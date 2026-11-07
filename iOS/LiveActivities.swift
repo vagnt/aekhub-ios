@@ -19,6 +19,7 @@ final class LiveActivities {
 
     /// Στο άνοιγμα του app (και όταν το iOS το ξυπνά για activity που ξεκίνησε με push)
     func observe() {
+        Task.detached(priority: .background) { LiveLogos.trim() }
         for a in Activity<LiveMatchAttributes>.activities { watch(a) }
         Task { for await a in Activity<LiveMatchAttributes>.activityUpdates { self.watch(a) } }
         if #available(iOS 17.2, *) {
@@ -83,8 +84,20 @@ final class LiveActivities {
 
     private static func hex(_ d: Data) -> String { d.map { String(format: "%02x", $0) }.joined() }
 
+    /// Λογότυπα των αγώνων της ΑΕΚ από πριν (ώστε να υπάρχουν και όταν το Live Activity ανοίξει με push, με κλειστό app)
+    private var logosDone = Set<String>()
+    func prefetch(_ items: [MatchCard]) {
+        for m in items where !m.aek.isEmpty && !m.finished {
+            for (n, l) in [(m.home, m.homeLogo), (m.away, m.awayLogo)] where !l.isEmpty && !logosDone.contains(n) {
+                logosDone.insert(n)
+                Task.detached(priority: .utility) { await LiveLogos.cache(n, l) }
+            }
+        }
+    }
+
     /// Από κάθε φρέσκια κατάσταση αγώνα (λίστα αγώνων, σελίδα αγώνα, έλεγχος παρασκηνίου)
     func update(_ m: MatchCard, last: String = "") {
+        prefetch([m])
         let p = Prefs.shared
         guard p.liveActivities, p.all, ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         let follow = p.matchAlerts.contains(m.id) || p.sports.contains(m.sport)

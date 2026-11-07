@@ -11,6 +11,11 @@ struct LiveMatchWidget: Widget {
                 .activitySystemActionForegroundColor(C.gold)
                 .widgetURL(URL(string: "aekhub://match/\(ctx.attributes.matchId)"))
         } dynamicIsland: { ctx in
+            Self.island(ctx)
+        }
+    }
+
+    static func island(_ ctx: ActivityViewContext<LiveMatchAttributes>) -> DynamicIsland {
             let a = ctx.attributes, s = ctx.state
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
@@ -21,7 +26,7 @@ struct LiveMatchWidget: Widget {
                 }
                 DynamicIslandExpandedRegion(.center) {
                     VStack(spacing: 2) {
-                        status(s)
+                        Self.status(s)
                         score(a, s, 44)
                     }
                 }
@@ -47,15 +52,67 @@ struct LiveMatchWidget: Widget {
             }
             .widgetURL(URL(string: "aekhub://match/\(a.matchId)"))
             .keylineTint(C.gold)
-        }
     }
 
-    @ViewBuilder func status(_ s: LiveMatchAttributes.ContentState) -> some View {
+    @ViewBuilder static func status(_ s: LiveMatchAttributes.ContentState) -> some View {
         if s.status == "finished" { Text("ΤΕΛΙΚΟ").font(.system(size: 12, weight: .heavy)).foregroundStyle(C.gold) }
         else if ["halftime", "ht", "break", "eth"].contains(s.status) { Text("ΗΜΙΧΡΟΝΟ").font(.system(size: 12, weight: .heavy)).foregroundStyle(C.gold) }
         else {
             HStack(spacing: 4) { Circle().fill(C.live).frame(width: 7, height: 7); minuteText(s).font(.system(size: 13, weight: .bold)).foregroundStyle(.white).frame(maxWidth: 52) }
         }
+    }
+}
+
+/// iOS 18+: ίδιο Live Activity + μικρή εμφάνιση (.small) για Apple Watch (Smart Stack) και CarPlay, με τα λογότυπα.
+@available(iOS 18.0, *)
+struct LiveMatchWidget18: Widget {
+    var body: some WidgetConfiguration {
+        ActivityConfiguration(for: LiveMatchAttributes.self) { ctx in
+            FamilyView(a: ctx.attributes, s: ctx.state)
+                .activityBackgroundTint(Color.black.opacity(0.78))
+                .activitySystemActionForegroundColor(C.gold)
+                .widgetURL(URL(string: "aekhub://match/\(ctx.attributes.matchId)"))
+        } dynamicIsland: { ctx in
+            LiveMatchWidget.island(ctx)
+        }
+        .supplementalActivityFamilies([.small, .medium])
+    }
+}
+
+@available(iOS 18.0, *)
+struct FamilyView: View {
+    @Environment(\.activityFamily) var family
+    let a: LiveMatchAttributes
+    let s: LiveMatchAttributes.ContentState
+    var body: some View {
+        if family == .small { SmallView(a: a, s: s) } else { LockView(a: a, s: s) }
+    }
+}
+
+/// Apple Watch / CarPlay: δύο σήματα, σκορ, λεπτό
+struct SmallView: View {
+    let a: LiveMatchAttributes
+    let s: LiveMatchAttributes.ContentState
+    var body: some View {
+        VStack(spacing: 4) {
+            HStack(spacing: 6) {
+                VStack(spacing: 2) { crest(a.home, a.aek == "home", 30); short(a.home, a.aek == "home") }
+                Spacer(minLength: 2)
+                score(a, s, 34).lineLimit(1).minimumScaleFactor(0.6)
+                Spacer(minLength: 2)
+                VStack(spacing: 2) { crest(a.away, a.aek == "away", 30); short(a.away, a.aek == "away") }
+            }
+            Group {
+                if s.status == "finished" { Text("ΤΕΛΙΚΟ").foregroundStyle(C.gold) }
+                else if ["halftime", "ht", "break", "eth"].contains(s.status) { Text("ΗΜΙΧΡΟΝΟ").foregroundStyle(C.gold) }
+                else { HStack(spacing: 4) { Circle().fill(C.live).frame(width: 6, height: 6); minuteText(s).foregroundStyle(.white) } }
+            }
+            .font(.system(size: 12, weight: .heavy)).lineLimit(1)
+        }
+        .padding(.horizontal, 8).padding(.vertical, 6)
+    }
+    func short(_ n: String, _ aek: Bool) -> some View {
+        Text(String(n.upperGr.prefix(3))).font(.system(size: 10, weight: .heavy)).foregroundStyle(aek ? C.gold : .white.opacity(0.85))
     }
 }
 
@@ -69,7 +126,8 @@ func minuteText(_ s: LiveMatchAttributes.ContentState) -> Text {
 
 func crest(_ n: String, _ aek: Bool, _ size: CGFloat) -> some View {
     ZStack {
-        if aek { Image("HubLogo").resizable().scaledToFit().clipShape(Circle()) }
+        if let img = LiveLogos.image(n) { Image(uiImage: img).resizable().scaledToFit() }
+        else if aek { Image("HubLogo").resizable().scaledToFit().clipShape(Circle()) }
         else { Circle().fill(Color.white.opacity(0.12)); Text(String(n.upperGr.prefix(3))).font(.system(size: size * 0.3, weight: .heavy)).foregroundStyle(.white) }
     }.frame(width: size, height: size)
 }

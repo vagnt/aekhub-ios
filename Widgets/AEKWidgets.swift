@@ -12,7 +12,7 @@ struct AEKWidgets: WidgetBundle {
         ScheduleWidget()
         NewsWidget()
         StandingsWidget()
-        LiveMatchWidget()
+        if #available(iOS 18.0, *) { LiveMatchWidget18() } else { LiveMatchWidget() }
     }
 }
 

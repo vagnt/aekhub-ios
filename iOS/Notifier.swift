@@ -58,6 +58,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         let p = Prefs.shared
         var state = (try? JSONDecoder().decode([String: St].self, from: d.data(forKey: "n_state") ?? Data())) ?? [:]
         let first = state.isEmpty
+        LiveActivities.shared.prefetch(items)
         for m in items {
             if m.live || m.finished { LiveActivities.shared.update(m) }
             let key = String(m.id)
