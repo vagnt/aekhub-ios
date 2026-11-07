@@ -120,7 +120,7 @@ jobs:
   # 📸 Screenshots από προσομοιωτή (iPhone + iPad): έλεγχος εμφάνισης χωρίς συσκευή
   # Screenshots: ΜΟΝΟ όταν ζητηθούν («[screens]» ή «[appstore]» στο commit, ή χειροκίνητα) — τα λεπτά macOS κοστίζουν ×10
   screens:
-    timeout-minutes: 45
+    timeout-minutes: 75
     if: contains(github.event.head_commit.message, '[screens]') || contains(github.event.head_commit.message, '[appstore]') || github.event_name == 'workflow_dispatch'
     runs-on: macos-15
     steps:
@@ -137,6 +137,7 @@ jobs:
           xcodebuild -project AEKHub.xcodeproj -scheme AEKHub -configuration Debug \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath sim CODE_SIGNING_ALLOWED=NO build > sim.log 2>&1 || { grep -E "error:" sim.log | head -40; exit 1; }
       - name: Screenshots
+        if: "!contains(github.event.head_commit.message, '[appstore]') && github.event_name != 'workflow_dispatch'"
         env:
           MATCH: "214093"
           MATCH2: "215042"
@@ -144,6 +145,7 @@ jobs:
           POST2: "218062"
         run: bash ci/screens.sh sim/Build/Products/Debug-iphonesimulator/AEKHub.app shots
       - uses: actions/upload-artifact@v4
+        if: "!contains(github.event.head_commit.message, '[appstore]') && github.event_name != 'workflow_dispatch'"
         with:
           name: screens
           path: shots/*.png
