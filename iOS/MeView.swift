@@ -88,6 +88,8 @@ struct MeView: View {
                         sep
                         rowButton("person.crop.circle.badge.xmark", "Κρυμμένοι χρήστες σχολίων (\(blockedRaw.split(separator: "\n").count))", "Πάτα για να ξαναβλέπεις τα σχόλιά τους") { blockedRaw = "" }
                     }
+                    sep
+                    rowLabel("megaphone", "Διαφημίσεις", ads.diag)
                     if ads.privacyButton {
                         sep
                         rowButton("hand.raised", "Ρυθμίσεις απορρήτου", "Διαφημίσεις & συγκατάθεση") { ads.showPrivacy() }

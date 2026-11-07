@@ -18,6 +18,12 @@ final class Ads: NSObject, ObservableObject {
     static let testReward = "ca-app-pub-3940256099942544/1712485313"
 
     @Published var ready = false
+    /// 🩺 Τι απάντησε η Google την τελευταία φορά (φαίνεται στο «Εγώ»)
+    @Published var diag = "Δεν ξεκίνησαν ακόμα"
+    func note(_ unit: String, _ e: Error?) {
+        let kind = unit.contains("3940256099942544") ? "δοκιμαστική" : "πραγματική"
+        if let e { diag = "✗ \(kind): \((e as NSError).code) · \(e.localizedDescription)" } else { diag = "✓ Ήρθε διαφήμιση (\(kind))" }
+    }
     @Published var privacyButton = false
     @Published var adFreeUntil: Double = UserDefaults.standard.double(forKey: "ads_free_until")
     /// Χορηγός σε πλήρη οθόνη: (καμπάνια, είναι splash)
@@ -63,7 +69,7 @@ final class Ads: NSObject, ObservableObject {
                 } else if ci.canRequestAds { self.initAds() }
             }
         }
-        if ci.canRequestAds { initAds() }
+        if ci.canRequestAds { initAds() } else { diag = "Περιμένει συγκατάθεση (GDPR)" }
     }
 
     /// Άδεια παρακολούθησης της Apple (μετά τη συγκατάθεση GDPR, μία φορά)
@@ -78,7 +84,7 @@ final class Ads: NSObject, ObservableObject {
         guard !started else { return }
         started = true
         GADMobileAds.sharedInstance().start { [weak self] _ in
-            Task { @MainActor in self?.ready = true; self?.preload() }
+            Task { @MainActor in self?.ready = true; self?.diag = "Έτοιμες, φορτώνουν…"; self?.preload() }
         }
     }
 
@@ -101,8 +107,9 @@ final class Ads: NSObject, ObservableObject {
         guard let cfg, cfg.enabled, ready else { return }
         if cfg.interOn, inter == nil, !interLoading {
             interLoading = true
-            GADInterstitialAd.load(withAdUnitID: unit(cfg.inter, Ads.testInter), request: GADRequest()) { [weak self] ad, _ in
-                Task { @MainActor in self?.inter = ad; self?.interLoading = false; ad?.fullScreenContentDelegate = self }
+            let u = unit(cfg.inter, Ads.testInter)
+            GADInterstitialAd.load(withAdUnitID: u, request: GADRequest()) { [weak self] ad, err in
+                Task { @MainActor in self?.note(u, err); self?.inter = ad; self?.interLoading = false; ad?.fullScreenContentDelegate = self }
             }
         }
         if cfg.rewardOn, reward == nil, !rewardLoading {
@@ -339,8 +346,8 @@ struct BannerRep: UIViewRepresentable {
     final class Coord: NSObject, GADBannerViewDelegate {
         var p: BannerRep
         init(_ p: BannerRep) { self.p = p }
-        func bannerViewDidReceiveAd(_ bannerView: GADBannerView) { p.loaded = true }
-        func bannerView(_ bannerView: GADBannerView, didFailToReceiveAdWithError error: Error) { p.failed = true }
+        func bannerViewDidReceiveAd(_ bannerView: GADBannerView) { p.loaded = true; let u = p.unit; Task { @MainActor in Ads.shared.note(u, nil) } }
+        func bannerView(_ bannerView: GADBannerView, didFailToReceiveAdWithError error: Error) { p.failed = true; let u = p.unit; Task { @MainActor in Ads.shared.note(u, error) } }
     }
 }
 
@@ -368,14 +375,16 @@ struct AdmobNative: View {
 final class NativeLoader: NSObject, ObservableObject, GADNativeAdLoaderDelegate {
     @Published var ad: GADNativeAd?
     private var loader: GADAdLoader?
+    private var unit = ""
     func load(_ unit: String) {
+        self.unit = unit
         guard loader == nil else { return }
         let l = GADAdLoader(adUnitID: unit, rootViewController: Ads.top(), adTypes: [.native], options: nil)
         l.delegate = self; loader = l
         l.load(GADRequest())
     }
-    nonisolated func adLoader(_ adLoader: GADAdLoader, didReceive nativeAd: GADNativeAd) { Task { @MainActor in self.ad = nativeAd } }
-    nonisolated func adLoader(_ adLoader: GADAdLoader, didFailToReceiveAdWithError error: Error) {}
+    nonisolated func adLoader(_ adLoader: GADAdLoader, didReceive nativeAd: GADNativeAd) { Task { @MainActor in self.ad = nativeAd; Ads.shared.note(self.unit, nil) } }
+    nonisolated func adLoader(_ adLoader: GADAdLoader, didFailToReceiveAdWithError error: Error) { Task { @MainActor in Ads.shared.note(self.unit, error) } }
 }
 
 struct NativeRep: UIViewRepresentable {

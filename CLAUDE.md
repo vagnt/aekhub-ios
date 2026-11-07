@@ -109,3 +109,7 @@
 - Δημόσιο repo **`vagnt/aekhub-ios-dist`** (μόνο αρχεία, όχι κώδικας): σε κάθε build του κύριου branch το workflow ανεβάζει release με τα δύο .ipa και ενημερώνει το **`source.json`** (μορφή AltStore/SideStore, `dist/make_source.py`, κρατά τις 10 τελευταίες εκδόσεις· η πηγή δείχνει το .ipa **χωρίς ρολόι** για να χωράει στα όρια App IDs του δωρεάν λογαριασμού).
 - Θέλει το secret **`DIST_TOKEN`** στο `aekhub-ios` (fine-grained token, Contents: Read and write, μόνο στο `aekhub-ios-dist`). Χωρίς αυτό τα βήματα απλώς παραλείπονται.
 - Link πηγής για τους φίλους: `https://raw.githubusercontent.com/vagnt/aekhub-ios-dist/main/source.json` (AltStore/SideStore → Sources → «+»).
+
+## 🩺 Διαφημίσεις — διάγνωση (7/11/2026, ο χρήστης: «δεν έχω ads μέσα στο app»)
+- Το `/app/config` στέλνει σωστά τα ad units iOS (`ads.ios`) και ο κώδικας τα φορτώνει. Στο «Εγώ» γραμμή **Διαφημίσεις** = `Ads.diag`: τι απάντησε η Google την τελευταία φορά (✓ ήρθε / ✗ κωδικός + μήνυμα, πραγματική ή δοκιμαστική μονάδα, ή «Περιμένει συγκατάθεση»).
+- Πιθανότερη αιτία: νέα εφαρμογή iOS στο AdMob που **δεν είναι ακόμα στο App Store** → «Requires review»/περιορισμένη προβολή (No fill, κωδικός 1) μέχρι να βγει στο Store και να συνδεθεί στο AdMob (Apps → App settings → Add store). Επίσης `app-ads.txt` στο aekhub.gr.
