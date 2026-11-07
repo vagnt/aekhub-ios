@@ -130,6 +130,7 @@ struct Feed { let page, pages: Int; let featured: PostCard?; let items: [PostCar
 
 struct VideoInfo { let url, embed, html, thumb: String
     init(_ j: J) { url = j["url"].str; embed = j["embed"].str; html = j["html"].str; thumb = j["thumb"].str }
+    init(url: String, embed: String, html: String = "", thumb: String) { self.url = url; self.embed = embed; self.html = html; self.thumb = thumb }
 }
 
 struct Post: Identifiable {
@@ -220,7 +221,8 @@ struct Sponsor { let label, name, logo, note, click, view: String; let h, w: Int
         click = j["click"].str; view = j["view"].str; h = j["h"].exists ? j["h"].int : 42; w = j["w"].int
     }
 }
-struct Highlight: Hashable { let title, url, embed, thumb: String
+struct Highlight: Hashable, Identifiable { let title, url, embed, thumb: String
+    var id: String { url + "|" + title }
     init(_ j: J) { title = j["title"].str; url = j["url"].str; embed = j["embed"].str; thumb = j["thumb"].str }
 }
 struct PitchPlayer: Hashable { let number, name, out, inn: String; let x, y, rating: Double; let goals: Int; let yellow, red: Bool

@@ -8,7 +8,6 @@ struct MeView: View {
     @EnvironmentObject var p: Prefs
     @ObservedObject private var ads = Ads.shared
     @Environment(\.horizontalSizeClass) var hsc
-    @AppStorage("articleSize") private var size: Double = 17
     @State private var showCal = false
     @State private var status: UNAuthorizationStatus = .authorized
     @State private var tick = 0
@@ -75,17 +74,6 @@ struct MeView: View {
 
                 SectionLabel(text: "Ανάγνωση")
                 group {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 12) {
-                            iconBox("textformat.size", true)
-                            Text("Μέγεθος γραμμάτων άρθρων").font(F.body(15, .heavy)).foregroundStyle(C.text)
-                            Spacer()
-                            Text("\(Int(size))").font(F.body(15, .heavy)).foregroundStyle(C.gold)
-                        }
-                        Slider(value: $size, in: 14...26, step: 1).tint(C.gold).padding(.leading, 52)
-                        Text("Έτσι θα φαίνεται το κείμενο του άρθρου.").font(.custom("ManropeExtraLight-Medium", fixedSize: size)).foregroundStyle(C.text2).padding(.leading, 52)
-                    }.padding(.horizontal, 16).padding(.vertical, 12)
-                    sep
                     toggle("arrow.down.circle", "Εξοικονόμηση δεδομένων", "Μικρότερες εικόνες: λιγότερα MB όταν δεν έχεις Wi-Fi.", $p.dataSaver)
                 }
 

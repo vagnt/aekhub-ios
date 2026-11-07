@@ -11,7 +11,7 @@ struct ArticleView: View {
     let card: PostCard?
     @State private var post: Post?
     @State private var error: String?
-    @AppStorage("articleSize") private var size: Double = 17
+    private let size: Double = 17   // σταθερό μέγεθος γραμμάτων (ο χρήστης έβγαλε τη ρύθμιση)
     @State private var openURL: URL?
     @State private var showComments = false
     @State private var showVideo = false
@@ -38,7 +38,7 @@ struct ArticleView: View {
             HStack(alignment: .top, spacing: 0) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        hero(wide: g.size.width > 700)
+                        hero(wide: g.size.width > 700, top: g.safeAreaInsets.top)
                         if let p = post {
                             head(p).padding(.horizontal, 20).padding(.top, 18)
                             bodyParts(p).padding(.top, 14)
@@ -72,10 +72,6 @@ struct ArticleView: View {
                 NavIcon(icon: "chevron.left") { dismiss() }
             }
             ToolbarItemGroup(placement: .navigationBarTrailing) {
-                Menu {
-                    Button { size = max(14, size - 1) } label: { Label("Μικρότερα γράμματα", systemImage: "textformat.size.smaller") }
-                    Button { size = min(26, size + 1) } label: { Label("Μεγαλύτερα γράμματα", systemImage: "textformat.size.larger") }
-                } label: { NavIconLabel(text: "Aa") }
                 if let c = post?.card ?? card {
                     NavIcon(icon: prefs.isSaved(id) ? "bookmark.fill" : "bookmark", tint: C.gold) { haptic(); prefs.toggleSaved(c) }
                 }
@@ -134,30 +130,48 @@ struct ArticleView: View {
 
     // MARK: Φωτογραφία / βίντεο
 
-    @ViewBuilder func hero(wide: Bool) -> some View {
+    /// Πάνω από τη φωτογραφία (ώρα / νοτς): η ίδια φωτογραφία θολή, σαν να συνεχίζει — η καθαρή ξεκινά κάτω από το νοτς
+    func notchStrip(_ url: String, _ top: CGFloat) -> some View {
+        ZStack(alignment: .bottom) {
+            Color.black
+            if !url.isEmpty {
+                FillImage(url: url, w: 300, height: top + 80).blur(radius: 18).scaleEffect(1.25, anchor: .bottom)
+                    .opacity(0.9)
+            }
+            LinearGradient(colors: [.black.opacity(0.35), .black.opacity(0.05)], startPoint: .top, endPoint: .bottom)
+        }
+        .frame(height: max(top, 20), alignment: .bottom).clipped()
+    }
+
+    @ViewBuilder func hero(wide: Bool, top: CGFloat) -> some View {
         let img = post?.image ?? card?.image ?? ""
         if let v = post?.videoInfo, !(v.embed.isEmpty && v.html.isEmpty) {
-            // Video post: το βίντεο πάνω-πάνω, παίζει σε pop up
-            Button { haptic(); showVideo = true } label: {
-                ZStack(alignment: .bottomLeading) {
-                    FillImage(url: v.thumb.isEmpty ? img : v.thumb, w: 1400).aspectRatio(16 / 9, contentMode: .fit)
-                    LinearGradient(colors: [.black.opacity(0.55), .clear, .clear, .black.opacity(0.6)], startPoint: .top, endPoint: .bottom)
-                    Image(systemName: "play.fill").font(.system(size: 34, weight: .bold)).foregroundStyle(C.ink)
-                        .frame(width: 76, height: 76).background(Circle().fill(C.gold)).shadow(color: .black.opacity(0.4), radius: 12)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    Text("▶ ΔΕΣ ΤΟ ΒΙΝΤΕΟ").font(F.body(12, .heavy)).tracking(0.8).foregroundStyle(.white).padding(14)
+            // Video post: το βίντεο πάνω, παίζει σε pop up
+            let th = v.thumb.isEmpty ? img : v.thumb
+            VStack(spacing: 0) {
+                notchStrip(th, top)
+                Button { haptic(); showVideo = true } label: {
+                    ZStack(alignment: .bottomLeading) {
+                        FillImage(url: th, w: 1400).aspectRatio(16 / 9, contentMode: .fit)
+                        LinearGradient(colors: [.black.opacity(0.35), .clear, .clear, .black.opacity(0.6)], startPoint: .top, endPoint: .bottom)
+                        Image(systemName: "play.fill").font(.system(size: 34, weight: .bold)).foregroundStyle(C.ink)
+                            .frame(width: 76, height: 76).background(Circle().fill(C.gold)).shadow(color: .black.opacity(0.4), radius: 12)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        Text("▶ ΔΕΣ ΤΟ ΒΙΝΤΕΟ").font(F.body(12, .heavy)).tracking(0.8).foregroundStyle(.white).padding(14)
+                    }
                 }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-            .padding(.top, 54)
-            .background(Color.black)
         } else if !img.isEmpty {
-            NaturalImage(url: img, w: 1400, maxH: wide ? 640 : 520)
-                .overlay(alignment: .top) {
-                    LinearGradient(colors: [.black.opacity(0.55), .clear], startPoint: .top, endPoint: .bottom).frame(height: 120)
-                }
+            VStack(spacing: 0) {
+                notchStrip(img, top)
+                NaturalImage(url: img, w: 1400, maxH: wide ? 640 : 520)
+                    .overlay(alignment: .top) {
+                        LinearGradient(colors: [.black.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom).frame(height: 70)
+                    }
+            }
         } else {
-            Color.clear.frame(height: 100)
+            Color.clear.frame(height: top + 56)
         }
     }
 

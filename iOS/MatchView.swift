@@ -11,6 +11,7 @@ struct MatchView: View {
     @State private var error = false
     @State private var tab = UserDefaults.standard.string(forKey: "mtab") ?? ""
     @State private var openURL: URL?
+    @State private var video: Highlight?
     @EnvironmentObject var prefs: Prefs
     @Environment(\.dismiss) var dismiss
     @Environment(\.horizontalSizeClass) var hsc
@@ -29,6 +30,7 @@ struct MatchView: View {
         .background(C.ink.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
         .sheet(item: $openURL) { SafariView(url: $0).ignoresSafeArea() }
+        .fullScreenCover(item: $video) { h in VideoPopup(title: h.title, v: VideoInfo(url: h.url, embed: h.embed, thumb: h.thumb)) }
         .task {
             Analytics.screen(4, id)
             await load()
@@ -133,7 +135,10 @@ struct MatchView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
                     ForEach(d.highlights, id: \.self) { h in
-                        Button { openURL = URL(string: h.url) } label: {
+                        Button {
+                            haptic()
+                            if h.embed.isEmpty { openURL = URL(string: h.url) } else { video = h } // όπως στα άρθρα: pop up
+                        } label: {
                             VStack(alignment: .leading, spacing: 6) {
                                 ZStack { FillImage(url: h.thumb, w: 500, height: 118); PlayBadge(size: 40) }
                                     .frame(width: 210, height: 118).background(C.panel2).clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -395,11 +400,13 @@ private let GOAL: Set<String> = ["goal", "penalty_goal", "own_goal", "seven_m_sc
 struct TimelineSection: View {
     let d: MatchDetail
     var body: some View {
+        // Ένα ενιαίο πάνελ: κεφαλίδα, γεγονότα, έναρξη/ημίχρονο/λήξη — ίδιο φόντο και πλάτος παντού (ζήτησε ο χρήστης: «ομοιόμορφο»)
         VStack(spacing: 0) {
             TimelineHeader(d: d)
+            Rectangle().fill(C.line).frame(height: 1)
             if d.events.isEmpty {
                 Text("Η πορεία θα εμφανιστεί μόλις γραφτούν τα πρώτα γεγονότα.").font(F.body(13)).foregroundStyle(C.muted).multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity).padding(16).background(C.panel).padding(.horizontal, screenPad)
+                    .frame(maxWidth: .infinity).padding(16)
             } else if !d.groups.isEmpty {
                 ForEach(Array(d.groups.enumerated()), id: \.offset) { _, g in PeriodGroup(g: g, d: d) }
             } else {
@@ -407,6 +414,10 @@ struct TimelineSection: View {
                 ForEach(Array(evs.enumerated()), id: \.offset) { _, e in TimelineRow(e: e, d: d) }
             }
         }
+        .padding(.bottom, 8)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(C.panel))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.horizontal, screenPad)
     }
 }
 
@@ -428,8 +439,6 @@ struct TimelineHeader: View {
             }
         }
         .padding(12)
-        .background(TopRounded(r: 16).fill(C.panel))
-        .padding(.horizontal, screenPad)
     }
 }
 
@@ -458,7 +467,7 @@ struct PeriodGroup: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .padding(.horizontal, screenPad)
+            .padding(.horizontal, 10)
             if open { VStack(spacing: 0) { ForEach(Array(g.events.enumerated()), id: \.offset) { TimelineRow(e: $0.element, d: d) } } }
         }
         .padding(.top, 10)
@@ -497,9 +506,8 @@ struct TimelineRow: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity)
         .padding(.horizontal, 10).padding(.vertical, 7)
-        .background(C.panel)
-        .padding(.horizontal, screenPad)
     }
 
     func side(_ goal: Bool, _ ours: Bool, _ home: Bool) -> some View {
