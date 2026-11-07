@@ -27,7 +27,7 @@ final class Push: NSObject, MessagingDelegate {
         // Κάθε αλλαγή στις ρυθμίσεις ειδοποιήσεων → γράψιμο/ξεγράψιμο στα θέματα (με μικρή καθυστέρηση)
         Prefs.shared.objectWillChange
             .debounce(for: .seconds(1.5), scheduler: RunLoop.main)
-            .sink { [weak self] _ in self?.sync(); self?.share() }
+            .sink { [weak self] _ in self?.sync(); self?.share(); LiveActivities.shared.syncStart() }
             .store(in: &bag)
         share()
     }
@@ -48,6 +48,7 @@ final class Push: NSObject, MessagingDelegate {
             self.d.set(true, forKey: "push_on")
             Notifier.shared.clearLocal()
             self.sync()
+            LiveActivities.shared.fcmReady()
         }
     }
 

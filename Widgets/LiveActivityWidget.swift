@@ -40,7 +40,7 @@ struct LiveMatchWidget: Widget {
             } compactTrailing: {
                 HStack(spacing: 4) {
                     Text("\(s.sh)–\(s.sa)").font(.system(size: 15, weight: .heavy)).foregroundStyle(s.goal ? C.gold : .white).monospacedDigit()
-                    if s.status != "finished" { Text(s.minute).font(.system(size: 12, weight: .bold)).foregroundStyle(C.live).lineLimit(1) }
+                    if s.status != "finished" { minuteText(s).font(.system(size: 12, weight: .bold)).foregroundStyle(C.live).lineLimit(1).frame(maxWidth: 44) }
                 }
             } minimal: {
                 Image("HubLogo").resizable().scaledToFit().frame(width: 22, height: 22).clipShape(Circle())
@@ -54,9 +54,17 @@ struct LiveMatchWidget: Widget {
         if s.status == "finished" { Text("ΤΕΛΙΚΟ").font(.system(size: 12, weight: .heavy)).foregroundStyle(C.gold) }
         else if ["halftime", "ht", "break", "eth"].contains(s.status) { Text("ΗΜΙΧΡΟΝΟ").font(.system(size: 12, weight: .heavy)).foregroundStyle(C.gold) }
         else {
-            HStack(spacing: 4) { Circle().fill(C.live).frame(width: 7, height: 7); Text(s.minute).font(.system(size: 13, weight: .bold)).foregroundStyle(.white) }
+            HStack(spacing: 4) { Circle().fill(C.live).frame(width: 7, height: 7); minuteText(s).font(.system(size: 13, weight: .bold)).foregroundStyle(.white).frame(maxWidth: 52) }
         }
     }
+}
+
+/// Λεπτό αγώνα: με `clk` «τρέχει» μόνο του (67:12) ακόμα και χωρίς νέο push· αλλιώς το κείμενο της πηγής.
+func minuteText(_ s: LiveMatchAttributes.ContentState) -> Text {
+    if let z = s.clk, !["finished", "halftime", "eth", "penalties"].contains(s.status), z > 0 {
+        return Text(Date(timeIntervalSince1970: z), style: .timer).monospacedDigit()
+    }
+    return Text(s.minute)
 }
 
 func crest(_ n: String, _ aek: Bool, _ size: CGFloat) -> some View {
@@ -103,7 +111,7 @@ struct LockView: View {
                     HStack(spacing: 5) {
                         Circle().fill(C.live).frame(width: 8, height: 8)
                         Text("LIVE").font(.system(size: 13, weight: .heavy)).foregroundStyle(C.live)
-                        Text(s.minute).font(.system(size: 14, weight: .heavy)).foregroundStyle(.white)
+                        minuteText(s).font(.system(size: 14, weight: .heavy)).foregroundStyle(.white).frame(maxWidth: 56)
                     }
                 }
             }

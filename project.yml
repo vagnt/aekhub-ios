@@ -90,6 +90,7 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         ITSAppUsesNonExemptEncryption: false
         NSSupportsLiveActivities: true
+        NSSupportsLiveActivitiesFrequentUpdates: true
         # AdMob
         GADApplicationIdentifier: $(ADMOB_APP_ID)
         NSUserTrackingUsageDescription: Οι διαφημίσεις που βλέπεις θα ταιριάζουν περισσότερο σε σένα. Έτσι στηρίζεις το AEK Hub να μένει δωρεάν.

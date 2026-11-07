@@ -13,6 +13,12 @@
 - **Sideload** (δωρεάν Apple ID): λήξη 7 ημερών, **χωρίς push**. Push/App Store όταν ο χρήστης γίνει Apple Developer (τότε: APNs/FCM, υπογραφή, `DEVELOPMENT_TEAM`).
 - Κάθε έκδοση: `MARKETING_VERSION` στο `project.yml` (το build number = αριθμός run).
 
+## Live Activities με push (7/11/2026, ζήτησε ο χρήστης: «να ενημερώνεται και με κλειστή εφαρμογή»)
+- App: κάθε activity ζητιέται με `pushType: .token` (όταν υπάρχει push) → `pushTokenUpdates` → `POST /app/la-token` (kind update/end, + token FCM + `Device.id`)· iOS 17.2+ token «push-to-start» (kind start, με αθλήματα/αγώνες που ακολουθείς, `off=1` αν κλείσει η ρύθμιση). `LiveActivities.observe()` στο άνοιγμα (και όταν το iOS ξυπνά το app για activity που άνοιξε με push), `fcmReady()` ξαναστέλνει όταν έρθει το FCM token.
+- Server `aekhub-site` → `plugins/aekhub-app/inc/live-activity.php` (1.6.0): σε κάθε αλλαγή σκορ/κατάστασης/ρολογιού/γεγονότων → Firebase `apns.live_activity_token` (update · end στη λήξη · start όταν ο αγώνας γίνεται live). Τα πεδία του `ContentState` πρέπει να είναι ΙΔΙΑ και στα δύο· νέα πεδία ΜΟΝΟ optional.
+- `clk` = στιγμή του 0′ → το λεπτό «τρέχει» μόνο του στην οθόνη (`minuteText`, μορφή 67:12). Γκολ ΑΕΚ → alert χωρίς ήχο (τον ήχο τον έχει η κανονική ειδοποίηση).
+- ⚠ Δοκιμάστηκε μόνο με προσομοίωση του server· ζωντανά όχι.
+
 ## 1.0 (πρώτη έκδοση App Store, 7/11/2026) · 0.7.0 — προετοιμασία App Store
 - **AdMob πραγματικό**: `ADMOB_APP_ID` = `ca-app-pub-7943059111940021~6196572715` (ad units iOS στο wp-admin → 🍏).
 - **Δήλωση απορρήτου** `Resources/Privacy/PrivacyInfo.xcprivacy` (tracking με ATT, device ID/advertising data/αλληλεπίδραση/σχόλια/όνομα/crash· UserDefaults CA92.1 + 1C8F.1, file timestamp C617.1).
@@ -74,7 +80,7 @@
 - **Apple Watch**: live/επόμενος αγώνας (σκορ ή αντίστροφη μέτρηση), live/επόμενοι/αποτελέσματα, νέα (κείμενο άρθρου), σελίδα αγώνα με γεγονότα· **complications** (`WatchWidgets/`: circular/rectangular/inline/corner).
 - 💬 Σχόλια (`/app/comments/{id}`, header `X-Aek-Device`), 🔖 αποθηκευμένα (τοπικά, `saved.json`), 📅 ημερολόγιο (ICS `amc_ics` → webcal/Google/Outlook), συντομεύσεις εικονιδίου (Αγώνες/Βαθμολογίες/Αναζήτηση).
 - 📊 Στατιστικά: `/aekhub/v1/hit` με `s:15` (= «Εφαρμογή iOS», θέμα 2.10.5) + παλμός `/aekhub-an/v1/ping`· UA `AEKHubApp/x (iOS)` → os 10 «Εφαρμογή iOS» στο `aekhub-analytics` 1.4.0. Διακόπτης στο «Εγώ».
-- Δεν έγιναν: διαφημίσεις (ζήτησε ο χρήστης να μη γίνουν), Live Activities/Dynamic Island (θέλουν push για να ενημερώνονται με κλειστό app).
+- Δεν έγιναν (τότε): διαφημίσεις — έγιναν στην 0.5.0· Live Activities με push — έγιναν 7/11/2026.
 
 ## 📦 Διανομή σε φίλους (δωρεάν)
 - Δημόσιο repo **`vagnt/aekhub-ios-dist`** (μόνο αρχεία, όχι κώδικας): σε κάθε build του κύριου branch το workflow ανεβάζει release με τα δύο .ipa και ενημερώνει το **`source.json`** (μορφή AltStore/SideStore, `dist/make_source.py`, κρατά τις 10 τελευταίες εκδόσεις· η πηγή δείχνει το .ipa **χωρίς ρολόι** για να χωράει στα όρια App IDs του δωρεάν λογαριασμού).

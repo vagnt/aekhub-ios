@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         Notifier.shared.setup()
         Push.shared.setup()
+        LiveActivities.shared.observe() // tokens των Live Activities (και όσων άνοιξαν με push) → server
         return true
     }
     /// Push: το token της Apple → Firebase (ρητά, εκτός από το swizzling του Firebase)
