@@ -118,24 +118,35 @@ final class ImageLoader: ObservableObject {
         }
         image = nil
         task = Task { [weak self] in
-            let cached = ImageLoader.cache.object(forKey: u as NSURL)
-            var d = Data()
-            if cached == nil {
+            var img = ImageLoader.cache.object(forKey: u as NSURL)
+            if img == nil {
                 guard let res = try? await URLSession.shared.data(from: u), !Task.isCancelled else { return }
-                d = res.0
+                let d = res.0
+                img = await Task.detached(priority: .userInitiated) { () -> UIImage? in
+                    #if os(iOS)
+                    return UIImage(data: d)?.preparingForDisplay() ?? UIImage(data: d)
+                    #else
+                    return UIImage(data: d)
+                    #endif
+                }.value
+                guard let i = img, !Task.isCancelled else { return }
+                ImageLoader.cache.setObject(i, forKey: u as NSURL, cost: Int(i.size.width * i.size.height * i.scale * i.scale * 4))
             }
-            let out: (UIImage?, CGPoint?) = await Task.detached(priority: .userInitiated) { () -> (UIImage?, CGPoint?) in
-                #if os(iOS)
-                let img = cached ?? (UIImage(data: d)?.preparingForDisplay() ?? UIImage(data: d))
-                return (img, focus ? img.flatMap(Focus.point) : nil)
-                #else
-                return (cached ?? UIImage(data: d), nil)
-                #endif
-            }.value
-            guard let img = out.0, !Task.isCancelled else { return }
-            if cached == nil { ImageLoader.cache.setObject(img, forKey: u as NSURL, cost: Int(img.size.width * img.size.height * img.scale * img.scale * 4)) }
-            if let f = out.1 { ImageLoader.focals[u] = f; self?.focal = f }
-            withAnimation(.easeOut(duration: 0.2)) { self?.image = img }
+            guard let i = img, let self else { return }
+            // η φωτογραφία φαίνεται ΑΜΕΣΩΣ· το έξυπνο κάδρο έρχεται μετά, σε δική του ουρά (δεν μπλοκάρει τίποτα)
+            withAnimation(.easeOut(duration: 0.2)) { self.image = i }
+            #if os(iOS)
+            if focus, ImageLoader.focals[u] == nil {
+                Focus.queue.async {
+                    let f = Focus.point(i) ?? CGPoint(x: 0.5, y: 0.35)
+                    Task { @MainActor [weak self] in
+                        ImageLoader.focals[u] = f
+                        guard let self, self.url == u else { return }
+                        withAnimation(.easeOut(duration: 0.25)) { self.focal = f }
+                    }
+                }
+            }
+            #endif
         }
     }
 }
@@ -143,8 +154,8 @@ final class ImageLoader: ObservableObject {
 #if os(iOS)
 /// Πού «κοιτάει» μια φωτογραφία: πρόσωπα (όλα μαζί) → αλλιώς το πιο ενδιαφέρον σημείο → αλλιώς λίγο πάνω από το κέντρο.
 enum Focus {
-    /// Μία ανάλυση τη φορά (όχι δεκάδες μαζί σε μια λίστα)
-    private static let lock = NSLock()
+    /// Δική της σειριακή ουρά χαμηλής προτεραιότητας: μία ανάλυση τη φορά, ποτέ στα threads της εφαρμογής
+    static let queue = DispatchQueue(label: "gr.aekhub.focus", qos: .utility)
 
     static func point(_ img: UIImage) -> CGPoint? {
         guard let src = img.cgImage else { return nil }
@@ -156,7 +167,6 @@ enum Focus {
         ctx.interpolationQuality = .low
         ctx.draw(src, in: CGRect(x: 0, y: 0, width: w, height: h))
         guard let cg = ctx.makeImage() else { return nil }
-        lock.lock(); defer { lock.unlock() }
         let handler = VNImageRequestHandler(cgImage: cg, options: [:])
         let faces = VNDetectFaceRectanglesRequest()
         try? handler.perform([faces])
