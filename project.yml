@@ -11,7 +11,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.7.0"
+    MARKETING_VERSION: "0.7.1"
     CURRENT_PROJECT_VERSION: "1"
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: H3BX78S223
@@ -59,8 +59,7 @@ targets:
       path: iOS/AEKHub.entitlements
       properties:
         aps-environment: development
-        # App Group (για το AEKHubNotify): ξαναμπαίνει όταν φτιαχτεί το group.gr.aekhub.app στο developer.apple.com
-        # com.apple.security.application-groups: [group.gr.aekhub.app]
+        com.apple.security.application-groups: [group.gr.aekhub.app]
     info:
       path: iOS/Info.plist
       properties:
@@ -161,8 +160,8 @@ targets:
         product: FirebaseMessaging
       - target: AEKHubWidgets
         embed: true
-      # - target: AEKHubNotify   (ήσυχες ώρες/spoilers στο push — θέλει πρώτα το App Group, βλ. CLAUDE.md)
-      #   embed: true
+      - target: AEKHubNotify
+        embed: true
       # Η εφαρμογή του ρολογιού μπαίνει ΜΕΣΑ στο .ipa του iPhone (φάκελος Watch)
       - target: AEKHubWatch
         embed: true
