@@ -42,14 +42,26 @@ struct LiveMatchWidget: Widget {
                     }.padding(.horizontal, 8)
                 }
             } compactLeading: {
-                Image("HubLogo").resizable().scaledToFit().frame(width: 22, height: 22).clipShape(Circle())
+                // Μαζεμένο Dynamic Island + μπάρα του Mac: σήμα + σκορ γηπεδούχου … σκορ + σήμα φιλοξενούμενου (όπως Apple Sports)
+                HStack(spacing: 5) {
+                    crest(a.home, a.aek == "home", 20)
+                    VStack(spacing: -1) {
+                        Text(s.ph ?? s.sh).font(.system(size: 15, weight: .heavy)).monospacedDigit()
+                            .foregroundStyle(a.aek == "home" ? C.gold : .white)
+                        compactTag(s)
+                    }
+                }
             } compactTrailing: {
-                HStack(spacing: 4) {
-                    Text("\(s.ph ?? s.sh)–\(s.pa ?? s.sa)").font(.system(size: 15, weight: .heavy)).foregroundStyle(s.goal ? C.gold : .white).monospacedDigit()
-                    if s.status != "finished" { minuteText(s).font(.system(size: 12, weight: .bold)).foregroundStyle(C.live).lineLimit(1).frame(maxWidth: 44) }
+                HStack(spacing: 5) {
+                    VStack(spacing: -1) {
+                        Text(s.pa ?? s.sa).font(.system(size: 15, weight: .heavy)).monospacedDigit()
+                            .foregroundStyle(a.aek == "away" ? C.gold : .white)
+                        compactTag(s, right: true)
+                    }
+                    crest(a.away, a.aek == "away", 20)
                 }
             } minimal: {
-                Image("HubLogo").resizable().scaledToFit().frame(width: 22, height: 22).clipShape(Circle())
+                crest(a.aek == "away" ? a.away : a.home, true, 22)
             }
             .widgetURL(URL(string: "aekhub://match/\(a.matchId)"))
             .keylineTint(C.gold)
@@ -115,6 +127,18 @@ struct SmallView: View {
     func short(_ n: String, _ aek: Bool) -> some View {
         Text(String(n.upperGr.prefix(3))).font(.system(size: 10, weight: .heavy)).foregroundStyle(aek ? C.gold : .white.opacity(0.85))
     }
+}
+
+/// Πολύ μικρή ένδειξη κάτω από το σκορ στο μαζεμένο Dynamic Island: αριστερά λεπτό/σετ (κόκκινο), δεξιά τα σετ στο βόλεϊ
+@ViewBuilder func compactTag(_ s: LiveMatchAttributes.ContentState, right: Bool = false) -> some View {
+    let t: Text = {
+        if s.status == "finished" { return Text(right ? "" : "ΤΕΛ").foregroundColor(C.gold) }
+        if ["halftime", "ht", "break", "eth"].contains(s.status) { return Text(right ? "" : "ΗΜ").foregroundColor(C.gold) }
+        if right { return Text(s.ph != nil ? "σετ \(s.sh)–\(s.sa)" : "").foregroundColor(.white.opacity(0.6)) }
+        if let per = s.per { return Text(per.replacingOccurrences(of: "ΣΕΤ ", with: "Σ")).foregroundColor(C.live) }
+        return minuteText(s).foregroundColor(C.live)
+    }()
+    t.font(.system(size: 8, weight: .heavy)).lineLimit(1).frame(maxWidth: 34)
 }
 
 /// Λεπτό αγώνα: με `clk` «τρέχει» μόνο του (67:12) ακόμα και χωρίς νέο push· αλλιώς το κείμενο της πηγής.
