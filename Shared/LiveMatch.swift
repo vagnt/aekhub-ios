@@ -28,5 +28,7 @@ struct LiveMatchAttributes: ActivityAttributes {
     var competition: String
     var venue: String
     var kickoff: Date?
+    var hlogo: String? = nil   // links λογοτύπων (ο server τα στέλνει στην έναρξη με push → το app τα κατεβάζει στο παρασκήνιο)
+    var alogo: String? = nil
 }
 #endif

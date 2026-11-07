@@ -85,6 +85,7 @@ struct MatchProvider: TimelineProvider {
     func load(images: Bool) async -> MatchEntry {
         let h = (try? await Api.shared.home()) ?? Api.shared.peek(Api.pHome).map(HomeData.init)
         guard let m = h?.liveHero?.match ?? h?.next else { return MatchEntry(date: Date(), m: nil) }
+        await LiveLogos.cache(m.home, m.homeLogo); await LiveLogos.cache(m.away, m.awayLogo) // για το Live Activity
         var e = MatchEntry(date: Date(), m: m)
         if images {
             async let a = WImg.load(m.homeLogo, w: 120)
@@ -240,6 +241,7 @@ struct ScheduleProvider: TimelineProvider {
         let today = Fmt.ymdString(Date())
         let items = (l?.items ?? []).filter { $0.live || ($0.upcoming && $0.date >= today) }
             .sorted { ($0.live ? 0 : 1, $0.date, $0.time) < ($1.live ? 0 : 1, $1.date, $1.time) }
+        for m in items.prefix(4) where !m.aek.isEmpty { await LiveLogos.cache(m.home, m.homeLogo); await LiveLogos.cache(m.away, m.awayLogo) }
         return ListEntry(date: Date(), items: Array(items.prefix(8)))
     }
 }
