@@ -198,6 +198,9 @@ jobs:
           KEY="$RUNNER_TEMP/AuthKey_$ASC_KEY_ID.p8"
           printf '%s\n' "$ASC_KEY_P8" > "$KEY"
           echo "AUTHKEY=$KEY" >> $GITHUB_ENV
+          # μόνο τα πιστοποιητικά ανάπτυξης έξω (αλλιώς «maximum number of certificates») — με έγκριση του χρήστη
+          pip3 install --quiet --break-system-packages "pyjwt[crypto]" 2>/dev/null || pip3 install --quiet "pyjwt[crypto]"
+          AUTHKEY="$KEY" python3 ci/asc_cleanup.py || true
           # Την 1η φορά το Xcode κατεβάζει τα προφίλ και συχνά «δεν τα βρίσκει» αμέσως → ξαναδοκιμή (έως 3)
           for i in 1 2 3; do
             if xcodebuild -project AEKHub.xcodeproj -scheme AEKHub -configuration Release \
