@@ -13,7 +13,7 @@
 - **Sideload** (δωρεάν Apple ID): λήξη 7 ημερών, **χωρίς push**. Push/App Store όταν ο χρήστης γίνει Apple Developer (τότε: APNs/FCM, υπογραφή, `DEVELOPMENT_TEAM`).
 - Κάθε έκδοση: `MARKETING_VERSION` στο `project.yml` (το build number = αριθμός run).
 
-## 0.7.0 — προετοιμασία App Store
+## 1.0 (πρώτη έκδοση App Store, 7/11/2026) · 0.7.0 — προετοιμασία App Store
 - **AdMob πραγματικό**: `ADMOB_APP_ID` = `ca-app-pub-7943059111940021~6196572715` (ad units iOS στο wp-admin → 🍏).
 - **Δήλωση απορρήτου** `Resources/Privacy/PrivacyInfo.xcprivacy` (tracking με ATT, device ID/advertising data/αλληλεπίδραση/σχόλια/όνομα/crash· UserDefaults CA92.1 + 1C8F.1, file timestamp C617.1).
 - **Σχόλια (Apple 1.2)**: όροι πριν το 1ο σχόλιο (`c_terms`, link `/oroi-xrisis/`, μηδενική ανοχή) · μενού ⋯ ανά σχόλιο: Αναφορά + **Απόκρυψη χρήστη** (`c_blocked`, ανά όνομα, όχι στα AEK HUB)· αναίρεση από Εγώ → «Κρυμμένοι χρήστες σχολίων».
