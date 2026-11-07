@@ -120,6 +120,7 @@ jobs:
   # 📸 Screenshots από προσομοιωτή (iPhone + iPad): έλεγχος εμφάνισης χωρίς συσκευή
   # Screenshots: ΜΟΝΟ όταν ζητηθούν («[screens]» ή «[appstore]» στο commit, ή χειροκίνητα) — τα λεπτά macOS κοστίζουν ×10
   screens:
+    timeout-minutes: 45
     if: contains(github.event.head_commit.message, '[screens]') || contains(github.event.head_commit.message, '[appstore]') || github.event_name == 'workflow_dispatch'
     runs-on: macos-15
     steps:

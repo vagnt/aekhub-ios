@@ -143,18 +143,31 @@ final class ImageLoader: ObservableObject {
 #if os(iOS)
 /// Πού «κοιτάει» μια φωτογραφία: πρόσωπα (όλα μαζί) → αλλιώς το πιο ενδιαφέρον σημείο → αλλιώς λίγο πάνω από το κέντρο.
 enum Focus {
+    /// Μία ανάλυση τη φορά (όχι δεκάδες μαζί σε μια λίστα)
+    private static let lock = NSLock()
+
     static func point(_ img: UIImage) -> CGPoint? {
-        guard let cg = img.cgImage else { return nil }
-        let h = VNImageRequestHandler(cgImage: cg, options: [:])
+        guard let src = img.cgImage else { return nil }
+        // μικρό αντίγραφο (≤256px): αρκεί για πρόσωπα/κάδρο και είναι πολύ γρήγορο
+        let k = min(1, 256 / CGFloat(max(src.width, src.height)))
+        let w = max(1, Int(CGFloat(src.width) * k)), h = max(1, Int(CGFloat(src.height) * k))
+        guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+        ctx.interpolationQuality = .low
+        ctx.draw(src, in: CGRect(x: 0, y: 0, width: w, height: h))
+        guard let cg = ctx.makeImage() else { return nil }
+        lock.lock(); defer { lock.unlock() }
+        let handler = VNImageRequestHandler(cgImage: cg, options: [:])
         let faces = VNDetectFaceRectanglesRequest()
-        let sal = VNGenerateAttentionBasedSaliencyImageRequest()
-        try? h.perform([faces, sal])
+        try? handler.perform([faces])
         // Vision: 0–1 με αρχή κάτω-αριστερά
         if let fs = faces.results, !fs.isEmpty {
             let u = fs.map(\.boundingBox).reduce(fs[0].boundingBox) { $0.union($1) }
             // λίγο πάνω από τα πρόσωπα, για να χωράει και το κεφάλι ολόκληρο
             return CGPoint(x: u.midX, y: max(0, 1 - u.midY - u.height * 0.15))
         }
+        let sal = VNGenerateAttentionBasedSaliencyImageRequest()
+        try? handler.perform([sal])
         if let o = sal.results?.first?.salientObjects, !o.isEmpty {
             let u = o.map(\.boundingBox).reduce(o[0].boundingBox) { $0.union($1) }
             return CGPoint(x: u.midX, y: max(0, 1 - u.maxY + u.height * 0.35))
