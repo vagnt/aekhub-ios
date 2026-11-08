@@ -62,7 +62,10 @@ final class Prefs: ObservableObject {
         all = d.object(forKey: "n_all") as? Bool ?? true
         sports = Set(d.stringArray(forKey: "n_sports") ?? Kinds.hot)
         kinds = Set(d.stringArray(forKey: "n_kinds") ?? Array(Kinds.defaults()))
-        news = d.object(forKey: "n_news") as? Bool ?? false
+        // 📰 Νέα άρθρα: ανοιχτά από προεπιλογή (ζήτησε ο χρήστης· αλλιώς κανείς δεν τα άνοιγε).
+        // Μία φορά για όσους είχαν ήδη το app με το παλιό «κλειστό»· μετά σέβεται την επιλογή τους.
+        if !d.bool(forKey: "n_news_on_mig") { d.set(true, forKey: "n_news"); d.set(true, forKey: "n_news_on_mig") }
+        news = d.object(forKey: "n_news") as? Bool ?? true
         newsCats = Set(d.stringArray(forKey: "n_news_cats") ?? [])
         quiet = d.bool(forKey: "n_quiet")
         quietFrom = d.object(forKey: "n_qf") as? Int ?? 60
