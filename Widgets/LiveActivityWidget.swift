@@ -20,10 +20,10 @@ struct LiveMatchWidget: Widget {
             let a = ctx.attributes, s = ctx.state
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    VStack(spacing: 4) { crest(a.home, a.aek == "home", 40); name(a.home, a.aek == "home") }.padding(.leading, 6)
+                    VStack(spacing: 4) { crest(a.home, a.hlogo, a.aek == "home", 40); name(a.home, a.aek == "home") }.padding(.leading, 6)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    VStack(spacing: 4) { crest(a.away, a.aek == "away", 40); name(a.away, a.aek == "away") }.padding(.trailing, 6)
+                    VStack(spacing: 4) { crest(a.away, a.alogo, a.aek == "away", 40); name(a.away, a.aek == "away") }.padding(.trailing, 6)
                 }
                 DynamicIslandExpandedRegion(.center) {
                     VStack(spacing: 2) {
@@ -44,7 +44,7 @@ struct LiveMatchWidget: Widget {
             } compactLeading: {
                 // Μαζεμένο Dynamic Island + μπάρα του Mac: σήμα + σκορ γηπεδούχου … σκορ + σήμα φιλοξενούμενου (όπως Apple Sports)
                 HStack(spacing: 5) {
-                    crest(a.home, a.aek == "home", 20)
+                    crest(a.home, a.hlogo, a.aek == "home", 20)
                     VStack(spacing: -1) {
                         Text(s.ph ?? s.sh).font(.system(size: 15, weight: .heavy)).monospacedDigit()
                             .foregroundStyle(a.aek == "home" ? C.gold : .white)
@@ -58,10 +58,10 @@ struct LiveMatchWidget: Widget {
                             .foregroundStyle(a.aek == "away" ? C.gold : .white)
                         compactTag(s, right: true)
                     }
-                    crest(a.away, a.aek == "away", 20)
+                    crest(a.away, a.alogo, a.aek == "away", 20)
                 }
             } minimal: {
-                crest(a.aek == "away" ? a.away : a.home, true, 22)
+                crest(a.aek == "away" ? a.away : a.home, a.aek == "away" ? a.alogo : a.hlogo, true, 22)
             }
             .widgetURL(URL(string: "aekhub://match/\(a.matchId)"))
             .keylineTint(C.gold)
@@ -112,7 +112,7 @@ struct SmallView: View {
     var body: some View {
         VStack(spacing: 3) {
             HStack(spacing: 4) {
-                side(a.home, a.aek == "home", s.ph != nil ? s.sh : nil)
+                side(a.home, a.hlogo, a.aek == "home", s.ph != nil ? s.sh : nil)
                 Spacer(minLength: 0)
                 (Text(s.ph ?? s.sh).foregroundColor(a.aek == "home" ? C.gold : .white)
                  + Text("–").foregroundColor(.white.opacity(0.4))
@@ -120,7 +120,7 @@ struct SmallView: View {
                     .font(F.disp(32)).monospacedDigit()
                     .lineLimit(1).minimumScaleFactor(0.5).layoutPriority(1)
                 Spacer(minLength: 0)
-                side(a.away, a.aek == "away", s.ph != nil ? s.sa : nil)
+                side(a.away, a.alogo, a.aek == "away", s.ph != nil ? s.sa : nil)
             }
             Group {
                 if s.status == "finished" { Text("ΤΕΛΙΚΟ").foregroundStyle(C.gold) }
@@ -139,9 +139,9 @@ struct SmallView: View {
         .padding(.horizontal, 8).padding(.vertical, 6)
     }
     /// Σήμα + από κάτω: τα σετ (βόλεϊ) ή τα 3 πρώτα γράμματα
-    @ViewBuilder func side(_ n: String, _ aek: Bool, _ sets: String?) -> some View {
+    @ViewBuilder func side(_ n: String, _ logo: String?, _ aek: Bool, _ sets: String?) -> some View {
         VStack(spacing: 2) {
-            crest(n, aek, 28)
+            crest(n, logo, aek, 28)
             if let sets {
                 setBadge(sets, aek, 30) // μόνο ο αριθμός σε κουτάκι, όπως στη μεγάλη οθόνη
             } else {
@@ -174,9 +174,9 @@ func minuteText(_ s: LiveMatchAttributes.ContentState) -> Text {
     return Text(s.minute)
 }
 
-func crest(_ n: String, _ aek: Bool, _ size: CGFloat) -> some View {
+func crest(_ n: String, _ logo: String?, _ aek: Bool, _ size: CGFloat) -> some View {
     ZStack {
-        if let img = LiveLogos.image(n) { Image(uiImage: img).resizable().scaledToFit() }
+        if let img = LiveLogos.image(n, logo) { Image(uiImage: img).resizable().scaledToFit() }
         else if aek { Image("HubLogo").resizable().scaledToFit().clipShape(Circle()) }
         else { Circle().fill(Color.white.opacity(0.12)); Text(String(n.upperGr.prefix(3))).font(.system(size: size * 0.3, weight: .heavy)).foregroundStyle(.white) }
     }.frame(width: size, height: size)
@@ -318,11 +318,11 @@ struct LockView: View {
                 }
             }
             HStack {
-                VStack(spacing: 4) { crest(a.home, a.aek == "home", 42); name(a.home, a.aek == "home") }.frame(minWidth: 60, maxWidth: 90)
+                VStack(spacing: 4) { crest(a.home, a.hlogo, a.aek == "home", 42); name(a.home, a.aek == "home") }.frame(minWidth: 60, maxWidth: 90)
                 Spacer(minLength: 4)
                 score(a, s, 52).lineLimit(1).minimumScaleFactor(0.55).layoutPriority(1)
                 Spacer(minLength: 4)
-                VStack(spacing: 4) { crest(a.away, a.aek == "away", 42); name(a.away, a.aek == "away") }.frame(minWidth: 60, maxWidth: 90)
+                VStack(spacing: 4) { crest(a.away, a.alogo, a.aek == "away", 42); name(a.away, a.aek == "away") }.frame(minWidth: 60, maxWidth: 90)
             }
             if s.status != "finished" && hasClock(a) { bar(s.progress, segments(a)) }
             HStack {

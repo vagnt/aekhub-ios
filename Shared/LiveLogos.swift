@@ -9,15 +9,19 @@ enum LiveLogos {
     static var dir: URL? {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group)?.appendingPathComponent("logos", isDirectory: true)
     }
-    static func key(_ name: String) -> String {
+    /// Κλειδί = όνομα + link λογοτύπου: η «ΑΕΚ» έχει άλλο σήμα στο ποδόσφαιρο, άλλο στο μπάσκετ/ερασιτέχνη
+    /// (πριν το κλειδί ήταν μόνο το όνομα → έβγαινε το σήμα του μπάσκετ στο ποδόσφαιρο)
+    static func key(_ name: String, _ logo: String? = nil) -> String {
         var h: UInt64 = 5381
-        for b in name.lowercased().trimmingCharacters(in: .whitespaces).utf8 { h = (h &* 33) &+ UInt64(b) }
+        var src = name.lowercased().trimmingCharacters(in: .whitespaces)
+        if let l = logo, !l.isEmpty { src += "|" + (l.components(separatedBy: "?").first ?? l) }
+        for b in src.utf8 { h = (h &* 33) &+ UInt64(b) }
         return String(h, radix: 16)
     }
-    static func file(_ name: String) -> URL? { dir?.appendingPathComponent(key(name) + ".png") }
+    static func file(_ name: String, _ logo: String? = nil) -> URL? { dir?.appendingPathComponent(key(name, logo) + ".png") }
 
-    static func image(_ name: String) -> UIImage? {
-        guard !name.isEmpty, let u = file(name) else { return nil }
+    static func image(_ name: String, _ logo: String? = nil) -> UIImage? {
+        guard !name.isEmpty, let u = file(name, logo) else { return nil }
         return UIImage(contentsOfFile: u.path)
     }
 
@@ -32,7 +36,7 @@ enum LiveLogos {
 
     /// Κατεβάζει (μία φορά την εβδομάδα) το λογότυπο μιας ομάδας
     static func cache(_ name: String, _ logo: String) async {
-        guard !name.isEmpty, !logo.isEmpty, let d = dir, let f = file(name) else { return }
+        guard !name.isEmpty, !logo.isEmpty, let d = dir, let f = file(name, logo) else { return }
         if let a = try? FileManager.default.attributesOfItem(atPath: f.path), let t = a[.modificationDate] as? Date, t > Date().addingTimeInterval(-7 * 86400) { return }
         guard let u = Img.url(logo, w: 160), let (data, _) = try? await URLSession.shared.data(from: u), let img = UIImage(data: data) else { return }
         let side: CGFloat = 72

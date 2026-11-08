@@ -45,11 +45,11 @@ final class LiveActivities {
         // Λογότυπα χωρίς να ανοίξει ο χρήστης την εφαρμογή: όταν ο server ανοίγει το activity, το iOS ξυπνά το app στο
         // παρασκήνιο → κατεβάζουμε τα σήματα (links από τα attributes) και ξανασχεδιάζουμε το activity
         let at = a.attributes
-        if LiveLogos.image(at.home) == nil || LiveLogos.image(at.away) == nil {
+        if LiveLogos.image(at.home, at.hlogo) == nil || LiveLogos.image(at.away, at.alogo) == nil {
             Task.detached(priority: .utility) {
                 await LiveLogos.cache(at.home, at.hlogo ?? "")
                 await LiveLogos.cache(at.away, at.alogo ?? "")
-                if LiveLogos.image(at.home) != nil || LiveLogos.image(at.away) != nil { await a.update(a.content) }
+                if LiveLogos.image(at.home, at.hlogo) != nil || LiveLogos.image(at.away, at.alogo) != nil { await a.update(a.content) }
             }
         }
         if let t = a.pushToken { let h = Self.hex(t); tokens[mid] = h; Task { await Self.send(["kind": "update", "match": "\(mid)", "token": h]) } }
