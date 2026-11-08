@@ -3,7 +3,7 @@ import SwiftUI
 /// Αγώνες μέρα-μέρα (Android MatchesScreen): λωρίδα ημερών που κυλάει (45 μέρες πίσω – 90 μπροστά),
 /// σύρσιμο αριστερά/δεξιά για αλλαγή μέρας, «Επιστροφή στο σήμερα», άθλημα (dropdown), 📅 ημερολόγιο.
 struct MatchesView: View {
-    @EnvironmentObject var app: AppState
+    @ObservedObject var app = AppState.shared
     @Environment(\.horizontalSizeClass) var hsc
     @State private var sport = ""
     @State private var list: [MatchCard]?

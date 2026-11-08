@@ -203,7 +203,7 @@ struct BannerAd: View {
     var place = "home"
     var medium = false
     @ObservedObject private var ads = Ads.shared
-    @EnvironmentObject var app: AppState
+    @ObservedObject var app = AppState.shared
     @State private var picked = false
     @State private var sponsor: Campaign?
     var body: some View {
@@ -221,7 +221,7 @@ struct BannerAd: View {
 /// Διαφήμιση μέσα στη ροή ειδήσεων: κάρτα χορηγού → native AdMob → banner
 struct FeedAd: View {
     @ObservedObject private var ads = Ads.shared
-    @EnvironmentObject var app: AppState
+    @ObservedObject var app = AppState.shared
     @State private var picked = false
     @State private var sponsor: Campaign?
     var body: some View {
@@ -280,7 +280,7 @@ struct SponsorNative: View {
 /// «Παρουσιάζεται από»: λογότυπο χορηγού (Match Center / βαθμολογίες / live). Δεν το κλείνει το rewarded.
 struct PresentedBy: View {
     let place: String
-    @EnvironmentObject var app: AppState
+    @ObservedObject var app = AppState.shared
     @State private var c: Campaign?
     @State private var picked = false
     var body: some View {

@@ -124,3 +124,6 @@
 ## 🖼 Κύριο θέμα με παλιά φωτογραφία (8/11/2026)
 - Η αρχική ανανεώνεται κάθε 60″ (15″ με live) **και** μόλις η εφαρμογή ξανανοίξει (`scenePhase` → `.active`). Server: aekhub-app 1.6.5 σβήνει τη μνήμη και σε αλλαγή φωτογραφίας (`_thumbnail_id`) / Σειράς Hero.
 - Σκόρερ στις ειδοποιήσεις: τα κείμενα τα φτιάχνει ο server (`aekhub-push` ≥ 1.14.1, Νιοστό γκολ — ποτέ το όνομα του προηγούμενου)· **«γκολ τώρα, σκόρερ σε λίγο» και στο iPhone** (aekhub-app 1.6.6, ζήτησε ο χρήστης): η ειδοποίηση γκολ έχει `apns-collapse-id` `g<αγώνας><h|a><Ν>`· το `goalupd` στέλνεται με το ΙΔΙΟ collapse-id, χωρίς ήχο, `interruption-level: passive` → το iOS αντικαθιστά την ίδια ειδοποίηση με το όνομα (χωρίς να χρειάζεται η εφαρμογή)· με ανοιχτό app το `willPresent` δείχνει μόνο στη λίστα.
+
+## 💥 Crash στο κλείσιμο στο iPad (build 60, 8/11/2026)
+- `EnvironmentObject.error()` στο `NotifSettingsView` κατά το snapshot του iOS (εφαρμογή στο παρασκήνιο/περιστροφή): η οθόνη ξανασχεδιάστηκε χωρίς environment object. **ΠΟΤΕ πια `@EnvironmentObject` για `AppState`/`Prefs`** → παντού `@ObservedObject var x = AppState.shared / Prefs.shared` (ίδια αντικείμενα, δεν σκάει ποτέ).

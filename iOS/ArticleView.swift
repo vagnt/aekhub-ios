@@ -18,8 +18,8 @@ struct ArticleView: View {
     @State private var comments = 0
     @State private var more: [PostCard] = []
     @State private var heights: [Int: CGFloat] = [:]
-    @EnvironmentObject var prefs: Prefs
-    @EnvironmentObject var app: AppState
+    @ObservedObject var prefs = Prefs.shared
+    @ObservedObject var app = AppState.shared
     @ObservedObject private var ads = Ads.shared
     @Environment(\.dismiss) var dismiss
 

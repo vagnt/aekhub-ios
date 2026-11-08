@@ -4,8 +4,8 @@ import UserNotifications
 /// «Εγώ»: γρήγορα πλακίδια (αποθηκευμένα, ιστορικό, ημερολόγιο, ειδοποιήσεις) · συνέχισε να διαβάζεις ·
 /// χωρίς διαφημίσεις · ανάγνωση (γράμματα, εξοικονόμηση δεδομένων) · εφαρμογή (μνήμη, απόρρητο) · social.
 struct MeView: View {
-    @EnvironmentObject var app: AppState
-    @EnvironmentObject var p: Prefs
+    @ObservedObject var app = AppState.shared
+    @ObservedObject var p = Prefs.shared
     @ObservedObject private var ads = Ads.shared
     @Environment(\.horizontalSizeClass) var hsc
     @State private var showCal = false

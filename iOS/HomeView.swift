@@ -4,7 +4,7 @@ import SwiftUI
 /// κύριο θέμα · τελευταία νέα · επόμενοι αγώνες · ενότητες κατηγοριών · social.
 /// iPad: «περιοδικό» — μεγάλο κύριο θέμα με πλακίδια, ενότητες σε στήλες και δεξιά στήλη «Σήμερα» (αγώνες, βαθμολογία).
 struct HomeView: View {
-    @EnvironmentObject var app: AppState
+    @ObservedObject var app = AppState.shared
     @Environment(\.horizontalSizeClass) var hsc
     @Environment(\.scenePhase) private var phase
     @State private var data: HomeData? = Api.shared.peek(Api.pHome).map(HomeData.init)

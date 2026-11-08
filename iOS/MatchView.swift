@@ -12,7 +12,7 @@ struct MatchView: View {
     @State private var tab = UserDefaults.standard.string(forKey: "mtab") ?? ""
     @State private var openURL: URL?
     @State private var video: Highlight?
-    @EnvironmentObject var prefs: Prefs
+    @ObservedObject var prefs = Prefs.shared
     @Environment(\.dismiss) var dismiss
     @Environment(\.horizontalSizeClass) var hsc
 

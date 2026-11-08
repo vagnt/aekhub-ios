@@ -3,7 +3,7 @@ import SwiftUI
 /// 📅 Το πρόγραμμα της ΑΕΚ στο ημερολόγιο (ίδιο με το «Στο κινητό μου» του site):
 /// αθλήματα + υπενθύμιση → Ημερολόγιο iPhone (webcal) / Google / Outlook / αντιγραφή. Μία φορά και τέλος.
 struct CalendarSheet: View {
-    @EnvironmentObject var app: AppState
+    @ObservedObject var app = AppState.shared
     @Environment(\.dismiss) var dismiss
     @Environment(\.openURL) var openURL
     @State private var sel: Set<String> = []

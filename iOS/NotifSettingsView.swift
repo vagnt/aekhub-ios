@@ -4,8 +4,8 @@ import UserNotifications
 /// 🔔 Ειδοποιήσεις — όπως στο Android: γενικός διακόπτης · ανά άθλημα (κάρτα που ανοίγει, με διακόπτη ανά είδος) ·
 /// ειδήσεις με κατηγορίες · γενικά (Live Activity, ήσυχες ώρες, χωρίς spoilers) · δοκιμή.
 struct NotifSettingsView: View {
-    @EnvironmentObject var app: AppState
-    @EnvironmentObject var p: Prefs
+    @ObservedObject var app = AppState.shared
+    @ObservedObject var p = Prefs.shared
     @State private var status: UNAuthorizationStatus = .authorized
     @State private var open: Set<String> = []
     @State private var pushMsg: String?

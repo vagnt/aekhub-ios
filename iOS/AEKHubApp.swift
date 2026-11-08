@@ -142,8 +142,8 @@ extension UINavigationController: UIGestureRecognizerDelegate {
 }
 
 struct RootView: View {
-    @EnvironmentObject var app: AppState
-    @EnvironmentObject var prefs: Prefs
+    @ObservedObject var app = AppState.shared
+    @ObservedObject var prefs = Prefs.shared
     @Environment(\.scenePhase) var phase
     @Environment(\.horizontalSizeClass) var hsc
     @State private var paths: [Tab: NavigationPath] = [.home: NavigationPath(), .matches: NavigationPath(), .standings: NavigationPath(), .me: NavigationPath()]
@@ -322,7 +322,7 @@ struct Sidebar: View {
     let live: MatchCard?
     var compact = false
     var toggle: (() -> Void)? = nil
-    @EnvironmentObject var app: AppState
+    @ObservedObject var app = AppState.shared
     var body: some View {
         VStack(alignment: compact ? .center : .leading, spacing: 4) {
             Group {

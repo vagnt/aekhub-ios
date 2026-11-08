@@ -228,7 +228,7 @@ struct PostCardMedium: View {
 /// Παρατεταμένο πάτημα σε άρθρο: αποθήκευση / κοινοποίηση (όπως σε κάθε καλό app iPhone)
 struct PostMenu: ViewModifier {
     let p: PostCard
-    @EnvironmentObject var prefs: Prefs
+    @ObservedObject var prefs = Prefs.shared
     func body(content: Content) -> some View {
         content.contextMenu {
             Button { prefs.toggleSaved(p) } label: { Label(prefs.isSaved(p.id) ? "Αφαίρεση από αποθηκευμένα" : "Αποθήκευση", systemImage: prefs.isSaved(p.id) ? "bookmark.slash" : "bookmark") }
@@ -323,7 +323,7 @@ extension EnvironmentValues {
 /// Κάρτα αγώνα (λίστα αγώνων) — Android MatchCardView
 struct MatchCardView: View {
     let m: MatchCard
-    @EnvironmentObject var prefs: Prefs
+    @ObservedObject var prefs = Prefs.shared
     @Environment(\.matchPick) var pick
     @Environment(\.matchSel) var sel
     var body: some View {
