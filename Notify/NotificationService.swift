@@ -29,11 +29,42 @@ final class NotificationService: UNNotificationServiceExtension {
                 if #available(iOS 15.0, *) { c.interruptionLevel = .passive }
             }
         }
-        contentHandler(c)
+        // 🖼 Εικόνα του άρθρου/αγώνα (το `image` του server): μικρογραφία δεξιά, μεγάλη όταν ανοίγει η ειδοποίηση
+        guard let raw = info["image"] as? String, let url = Self.small(raw) else { contentHandler(c); return }
+        var rq = URLRequest(url: url, timeout: 20)
+        rq.setValue("image/jpeg,image/png;q=0.9", forHTTPHeaderField: "Accept") // όχι webp: το iOS δεν το δέχεται ως συνημμένο
+        let task = URLSession.shared.downloadTask(with: rq) { [weak self] tmp, resp, _ in
+            if let tmp, (resp as? HTTPURLResponse)?.statusCode ?? 200 < 400 {
+                let ext = (resp?.mimeType?.contains("png") ?? false) ? "png" : "jpg"
+                let dst = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + "." + ext)
+                if (try? FileManager.default.moveItem(at: tmp, to: dst)) != nil,
+                   let a = try? UNNotificationAttachment(identifier: "img", url: dst, options: nil) {
+                    c.attachments = [a]
+                }
+            }
+            DispatchQueue.main.async { self?.finish() }
+        }
+        task.resume()
     }
 
-    override func serviceExtensionTimeWillExpire() {
-        if let handler, let content { handler(content) }
+    /// Μικρότερη εικόνα από το CDN (κάποια πρωτότυπα είναι 4000px) — γρήγορο κατέβασμα, λίγα δεδομένα
+    static func small(_ raw: String) -> URL? {
+        guard var u = URLComponents(string: raw.trimmingCharacters(in: .whitespaces)), let host = u.host, u.scheme?.hasPrefix("http") == true else { return nil }
+        if host.hasSuffix("aekhub.gr") || host.hasSuffix("files.wordpress.com") {
+            return URL(string: "https://i0.wp.com/" + host + u.path + "?w=900&strip=all")
+        }
+        if host.hasPrefix("i0.wp.com") || host.hasPrefix("i1.wp.com") || host.hasPrefix("i2.wp.com") {
+            u.queryItems = [URLQueryItem(name: "w", value: "900"), URLQueryItem(name: "strip", value: "all")]
+            return u.url
+        }
+        return u.url
+    }
+
+    override func serviceExtensionTimeWillExpire() { finish() } // δεν πρόλαβε η εικόνα → χωρίς εικόνα
+
+    /// Μία φορά μόνο
+    private func finish() {
+        if let handler, let content { self.handler = nil; handler(content) }
     }
 
     /// «ΑΕΚ [1]–0 Χ» → «ΑΕΚ – Χ»
