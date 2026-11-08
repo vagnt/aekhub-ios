@@ -125,11 +125,13 @@ struct SmallView: View {
             }
             Group {
                 if s.status == "finished" { Text("ΤΕΛΙΚΟ").foregroundStyle(C.gold) }
-                else if ["halftime", "ht", "break", "eth"].contains(s.status) { Text("ΗΜΙΧΡΟΝΟ").foregroundStyle(C.gold) }
+                else if isBreak(s) { Text(stage(a, s) ?? "ΗΜΙΧΡΟΝΟ").foregroundStyle(C.gold) }
                 else {
+                    // ίδια λογική με τη μεγάλη οθόνη, σε μικρό: φάση (κίτρινο) + λεπτό όσο τρέχει
                     HStack(spacing: 4) {
                         Circle().fill(C.live).frame(width: 6, height: 6)
-                        if let per = s.per { Text(per).foregroundStyle(.white) } else { minuteText(s).foregroundStyle(.white) }
+                        if let st = shortStage(a, s) { Text(st).foregroundStyle(C.gold) }
+                        if s.per == nil { minuteText(s).foregroundStyle(.white) }
                     }
                 }
             }
@@ -225,6 +227,18 @@ func stage(_ a: LiveMatchAttributes, _ s: LiveMatchAttributes.ContentState) -> S
     case "eth": return "ΔΙΑΛΕΙΜΜΑ ΠΑΡΑΤΑΣΗΣ"
     case "et2": return "2η ΠΑΡΑΤΑΣΗ"
     case "penalties": return "ΠΕΝΑΛΤΙ"
+    default: return nil
+    }
+}
+
+/// Σύντομη φάση για ρολόι / CarPlay (λίγος χώρος)
+func shortStage(_ a: LiveMatchAttributes, _ s: LiveMatchAttributes.ContentState) -> String? {
+    if let per = s.per { return per }
+    switch s.status {
+    case "q1", "q2", "q3", "q4": return (a.sport == "waterpolo" ? "Π" : "Q") + s.status.dropFirst()
+    case "live": return ["basketball", "waterpolo"].contains(a.sport) ? nil : "1ο ΗΜ"
+    case "live2": return "2ο ΗΜ"
+    case "et1", "et2", "ot": return "ΠΑΡ"
     default: return nil
     }
 }
