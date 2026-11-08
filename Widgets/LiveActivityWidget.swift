@@ -72,8 +72,7 @@ struct LiveMatchWidget: Widget {
         else {
             HStack(spacing: 4) {
                 Circle().fill(C.live).frame(width: 7, height: 7)
-                if s.per == nil && !isBreak(s) { minuteText(s).font(.system(size: 13, weight: .bold)).foregroundStyle(.white).frame(maxWidth: 52) }
-                else { Text("LIVE").font(.system(size: 12, weight: .heavy)).foregroundStyle(C.live) }
+                Text("LIVE").font(.system(size: 12, weight: .heavy)).foregroundStyle(C.live)
             }
         }
     }
@@ -198,6 +197,11 @@ func score(_ a: LiveMatchAttributes, _ s: LiveMatchAttributes.ContentState, _ si
             if s.ph != nil { setBadge(s.sa, a.aek == "away", size) }
         }
         .font(F.disp(size)).monospacedDigit()
+        // ⏱ λεπτό/χρόνος στο κέντρο, κάτω από το σκορ (πάνω δεξιά μένει μόνο το LIVE — ζήτησε ο χρήστης)
+        if s.status != "finished" && s.per == nil && !isBreak(s) && hasClock(a) {
+            minuteText(s).font(.system(size: max(10, size * 0.27), weight: .heavy)).monospacedDigit()
+                .foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.7)
+        }
     }
 }
 
@@ -310,7 +314,6 @@ struct LockView: View {
                     HStack(spacing: 5) {
                         Circle().fill(C.live).frame(width: 8, height: 8)
                         Text("LIVE").font(.system(size: 13, weight: .heavy)).foregroundStyle(C.live)
-                        if s.per == nil && !isBreak(s) { minuteText(s).font(.system(size: 14, weight: .heavy)).foregroundStyle(.white).frame(maxWidth: 56) }
                     }
                 }
             }

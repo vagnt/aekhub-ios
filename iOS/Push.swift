@@ -14,7 +14,9 @@ final class Push: NSObject, MessagingDelegate {
     static let shared = Push()
     private let d = UserDefaults.standard
     private var bag = Set<AnyCancellable>()
-    private(set) var token: String?
+    /// Το τελευταίο token FCM μένει αποθηκευμένο: όταν το iOS ξυπνά την εφαρμογή στο παρασκήνιο για ένα Live Activity
+    /// που άνοιξε μόνο του (σέντρα), το Firebase δεν έχει προλάβει να δώσει token — χωρίς αυτό το activity δεν ενημερωνόταν
+    private(set) var token: String? = UserDefaults.standard.string(forKey: "fcm_token")
 
     /// Έχουμε κανονικό push σε αυτή τη συσκευή;
     var on: Bool { d.bool(forKey: "push_on") }
@@ -45,6 +47,7 @@ final class Push: NSObject, MessagingDelegate {
             guard let t = fcmToken, !t.isEmpty else { return }
             if t != self.token { self.d.removeObject(forKey: "push_topics") } // νέο token → ξαναγράψου σε όλα
             self.token = t
+            self.d.set(t, forKey: "fcm_token")
             self.d.set(true, forKey: "push_on")
             Notifier.shared.clearLocal()
             self.sync()
