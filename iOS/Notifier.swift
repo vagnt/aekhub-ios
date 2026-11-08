@@ -188,6 +188,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     // καλούν το completion της Apple εκτός main thread (και το Firebase τις «τυλίγει») → crash. Πάντα completionHandler + main.
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
                                             withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        // ⚽ Ήρθε ο σκόρερ (goalupd): αλλάζει αθόρυβα το κείμενο της ίδιας ειδοποίησης — χωρίς δεύτερο banner/ήχο
+        if (notification.request.content.userInfo["kind"] as? String) == "goalupd" { completionHandler([.list]); return }
         completionHandler([.banner, .list, .sound])
     }
 
