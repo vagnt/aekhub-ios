@@ -31,7 +31,7 @@ final class NotificationService: UNNotificationServiceExtension {
         }
         // 🖼 Εικόνα του άρθρου/αγώνα (το `image` του server): μικρογραφία δεξιά, μεγάλη όταν ανοίγει η ειδοποίηση
         guard let raw = info["image"] as? String, let url = Self.small(raw) else { contentHandler(c); return }
-        var rq = URLRequest(url: url, timeout: 20)
+        var rq = URLRequest(url: url, timeoutInterval: 20)
         rq.setValue("image/jpeg,image/png;q=0.9", forHTTPHeaderField: "Accept") // όχι webp: το iOS δεν το δέχεται ως συνημμένο
         let task = URLSession.shared.downloadTask(with: rq) { [weak self] tmp, resp, _ in
             if let tmp, (resp as? HTTPURLResponse)?.statusCode ?? 200 < 400 {
