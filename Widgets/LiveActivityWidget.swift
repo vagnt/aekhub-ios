@@ -35,7 +35,7 @@ struct LiveMatchWidget: Widget {
                     VStack(spacing: 6) {
                         if s.status != "finished" && hasClock(a) { bar(s.progress, segments(a)) }
                         HStack {
-                            Text(footLine(a, s).isEmpty ? s.phase : footLine(a, s)).font(.system(size: 13)).foregroundStyle(.white.opacity(0.8)).lineLimit(1)
+                            Text(footLine(a, s).isEmpty ? (a.venue.isEmpty ? " " : a.venue) : footLine(a, s)).font(.system(size: 13)).foregroundStyle(.white.opacity(0.8)).lineLimit(1)
                             Spacer()
                             Text(a.competition).font(.system(size: 13)).foregroundStyle(.white.opacity(0.6)).lineLimit(1)
                         }
@@ -69,11 +69,10 @@ struct LiveMatchWidget: Widget {
 
     @ViewBuilder static func status(_ s: LiveMatchAttributes.ContentState) -> some View {
         if s.status == "finished" { Text("ΤΕΛΙΚΟ").font(.system(size: 12, weight: .heavy)).foregroundStyle(C.gold) }
-        else if ["halftime", "ht", "break", "eth"].contains(s.status) { Text("ΗΜΙΧΡΟΝΟ").font(.system(size: 12, weight: .heavy)).foregroundStyle(C.gold) }
         else {
             HStack(spacing: 4) {
                 Circle().fill(C.live).frame(width: 7, height: 7)
-                if s.per == nil { minuteText(s).font(.system(size: 13, weight: .bold)).foregroundStyle(.white).frame(maxWidth: 52) }
+                if s.per == nil && !isBreak(s) { minuteText(s).font(.system(size: 13, weight: .bold)).foregroundStyle(.white).frame(maxWidth: 52) }
                 else { Text("LIVE").font(.system(size: 12, weight: .heavy)).foregroundStyle(C.live) }
             }
         }
@@ -159,6 +158,8 @@ struct SmallView: View {
         if ["halftime", "ht", "break", "eth"].contains(s.status) { return Text(right ? "" : "ΗΜ").foregroundColor(C.gold) }
         if right { return Text(s.ph != nil ? "σετ \(s.sh)–\(s.sa)" : "").foregroundColor(.white.opacity(0.6)) }
         if let per = s.per { return Text(per.replacingOccurrences(of: "ΣΕΤ ", with: "Σ")).foregroundColor(C.live) }
+        if s.status.count == 2, s.status.hasPrefix("q") { return Text("Q" + s.status.dropFirst()).foregroundColor(C.live) }
+        if s.status == "ot" { return Text("ΠΑΡ").foregroundColor(C.live) }
         return minuteText(s).foregroundColor(C.live)
     }()
     t.font(.system(size: 8, weight: .heavy)).lineLimit(1).frame(maxWidth: 34)
@@ -186,7 +187,7 @@ func name(_ n: String, _ aek: Bool) -> some View {
 
 func score(_ a: LiveMatchAttributes, _ s: LiveMatchAttributes.ContentState, _ size: CGFloat) -> some View {
     VStack(spacing: 0) {
-        if let per = s.per { Text(per).font(.system(size: max(9, size * 0.22), weight: .heavy)).tracking(0.8).foregroundStyle(C.gold) }
+        if let st = stage(a, s) { Text(st).font(.system(size: max(9, size * 0.22), weight: .heavy)).tracking(0.8).foregroundStyle(C.gold).lineLimit(1).minimumScaleFactor(0.7) }
         HStack(spacing: size * 0.16) {
             if s.ph != nil { setBadge(s.sh, a.aek == "home", size) }
             Text(s.ph ?? s.sh).foregroundStyle(a.aek == "home" ? C.gold : .white)
@@ -205,6 +206,31 @@ func setBadge(_ v: String, _ aek: Bool, _ size: CGFloat) -> some View {
         .frame(minWidth: size * 0.5).padding(.vertical, 1)
         .background(RoundedRectangle(cornerRadius: 5).fill(aek ? C.gold : Color.white.opacity(0.18)))
 }
+
+/// Φάση πάνω από το σκορ — ΙΔΙΑ λογική σε όλα τα αθλήματα (ζήτησε ο χρήστης, όπως το «ΣΕΤ 2» του βόλεϊ)
+func stage(_ a: LiveMatchAttributes, _ s: LiveMatchAttributes.ContentState) -> String? {
+    if let per = s.per { return per }
+    let wp = a.sport == "waterpolo"
+    switch s.status {
+    case "finished", "upcoming", "postponed": return nil
+    case "prematch": return "ΣΕ ΛΙΓΟ Η ΕΝΑΡΞΗ"
+    case "q1", "q2", "q3", "q4":
+        let n = s.status.dropFirst()
+        return wp ? "\(n)η ΠΕΡΙΟΔΟΣ" : "\(n)ο ΔΕΚΑΛΕΠΤΟ"
+    case "ot": return "ΠΑΡΑΤΑΣΗ"
+    case "halftime", "ht", "break": return ["basketball", "waterpolo"].contains(a.sport) ? "ΔΙΑΛΕΙΜΜΑ" : "ΗΜΙΧΡΟΝΟ"
+    case "live": return ["basketball", "waterpolo"].contains(a.sport) ? nil : "1ο ΗΜΙΧΡΟΝΟ"
+    case "live2": return "2ο ΗΜΙΧΡΟΝΟ"
+    case "et1": return "1η ΠΑΡΑΤΑΣΗ"
+    case "eth": return "ΔΙΑΛΕΙΜΜΑ ΠΑΡΑΤΑΣΗΣ"
+    case "et2": return "2η ΠΑΡΑΤΑΣΗ"
+    case "penalties": return "ΠΕΝΑΛΤΙ"
+    default: return nil
+    }
+}
+
+/// Διάλειμμα: δεν δείχνουμε λεπτό πάνω δεξιά (η φάση φαίνεται πάνω από το σκορ)
+func isBreak(_ s: LiveMatchAttributes.ContentState) -> Bool { ["halftime", "ht", "break", "eth", "penalties", "prematch"].contains(s.status) }
 
 /// Μπάρα χρόνου μόνο σε αθλήματα με ρολόι (όχι βόλεϊ)
 func hasClock(_ a: LiveMatchAttributes) -> Bool { a.sport != "volleyball" }
@@ -270,7 +296,7 @@ struct LockView: View {
                     HStack(spacing: 5) {
                         Circle().fill(C.live).frame(width: 8, height: 8)
                         Text("LIVE").font(.system(size: 13, weight: .heavy)).foregroundStyle(C.live)
-                        if s.per == nil { minuteText(s).font(.system(size: 14, weight: .heavy)).foregroundStyle(.white).frame(maxWidth: 56) }
+                        if s.per == nil && !isBreak(s) { minuteText(s).font(.system(size: 14, weight: .heavy)).foregroundStyle(.white).frame(maxWidth: 56) }
                     }
                 }
             }
@@ -285,7 +311,6 @@ struct LockView: View {
             HStack {
                 Text(footLine(a, s).isEmpty ? (a.venue.isEmpty ? " " : a.venue) : footLine(a, s)).font(.system(size: 13)).foregroundStyle(.white.opacity(0.75)).lineLimit(1)
                 Spacer()
-                Text(s.phase).font(.system(size: 13)).foregroundStyle(.white.opacity(0.75)).lineLimit(1)
             }
         }
         .padding(16)
