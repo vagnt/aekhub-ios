@@ -6,6 +6,7 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject var app: AppState
     @Environment(\.horizontalSizeClass) var hsc
+    @Environment(\.scenePhase) private var phase
     @State private var data: HomeData? = Api.shared.peek(Api.pHome).map(HomeData.init)
     @State private var matches: [MatchCard] = Api.shared.peek(Api.pMatches()).map { MatchList($0).items } ?? []
     @State private var table: Standing?
@@ -36,6 +37,8 @@ struct HomeView: View {
         }
         .background(C.ink)
         .refreshable { haptic(); await load() }
+        // Γυρνώντας στην εφαρμογή: φρέσκα αμέσως (αλλιώς το κύριο θέμα/φωτό έμενε παλιό έως 1′)
+        .onChange(of: phase) { p in if p == .active { Task { await load() } } }
         .task {
             Analytics.screen(2)
             await load()
