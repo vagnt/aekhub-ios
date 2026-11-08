@@ -1,5 +1,6 @@
 import Foundation
 import ActivityKit
+import UIKit
 import WidgetKit
 
 /// Ξεκινά / ενημερώνει / κλείνει τα Live Activities των αγώνων (ρύθμιση «Live Activities» στο «Εγώ»).
@@ -22,6 +23,11 @@ final class LiveActivities {
     func observe() {
         Task.detached(priority: .background) { LiveLogos.trim() }
         for a in Activity<LiveMatchAttributes>.activities { watch(a) }
+        // Κάθε φορά που ανοίγει η εφαρμογή: ξαναστέλνουμε τα tokens όσων activities τρέχουν (δίχτυ ασφαλείας —
+        // αν κάποιο χάθηκε στο ξύπνημα στο παρασκήνιο, ο server ξεκινά πάλι να το ενημερώνει)
+        NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { _ in
+            Task { @MainActor in LiveActivities.shared.resend() }
+        }
         Task { for await a in Activity<LiveMatchAttributes>.activityUpdates { self.watch(a) } }
         if #available(iOS 17.2, *) {
             Task {
@@ -46,6 +52,7 @@ final class LiveActivities {
                 if LiveLogos.image(at.home) != nil || LiveLogos.image(at.away) != nil { await a.update(a.content) }
             }
         }
+        if let t = a.pushToken { let h = Self.hex(t); tokens[mid] = h; Task { await Self.send(["kind": "update", "match": "\(mid)", "token": h]) } }
         Task {
             for await t in a.pushTokenUpdates {
                 let h = Self.hex(t); self.tokens[mid] = h
@@ -60,8 +67,18 @@ final class LiveActivities {
         }
     }
 
+    /// Tokens όλων των activities που τρέχουν → server
+    func resend() {
+        for a in Activity<LiveMatchAttributes>.activities {
+            guard a.activityState == .active, let t = a.pushToken else { continue }
+            let mid = a.attributes.matchId, h = Self.hex(t); tokens[mid] = h
+            Task { await Self.send(["kind": "update", "match": "\(mid)", "token": h]) }
+        }
+    }
+
     /// Μόλις έρθει το token FCM: ό,τι δεν στάλθηκε ξαναστέλνεται
     func fcmReady() {
+        resend()
         for (mid, h) in tokens { Task { await Self.send(["kind": "update", "match": "\(mid)", "token": h]) } }
         UserDefaults.standard.removeObject(forKey: "la_start_sig")
         syncStart()
