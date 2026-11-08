@@ -137,3 +137,4 @@
 
 ## Λάθος σήμα ΑΕΚ στο Live Activity (8/11/2026)
 - Ποδόσφαιρο έδειχνε το σήμα του μπάσκετ/ερασιτέχνη: το `LiveLogos` αποθήκευε ανά **όνομα** («ΑΕΚ» = ένα αρχείο για όλα τα αθλήματα). Τώρα κλειδί = όνομα + link λογοτύπου (`key(name, logo)`, χωρίς query)· το widget παίρνει `a.hlogo`/`a.alogo` (`crest(n, logo, …)`). Αν το link του server διαφέρει από του app, το `watch` το κατεβάζει με το link των attributes.
+- **Ρολόι μετά το 60′ έδειχνε ώρες «1:20:20»** (8/11): το `Text(date, style: .timer)` περνά σε ώρες μετά τα 60′ → `minuteText` με `Text(timerInterval:countsDown:false, showsHours:false)` (iOS 16) → πάντα «80:20».

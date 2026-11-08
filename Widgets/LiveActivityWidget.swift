@@ -169,7 +169,9 @@ struct SmallView: View {
 /// Λεπτό αγώνα: με `clk` «τρέχει» μόνο του (67:12) ακόμα και χωρίς νέο push· αλλιώς το κείμενο της πηγής.
 func minuteText(_ s: LiveMatchAttributes.ContentState) -> Text {
     if let z = s.clk, !["finished", "halftime", "eth", "penalties"].contains(s.status), z > 0 {
-        return Text(Date(timeIntervalSince1970: z), style: .timer).monospacedDigit()
+        // Πάντα σε λεπτά («67:12»), ποτέ σε ώρες («1:07:12») — showsHours: false
+        let start = Date(timeIntervalSince1970: z)
+        return Text(timerInterval: start...start.addingTimeInterval(4 * 3600), countsDown: false, showsHours: false).monospacedDigit()
     }
     return Text(s.minute)
 }
