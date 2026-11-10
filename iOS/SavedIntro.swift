@@ -61,19 +61,44 @@ struct IntroSplash: View {
         .ignoresSafeArea()
     }
 
-    /// Στιγμές (δευτερόλεπτα του βίντεο) και ένταση της δόνησης
-    static let beats: [(Double, UIImpactFeedbackGenerator.FeedbackStyle, CGFloat)] = [
-        (1.92, .medium, 1.0),  // ο κύκλος hub «σκάει»
-        (2.32, .light, 0.8),   // γίνεται το κουτί
-        (2.97, .rigid, 0.9),   // πέφτει το a
-        (3.26, .rigid, 0.9),   // το e
-        (3.54, .heavy, 1.0),   // το K
-        (4.15, .soft, 0.6),    // «Όλη η ΑΕΚ, σε ένα σημείο!»
+    /// 5″ (ολόκληρο) στο πρώτο άνοιγμα της μέρας και μετά από εγκατάσταση/ενημέρωση· 3″ σε όλα τα άλλα.
+    /// Υπολογίζεται μία φορά ανά εκκίνηση (η επιστροφή από το παρασκήνιο δεν ξαναπαίζει βίντεο).
+    static let long: Bool = {
+        let d = UserDefaults.standard
+        let day = { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f.string(from: Date()) }()
+        let ver = (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
+        let l = d.string(forKey: "splash_day") != day || d.string(forKey: "splash_ver") != ver
+        d.set(day, forKey: "splash_day"); d.set(ver, forKey: "splash_ver")
+        return l
+    }()
+
+    typealias Beat = (Double, UIImpactFeedbackGenerator.FeedbackStyle, CGFloat)
+    static var beats: [Beat] { long ? beats5 : beats3 }
+
+    /// Στιγμές (δευτερόλεπτα του βίντεο) και ένταση της δόνησης — 5″
+    static let beats5: [Beat] = [
+        (0.65, .light, 0.6),   // εμφανίζεται ο κύκλος hub
+        (1.10, .medium, 1.0),  // ο κύκλος «σκάει» (κύμα)
+        (1.50, .light, 0.8),   // γίνεται το κουτί
+        (2.30, .rigid, 0.9),   // πέφτει το a
+        (2.60, .rigid, 0.9),   // το e
+        (2.90, .heavy, 1.0),   // το K
+        (3.30, .soft, 0.6),    // «Όλη η ΑΕΚ, σε ένα σημείο!»
+    ]
+    /// — 3″ (ίδια σειρά, πιο γρήγορα)
+    static let beats3: [Beat] = [
+        (0.30, .light, 0.6),
+        (0.67, .medium, 1.0),
+        (0.90, .light, 0.8),
+        (1.40, .rigid, 0.9),
+        (1.60, .rigid, 0.9),
+        (1.80, .heavy, 1.0),
+        (2.10, .soft, 0.6),
     ]
 
     static func video(_ size: CGSize) -> URL? {
         let pad = UIDevice.current.userInterfaceIdiom == .pad
-        let name = !pad ? "splash_phone" : (size.width > size.height ? "splash_tab_l" : "splash_tab_p")
+        let name = (!pad ? "splash_phone" : (size.width > size.height ? "splash_tab_l" : "splash_tab_p")) + (long ? "" : "_s")
         return Bundle.main.url(forResource: name, withExtension: "mp4")
     }
 
@@ -88,7 +113,7 @@ struct IntroSplash: View {
 /// AVPlayer χωρίς ήχο (δεν σταματά τη μουσική του χρήστη), γεμίζει την οθόνη, δονήσεις στις ακριβείς στιγμές του βίντεο
 struct SplashPlayer: UIViewRepresentable {
     let url: URL
-    let beats: [(Double, UIImpactFeedbackGenerator.FeedbackStyle, CGFloat)]
+    let beats: [IntroSplash.Beat]
     var end: () -> Void
 
     final class PView: UIView {
