@@ -38,7 +38,7 @@ struct ArticleView: View {
             HStack(alignment: .top, spacing: 0) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        hero(wide: g.size.width > 700, top: g.safeAreaInsets.top)
+                        hero(wide: g.size.width > 700, top: Self.notchTop(g.safeAreaInsets.top))
                         if let p = post {
                             head(p).padding(.horizontal, 20).padding(.top, 18)
                             bodyParts(p).padding(.top, 14)
@@ -130,6 +130,14 @@ struct ArticleView: View {
 
     // MARK: Φωτογραφία / βίντεο
 
+    /// Μόνο το ύψος του νοτς / της ώρας (ΟΧΙ και της μπάρας με τα κουμπιά): η φωτογραφία ξεκινά ακριβώς κάτω από το νοτς
+    /// και τα κουμπιά (πίσω, αποθήκευση, κοινοποίηση) κάθονται πάνω της (ζήτησε ο χρήστης)
+    static func notchTop(_ fallback: CGFloat) -> CGFloat {
+        let w = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first { $0.isKeyWindow }
+        if let t = w?.safeAreaInsets.top, t > 0 { return t }
+        return min(fallback, 59)
+    }
+
     /// Πάνω από τη φωτογραφία (ώρα / νοτς): η ίδια φωτογραφία θολή, σαν να συνεχίζει — η καθαρή ξεκινά κάτω από το νοτς
     func notchStrip(_ url: String, _ top: CGFloat) -> some View {
         ZStack(alignment: .bottom) {
@@ -167,7 +175,7 @@ struct ArticleView: View {
                 notchStrip(img, top)
                 NaturalImage(url: img, w: 1400, maxH: wide ? 640 : 520)
                     .overlay(alignment: .top) {
-                        LinearGradient(colors: [.black.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom).frame(height: 70)
+                        LinearGradient(colors: [.black.opacity(0.45), .clear], startPoint: .top, endPoint: .bottom).frame(height: 90) // να φαίνονται τα κουμπιά πάνω στη φωτό
                     }
             }
         } else {

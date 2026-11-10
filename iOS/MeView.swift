@@ -16,7 +16,9 @@ struct MeView: View {
     @AppStorage("c_blocked") private var blockedRaw = ""
 
     var body: some View {
+        ScrollViewReader { proxy in
         ScrollView {
+            Color.clear.frame(height: 0).id("top")
             VStack(alignment: .leading, spacing: 18) {
                 ScreenTitle(text: "Εγώ").padding(.top, 14)
 
@@ -119,6 +121,8 @@ struct MeView: View {
             }
             .padding(.horizontal, hsc == .regular ? 28 : screenPad).padding(.bottom, 32)
             .readable(hsc == .regular ? 900 : 680)
+        }
+        .onChange(of: app.reselectN) { _ in if app.reselectTab == .me { withAnimation(.easeOut(duration: 0.3)) { proxy.scrollTo("top", anchor: .top) } } }
         }
         .background(C.ink)
         .sheet(isPresented: $showCal) { CalendarSheet().environmentObject(AppState.shared) }

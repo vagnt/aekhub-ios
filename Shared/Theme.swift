@@ -101,7 +101,7 @@ extension View {
 /// ώστε όταν η φωτογραφία γεμίζει ένα κουτί άλλου σχήματος να κόβεται γύρω από αυτό (όχι κεφάλια).
 @MainActor
 final class ImageLoader: ObservableObject {
-    static let cache: NSCache<NSURL, UIImage> = { let c = NSCache<NSURL, UIImage>(); c.totalCostLimit = 120 << 20; return c }()
+    static let cache: NSCache<NSURL, UIImage> = { let c = NSCache<NSURL, UIImage>(); c.totalCostLimit = 80 << 20; return c }()
     /// Σημαντικό σημείο ανά εικόνα (0–1, πάνω-αριστερά = 0,0)
     static var focals: [URL: CGPoint] = [:]
     @Published var image: UIImage?

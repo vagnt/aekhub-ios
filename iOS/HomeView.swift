@@ -18,6 +18,7 @@ struct HomeView: View {
         GeometryReader { g in
             ScrollViewReader { proxy in
                 ScrollView {
+                    Color.clear.frame(height: 0).id("top")
                     if wide {
                         padBody(g.size.width)
                     } else {
@@ -29,6 +30,12 @@ struct HomeView: View {
                         }
                         .padding(.bottom, 28)
                     }
+                }
+                // Πάτημα στο «Ειδήσεις» ενώ είσαι ήδη εκεί: πάνω-πάνω + φρέσκα (ζήτησε ο χρήστης)
+                .onChange(of: app.reselectN) { _ in
+                    guard app.reselectTab == .home else { return }
+                    withAnimation(.easeOut(duration: 0.3)) { proxy.scrollTo("top", anchor: .top) }
+                    Task { await load() }
                 }
                 .onChange(of: data?.top.count ?? 0) { _ in
                     if UserDefaults.standard.bool(forKey: "scroll") { DispatchQueue.main.asyncAfter(deadline: .now() + 1) { proxy.scrollTo("latest", anchor: .top) } }

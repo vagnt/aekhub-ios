@@ -34,8 +34,28 @@ final class Api {
         session = URLSession(configuration: c)
         dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("api", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        // Εικόνες: μεγάλη cache (AsyncImage χρησιμοποιεί το URLCache.shared)
-        URLCache.shared = URLCache(memoryCapacity: 40 << 20, diskCapacity: 300 << 20)
+        // Εικόνες στο δίσκο: έως 60 MB (ήταν 300 — ζήτησε ο χρήστης «όσο το δυνατόν λιγότερα»)· το iOS σβήνει τις παλιότερες μόνο του
+        URLCache.shared = URLCache(memoryCapacity: 20 << 20, diskCapacity: 60 << 20)
+        trim()
+    }
+
+    /// Αποθηκευμένες απαντήσεις (για να ανοίγει αμέσως χωρίς δίκτυο): κρατάμε μόνο όσες χρειάστηκαν τις 3 τελευταίες μέρες
+    /// και το πολύ 8 MB (π.χ. άρθρα που διάβασες πριν από εβδομάδες φεύγουν)
+    func trim() {
+        let d = dir
+        DispatchQueue.global(qos: .utility).async {
+            let fm = FileManager.default
+            let keys: [URLResourceKey] = [.contentModificationDateKey, .fileSizeKey]
+            var fs = ((try? fm.contentsOfDirectory(at: d, includingPropertiesForKeys: keys)) ?? []).map { f -> (URL, Date, Int) in
+                let v = try? f.resourceValues(forKeys: Set(keys))
+                return (f, v?.contentModificationDate ?? .distantPast, v?.fileSize ?? 0)
+            }
+            let old = Date().addingTimeInterval(-3 * 86400)
+            for f in fs where f.1 < old { try? fm.removeItem(at: f.0) }
+            fs = fs.filter { $0.1 >= old }.sorted { $0.1 > $1.1 }
+            var total = 0
+            for f in fs { total += f.2; if total > 8 << 20 { try? fm.removeItem(at: f.0) } }
+        }
     }
 
     enum ApiError: LocalizedError {

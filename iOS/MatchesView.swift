@@ -51,6 +51,8 @@ struct MatchesView: View {
         .background(C.ink)
         .sheet(isPresented: $showCal) { CalendarSheet().environmentObject(AppState.shared) }
         .onChange(of: page) { _ in haptic(.soft); selected = nil }
+        .onChange(of: app.activeN) { _ in Task { await load() } } // ξανά μπροστά → φρέσκα
+        .onChange(of: app.reselectN) { _ in if app.reselectTab == .matches && page != MatchesView.back { go(MatchesView.back) } } // πάτημα στο «Αγώνες» → σήμερα
         .task {
             Analytics.screen(6, name: "matches")
             list = Api.shared.peek(Api.pMatches(from: startS, to: endS, sport: nil)).map { MatchList($0).items }

@@ -55,6 +55,11 @@ final class AppState: ObservableObject {
     @Published var tab: Tab = .home
     /// Οθόνη που πρέπει να ανοίξει (από widget, ειδοποίηση, συντόμευση)
     @Published var deepLink: Route?
+    /// Ξανά πάτημα στην καρτέλα που είσαι ήδη (στην αρχή της): Ειδήσεις → πάνω + ανανέωση, οι άλλες → πάνω
+    var reselectTab: Tab = .home
+    @Published var reselectN = 0
+    /// Κάθε φορά που η εφαρμογή ξαναβγαίνει μπροστά → οι οθόνες φέρνουν φρέσκα δεδομένα
+    @Published var activeN = 0
 
     init() {
         if let j = Api.shared.peek(Api.pConfig) { config = AppConfig(j) }
@@ -153,6 +158,7 @@ struct RootView: View {
     @AppStorage("side_min") private var sideMin = false
     @AppStorage("side_wide_narrow") private var sideWideNarrow = false
     @State private var splash = !UserDefaults.standard.bool(forKey: "shots")
+    @State private var onboard = false
     @ObservedObject private var ads = Ads.shared
 
     init() {
@@ -229,6 +235,7 @@ struct RootView: View {
         }
         .onChange(of: phase) { p in
             if p == .active {
+                app.activeN += 1
                 Analytics.ping()
                 pinger?.cancel()
                 pinger = Task { while !Task.isCancelled { try? await Task.sleep(nanoseconds: 60_000_000_000); Analytics.ping() } }
@@ -258,7 +265,10 @@ struct RootView: View {
                     splash = false
                     if !prefs.introDone {
                         prefs.introDone = true
-                        Task { _ = await Notifier.shared.requestPermission(); ads.start() }
+                        // νέος χρήστης: άδεια ειδοποιήσεων → αν τη δώσει, «Τι θέλεις να μαθαίνεις;» → μετά διαφημίσεις/συγκατάθεση
+                        Task {
+                            if await Notifier.shared.requestPermission() { onboard = true } else { ads.start() }
+                        }
                     } else {
                         ads.start()
                         ads.maybeSplash()
@@ -266,6 +276,9 @@ struct RootView: View {
                 }
                 .transition(.opacity)
             }
+        }
+        .fullScreenCover(isPresented: $onboard) {
+            OnboardView { onboard = false; Push.shared.sync(); LiveActivities.shared.syncStart(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { ads.start() } }
         }
         .animation(.easeOut(duration: 0.25), value: ads.overlay)
         .onAppear { if !splash { ads.start() } }
@@ -280,33 +293,72 @@ struct RootView: View {
     /// Ξανά πάτημα στην ίδια καρτέλα → επιστροφή στην αρχή της
     private var tabBinding: Binding<Tab> {
         Binding(get: { app.tab }, set: { t in
-            if t == app.tab { paths[t] = NavigationPath() }
+            if t == app.tab {
+                if (paths[t]?.count ?? 0) == 0 { app.reselectTab = t; app.reselectN += 1 }
+                paths[t] = NavigationPath()
+            }
             app.tab = t
         })
     }
 }
 
-/// Κάψουλα καρτελών που «αιωρείται», στο κέντρο (μόνο οι 4 καρτέλες — η αναζήτηση είναι πάνω στην αρχική)
+/// Κάψουλα καρτελών που «αιωρείται», στο κέντρο (μόνο οι 4 καρτέλες).
+/// 💧 Υγρό γυαλί (ζήτησε ο χρήστης, όπως το iOS 26): κρατάς το δάχτυλο και σέρνεις → η γυάλινη «φούσκα» μεγαλώνει,
+/// ακολουθεί το δάχτυλο και ανάβει η καρτέλα από κάτω· αφήνεις → αλλάζει καρτέλα. Απλό πάτημα δουλεύει όπως πριν.
 struct FloatingTabBar: View {
     @Binding var tab: Tab
+    @State private var dragX: CGFloat?
+    @State private var hover: Int?
+    private let tabs = Tab.allCases
+    private let pad: CGFloat = 6, h: CGFloat = 62
+
     var body: some View {
-        HStack(spacing: 4) {
-            ForEach(Tab.allCases, id: \.self) { t in
-                let on = t == tab
-                Button { haptic(.soft); tab = t } label: {
-                    VStack(spacing: 4) {
-                        Image(systemName: on ? t.iconOn : t.icon).font(.system(size: 22, weight: .medium))
-                            .symbolRenderingMode(.monochrome)
-                        Text(t.label).font(.system(size: 11.5, weight: on ? .bold : .medium))
+        GeometryReader { g in
+            let w = (g.size.width - pad * 2) / CGFloat(tabs.count)
+            let sel = CGFloat(tabs.firstIndex(of: tab) ?? 0)
+            let active = hover ?? Int(sel)
+            let pressed = dragX != nil
+            let x = dragX.map { min(max($0 - w / 2, pad), g.size.width - pad - w) } ?? (pad + sel * w)
+            ZStack(alignment: .leading) {
+                // η «φούσκα»: γυαλί που μεγαλώνει όσο κρατάς το δάχτυλο
+                Capsule()
+                    .fill(Color.white.opacity(pressed ? 0.16 : 0.12))
+                    .overlay(Capsule().strokeBorder(LinearGradient(colors: [.white.opacity(pressed ? 0.55 : 0.18), .white.opacity(0.04)], startPoint: .top, endPoint: .bottom), lineWidth: 1))
+                    .frame(width: w, height: h)
+                    .scaleEffect(pressed ? 1.14 : 1)
+                    .shadow(color: .black.opacity(pressed ? 0.35 : 0), radius: 10, y: 4)
+                    .offset(x: x)
+                HStack(spacing: 0) {
+                    ForEach(Array(tabs.enumerated()), id: \.offset) { i, t in
+                        let on = i == active
+                        VStack(spacing: 4) {
+                            Image(systemName: on ? t.iconOn : t.icon).font(.system(size: 22, weight: .medium))
+                                .symbolRenderingMode(.monochrome)
+                            Text(t.label).font(.system(size: 11.5, weight: on ? .bold : .medium))
+                        }
+                        .foregroundStyle(on ? C.gold : C.text)
+                        .scaleEffect(on && pressed ? 1.08 : 1)
+                        .frame(width: w, height: h)
                     }
-                    .foregroundStyle(on ? C.gold : C.text)
-                    .frame(maxWidth: .infinity).frame(height: 62)
-                    .background(Capsule().fill(on ? Color.white.opacity(0.12) : .clear))
-                    .contentShape(Capsule())
-                }.buttonStyle(.plain)
+                }
+                .padding(.horizontal, pad)
             }
+            .frame(height: h + pad * 2)
+            .contentShape(Capsule())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { v in
+                        let i = min(tabs.count - 1, max(0, Int((v.location.x - pad) / w)))
+                        if dragX == nil { haptic(.soft) } else if i != hover { UISelectionFeedbackGenerator().selectionChanged() }
+                        withAnimation(.interactiveSpring(response: 0.28, dampingFraction: 0.72)) { dragX = v.location.x; hover = i }
+                    }
+                    .onEnded { _ in
+                        let t = tabs[hover ?? Int(sel)]
+                        withAnimation(.spring(response: 0.38, dampingFraction: 0.74)) { dragX = nil; hover = nil; tab = t }
+                    }
+            )
         }
-        .padding(6)
+        .frame(height: h + pad * 2)
         .frame(maxWidth: 380)
         .glass(Capsule())
         .shadow(color: .black.opacity(0.35), radius: 18, y: 6)

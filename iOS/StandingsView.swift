@@ -7,6 +7,7 @@ struct StandingsView: View {
     @State private var sel = 0
     @State private var error = false
     @Environment(\.horizontalSizeClass) var hsc
+    @ObservedObject var app = AppState.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -60,7 +61,9 @@ struct StandingsView: View {
                             .frame(maxWidth: .infinity)
                     }
                     .padding(.horizontal, hsc == .regular ? 28 : screenPad).padding(.vertical, 4)
+                    ScrollViewReader { proxy in
                     ScrollView {
+                        Color.clear.frame(height: 0).id("top")
                         VStack(spacing: 10) {
                             PresentedBy(place: "standings")
                             StandingTable(s: t)
@@ -70,6 +73,8 @@ struct StandingsView: View {
                         .readable(820)
                     }
                     .refreshable { haptic(); await load() }
+                    .onChange(of: app.reselectN) { _ in if app.reselectTab == .standings { withAnimation(.easeOut(duration: 0.3)) { proxy.scrollTo("top", anchor: .top) } } }
+                    }
                 }
             } else if list != nil {
                 Text("Δεν υπάρχουν βαθμολογίες ακόμα.").font(F.body(15)).foregroundStyle(C.muted).padding(24)
@@ -83,6 +88,7 @@ struct StandingsView: View {
             }
         }
         .background(C.ink)
+        .onChange(of: app.activeN) { _ in Task { await load() } } // ξανά μπροστά → φρέσκα
         .task {
             Analytics.screen(6, name: "standings")
             while !Task.isCancelled {
