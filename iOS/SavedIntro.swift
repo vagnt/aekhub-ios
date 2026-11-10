@@ -1,4 +1,5 @@
 import SwiftUI
+import AVFoundation
 
 /// Αποθηκευμένα άρθρα ή ιστορικό ανάγνωσης
 struct SavedView: View {
@@ -36,53 +37,97 @@ struct SavedView: View {
     }
 }
 
-/// Άνοιγμα της εφαρμογής (όπως στο Android): το λογότυπο «χτίζεται» κομμάτι-κομμάτι —
-/// a από αριστερά, e από πάνω, ο κύκλος hub γυρίζει και «σκάει», το K από δεξιά — ένας παλμός και σβήνει (~1,6″).
+/// Άνοιγμα της εφαρμογής (10/11/2026, ζήτησε ο χρήστης): το βίντεο του AEK Hub σε όλη την οθόνη
+/// (κινητό · iPad κάθετο · iPad οριζόντιο) με δονήσεις ΣΥΓΧΡΟΝΙΣΜΕΝΕΣ με το βίντεο:
+/// «σκάει» ο κύκλος hub → γίνεται κουτί → πέφτουν a, e → το K (δυνατό) → το σύνθημα. Πάτημα = προσπέραση.
 struct IntroSplash: View {
     var done: () -> Void
-    @State private var box = 0.0
-    @State private var a = 0.0
-    @State private var e = 0.0
-    @State private var hub = 0.0
-    @State private var k = 0.0
-    @State private var pulse = 1.0
     @State private var out = 0.0
+    @State private var ended = false
 
     var body: some View {
-        ZStack {
-            C.ink.ignoresSafeArea()
-            VStack(spacing: 0) {
-                HStack(spacing: 0) {
-                    piece("intro_a").opacity(a).offset(x: -46 * (1 - a))
-                    piece("intro_e").opacity(e).offset(y: -46 * (1 - e))
-                }
-                HStack(spacing: 0) {
-                    piece("intro_hub").opacity(min(1, hub)).scaleEffect(hub).rotationEffect(.degrees(-200 * (1 - hub)))
-                    piece("intro_k").opacity(k).offset(x: 46 * (1 - k))
+        GeometryReader { g in
+            ZStack {
+                Color.black.ignoresSafeArea()
+                if let url = Self.video(g.size) {
+                    SplashPlayer(url: url, beats: Self.beats) { finish() }.ignoresSafeArea()
                 }
             }
-            .frame(width: 220, height: 220)
-            .background(RoundedRectangle(cornerRadius: 48, style: .continuous).fill(.black))
-            .scaleEffect((0.86 + 0.14 * box) * pulse * (1 + 0.25 * out))
-            .opacity(box)
+            .opacity(1 - out)
+            .contentShape(Rectangle())
+            .onTapGesture { finish() }
+            .onAppear { if Self.video(g.size) == nil { finish() } }
         }
-        .opacity(1 - out)
-        .task {
-            withAnimation(.easeOut(duration: 0.28)) { box = 1 }
-            withAnimation(.easeInOut(duration: 0.36).delay(0.12)) { a = 1 }
-            withAnimation(.easeInOut(duration: 0.36).delay(0.23)) { e = 1 }
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.45).delay(0.34)) { hub = 1 }
-            withAnimation(.easeInOut(duration: 0.36).delay(0.45)) { k = 1 }
-            try? await Task.sleep(nanoseconds: 950_000_000)
-            haptic(.soft)
-            withAnimation(.easeOut(duration: 0.14)) { pulse = 1.07 }
-            try? await Task.sleep(nanoseconds: 140_000_000)
-            withAnimation(.easeOut(duration: 0.18)) { pulse = 1 }
-            try? await Task.sleep(nanoseconds: 300_000_000)
-            withAnimation(.easeInOut(duration: 0.3)) { out = 1 }
-            try? await Task.sleep(nanoseconds: 300_000_000)
-            done()
+        .ignoresSafeArea()
+    }
+
+    /// Στιγμές (δευτερόλεπτα του βίντεο) και ένταση της δόνησης
+    static let beats: [(Double, UIImpactFeedbackGenerator.FeedbackStyle, CGFloat)] = [
+        (1.92, .medium, 1.0),  // ο κύκλος hub «σκάει»
+        (2.32, .light, 0.8),   // γίνεται το κουτί
+        (2.97, .rigid, 0.9),   // πέφτει το a
+        (3.26, .rigid, 0.9),   // το e
+        (3.54, .heavy, 1.0),   // το K
+        (4.15, .soft, 0.6),    // «Όλη η ΑΕΚ, σε ένα σημείο!»
+    ]
+
+    static func video(_ size: CGSize) -> URL? {
+        let pad = UIDevice.current.userInterfaceIdiom == .pad
+        let name = !pad ? "splash_phone" : (size.width > size.height ? "splash_tab_l" : "splash_tab_p")
+        return Bundle.main.url(forResource: name, withExtension: "mp4")
+    }
+
+    func finish() {
+        guard !ended else { return }
+        ended = true
+        withAnimation(.easeInOut(duration: 0.35)) { out = 1 }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.36) { done() }
+    }
+}
+
+/// AVPlayer χωρίς ήχο (δεν σταματά τη μουσική του χρήστη), γεμίζει την οθόνη, δονήσεις στις ακριβείς στιγμές του βίντεο
+struct SplashPlayer: UIViewRepresentable {
+    let url: URL
+    let beats: [(Double, UIImpactFeedbackGenerator.FeedbackStyle, CGFloat)]
+    var end: () -> Void
+
+    final class PView: UIView {
+        override class var layerClass: AnyClass { AVPlayerLayer.self }
+        var pl: AVPlayerLayer { layer as! AVPlayerLayer }
+        var obs: [Any] = []
+        var timeObs: [Any] = []
+        deinit {
+            for o in obs { NotificationCenter.default.removeObserver(o) }
+            for o in timeObs { pl.player?.removeTimeObserver(o) }
         }
     }
-    func piece(_ n: String) -> some View { Image(n).resizable().scaledToFit().frame(width: 110, height: 110) }
+
+    func makeUIView(context: Context) -> PView {
+        let v = PView()
+        v.backgroundColor = .black
+        // να μη σταματά η μουσική/το podcast του χρήστη στο άνοιγμα
+        try? AVAudioSession.sharedInstance().setCategory(.ambient, options: [.mixWithOthers])
+        let item = AVPlayerItem(url: url)
+        let p = AVPlayer(playerItem: item)
+        p.isMuted = true
+        p.preventsDisplaySleepDuringVideoPlayback = false
+        v.pl.player = p
+        v.pl.videoGravity = .resizeAspectFill
+        // δονήσεις συγχρονισμένες με το βίντεο (όχι με χρονόμετρο: αν αργήσει το βίντεο, αργούν κι αυτές)
+        for b in beats {
+            let gen = UIImpactFeedbackGenerator(style: b.1); gen.prepare()
+            let t = NSValue(time: CMTime(seconds: b.0, preferredTimescale: 600))
+            v.timeObs.append(p.addBoundaryTimeObserver(forTimes: [t], queue: .main) { gen.impactOccurred(intensity: b.2) })
+        }
+        v.obs.append(NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main) { _ in end() })
+        v.obs.append(NotificationCenter.default.addObserver(forName: .AVPlayerItemFailedToPlayToEndTime, object: item, queue: .main) { _ in end() })
+        p.play()
+        return v
+    }
+
+    func updateUIView(_ v: PView, context: Context) {}
+    static func dismantleUIView(_ v: PView, coordinator: ()) {
+        v.pl.player?.pause()
+        try? AVAudioSession.sharedInstance().setCategory(.soloAmbient) // η προεπιλογή του iOS (για τα βίντεο της εφαρμογής)
+    }
 }

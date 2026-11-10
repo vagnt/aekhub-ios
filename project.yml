@@ -48,6 +48,9 @@ targets:
       # Δήλωση απορρήτου (Apple): τι δεδομένα μαζεύει η εφαρμογή και γιατί
       - path: Resources/Privacy
         buildPhase: resources
+      # Splash ανοίγματος (βίντεο του χρήστη): κινητό / iPad κάθετο / iPad οριζόντιο
+      - path: Resources/Splash
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: gr.aekhub.app
