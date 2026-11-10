@@ -36,6 +36,7 @@ struct AEKHubApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @StateObject private var app = AppState.shared
     @StateObject private var prefs = Prefs.shared
+    init() { SplashPreload.start() } // το βίντεο ανοίγματος φορτώνει ήδη από τώρα
     var body: some Scene {
         WindowGroup {
             RootView()

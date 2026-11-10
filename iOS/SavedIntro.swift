@@ -50,7 +50,7 @@ struct IntroSplash: View {
             ZStack {
                 Color.black.ignoresSafeArea()
                 if let url = Self.video(g.size) {
-                    SplashPlayer(url: url, beats: Self.beats) { finish() }.ignoresSafeArea()
+                    SplashPlayer(player: SplashPreload.take(url), beats: Self.beats) { finish() }.ignoresSafeArea()
                 }
             }
             .opacity(1 - out)
@@ -96,6 +96,10 @@ struct IntroSplash: View {
         (2.10, .soft, 0.6),
     ]
 
+    /// Από πού ξεκινά το βίντεο: τα πρώτα κλάσματα είναι σχεδόν μαύρα (ο δικέφαλος «ανάβει») και μαζί
+    /// με την οθόνη εκκίνησης φαίνονταν σαν μαύρο κενό (ο χρήστης, 10/11) → ξεκινάμε μόλις φαίνεται κάτι.
+    static var startAt: Double { long ? 0.25 : 0.15 }
+
     static func video(_ size: CGSize) -> URL? {
         let pad = UIDevice.current.userInterfaceIdiom == .pad
         let name = (!pad ? "splash_phone" : (size.width > size.height ? "splash_tab_l" : "splash_tab_p")) + (long ? "" : "_s")
@@ -110,9 +114,40 @@ struct IntroSplash: View {
     }
 }
 
+/// Το βίντεο φορτώνεται μόλις ξεκινήσει η εφαρμογή (πριν σχεδιαστεί η οθόνη), ώστε να είναι έτοιμο
+/// τη στιγμή που φεύγει η οθόνη εκκίνησης — χωρίς μαύρο κενό.
+enum SplashPreload {
+    private static var url: URL?
+    private static var player: AVPlayer?
+
+    static func start() {
+        guard !UserDefaults.standard.bool(forKey: "shots"), player == nil,
+              let u = IntroSplash.video(UIScreen.main.bounds.size) else { return }
+        url = u; player = make(u)
+    }
+
+    /// Ο έτοιμος player αν ταιριάζει (π.χ. το iPad δεν γύρισε στο μεταξύ), αλλιώς καινούργιος
+    static func take(_ u: URL) -> AVPlayer {
+        defer { player = nil; url = nil }
+        if let p = player, url == u { return p }
+        return make(u)
+    }
+
+    private static func make(_ u: URL) -> AVPlayer {
+        // να μη σταματά η μουσική/το podcast του χρήστη στο άνοιγμα
+        try? AVAudioSession.sharedInstance().setCategory(.ambient, options: [.mixWithOthers])
+        let p = AVPlayer(playerItem: AVPlayerItem(url: u))
+        p.isMuted = true
+        p.automaticallyWaitsToMinimizeStalling = false
+        p.preventsDisplaySleepDuringVideoPlayback = false
+        p.seek(to: CMTime(seconds: IntroSplash.startAt, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+        return p
+    }
+}
+
 /// AVPlayer χωρίς ήχο (δεν σταματά τη μουσική του χρήστη), γεμίζει την οθόνη, δονήσεις στις ακριβείς στιγμές του βίντεο
 struct SplashPlayer: UIViewRepresentable {
-    let url: URL
+    let player: AVPlayer
     let beats: [IntroSplash.Beat]
     var end: () -> Void
 
@@ -121,7 +156,11 @@ struct SplashPlayer: UIViewRepresentable {
         var pl: AVPlayerLayer { layer as! AVPlayerLayer }
         var obs: [Any] = []
         var timeObs: [Any] = []
+        var ready: NSKeyValueObservation?
+        var started = false
+        func go() { guard !started else { return }; started = true; pl.player?.play() }
         deinit {
+            ready?.invalidate()
             for o in obs { NotificationCenter.default.removeObserver(o) }
             for o in timeObs { pl.player?.removeTimeObserver(o) }
         }
@@ -130,23 +169,24 @@ struct SplashPlayer: UIViewRepresentable {
     func makeUIView(context: Context) -> PView {
         let v = PView()
         v.backgroundColor = .black
-        // να μη σταματά η μουσική/το podcast του χρήστη στο άνοιγμα
-        try? AVAudioSession.sharedInstance().setCategory(.ambient, options: [.mixWithOthers])
-        let item = AVPlayerItem(url: url)
-        let p = AVPlayer(playerItem: item)
-        p.isMuted = true
-        p.preventsDisplaySleepDuringVideoPlayback = false
+        let p = player
         v.pl.player = p
         v.pl.videoGravity = .resizeAspectFill
         // δονήσεις συγχρονισμένες με το βίντεο (όχι με χρονόμετρο: αν αργήσει το βίντεο, αργούν κι αυτές)
-        for b in beats {
+        for b in beats where b.0 > IntroSplash.startAt {
             let gen = UIImpactFeedbackGenerator(style: b.1); gen.prepare()
             let t = NSValue(time: CMTime(seconds: b.0, preferredTimescale: 600))
             v.timeObs.append(p.addBoundaryTimeObserver(forTimes: [t], queue: .main) { gen.impactOccurred(intensity: b.2) })
         }
-        v.obs.append(NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main) { _ in end() })
-        v.obs.append(NotificationCenter.default.addObserver(forName: .AVPlayerItemFailedToPlayToEndTime, object: item, queue: .main) { _ in end() })
-        p.play()
+        if let item = p.currentItem {
+            v.obs.append(NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main) { _ in end() })
+            v.obs.append(NotificationCenter.default.addObserver(forName: .AVPlayerItemFailedToPlayToEndTime, object: item, queue: .main) { _ in end() })
+        }
+        // παίζει ΜΟΛΙΣ το πρώτο καρέ είναι στην οθόνη (αλλιώς «έτρεχε» κρυφά πίσω από μαύρο και χανόταν η αρχή)
+        v.ready = v.pl.observe(\.isReadyForDisplay, options: [.initial, .new]) { [weak v] l, _ in
+            if l.isReadyForDisplay { DispatchQueue.main.async { v?.go() } }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak v] in v?.go() } // ασφάλεια
         return v
     }
 
