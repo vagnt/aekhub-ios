@@ -88,10 +88,14 @@ struct HomeView: View {
 
     func load() async {
         let before = Api.shared.sig(Api.pHome) &+ Api.shared.sig(Api.pMatches())
-        async let h = try? Api.shared.home()
-        async let l = try? Api.shared.matches()
-        async let s = HomeView.tables(wide)
-        let (hh, ll, ss) = await (h, l, s)
+        // ανεξάρτητα Task (όχι `async let`: όταν η φόρτωση ακυρωνόταν στη μέση — π.χ. πάτημα «Ειδήσεις»
+        // ή επιστροφή στην εφαρμογή — το iOS 26 έκλεινε την εφαρμογή, crash build 76)
+        let w = wide
+        let th = Task { try? await Api.shared.home() }
+        let tl = Task { try? await Api.shared.matches() }
+        let ts = Task { await HomeView.tables(w) }
+        let hh = await th.value, ll = await tl.value, ss = await ts.value
+        if Task.isCancelled { return }
         if Api.shared.sig(Api.pHome) &+ Api.shared.sig(Api.pMatches()) != before { gen += 1 }
         if let hh { data = hh; error = nil } else if data == nil { error = "Δεν φόρτωσε. Έλεγξε τη σύνδεση." }
         if let ll {

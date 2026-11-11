@@ -115,9 +115,10 @@ struct ArticleView: View {
         .task {
             Analytics.screen(1, id)
             await load()
-            async let c = try? CommentsApi.call("comments/\(id)?sort=new&page=1")
-            async let f = try? Api.shared.feed(nil, page: 1)
-            let (cc, ff) = await (c, f)
+            let i = id
+            let tc = Task { try? await CommentsApi.call("comments/\(i)?sort=new&page=1") }
+            let tf = Task { try? await Api.shared.feed(nil, page: 1) }
+            let cc = await tc.value, ff = await tf.value
             if let cc { comments = cc["total"].int }
             if let ff { more = Array(ff.items.filter { $0.id != id }.prefix(5)) }
         }
