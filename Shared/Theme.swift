@@ -132,7 +132,8 @@ final class ImageLoader: ObservableObject {
                 guard let i = img, !Task.isCancelled else { return }
                 ImageLoader.cache.setObject(i, forKey: u as NSURL, cost: Int(i.size.width * i.size.height * i.scale * i.scale * 4))
             }
-            guard let i = img, let self else { return }
+            // μόνο αν η εικόνα ζητείται ΑΚΟΜΑ (αλλιώς μια παλιά λήψη έγραφε πάνω στη νέα: λάθος σήμα ομάδας)
+            guard let i = img, let self, self.url == u, !Task.isCancelled else { return }
             // η φωτογραφία φαίνεται ΑΜΕΣΩΣ· το έξυπνο κάδρο έρχεται μετά, σε δική του ουρά (δεν μπλοκάρει τίποτα)
             withAnimation(.easeOut(duration: 0.2)) { self.image = i }
             #if os(iOS)
@@ -198,8 +199,7 @@ struct NetImage: View {
             if let i = l.image { Image(uiImage: i).resizable().aspectRatio(contentMode: mode) }
             else { Rectangle().fill(C.panel2) }
         }
-        .onAppear { l.load(Img.url(url, w: w)) }
-        .onChange(of: url) { _ in l.load(Img.url(url, w: w)) }
+        .task(id: url) { l.load(Img.url(url, w: w)) }
     }
 }
 
@@ -225,8 +225,7 @@ struct WholeImage: View {
                 Rectangle().fill(C.panel2)
             }
         }
-        .onAppear { l.load(Img.url(url, w: w), focus: true) }
-        .onChange(of: url) { _ in l.load(Img.url(url, w: w), focus: true) }
+        .task(id: url) { l.load(Img.url(url, w: w), focus: true) }
     }
 }
 
@@ -263,7 +262,7 @@ struct NaturalImage: View {
                 Color.clear.aspectRatio(16 / 9, contentMode: .fit).frame(maxWidth: .infinity).background(C.panel2)
             }
         }
-        .onAppear { l.load(Img.url(url, w: w)) }
+        .task(id: url) { l.load(Img.url(url, w: w)) }
     }
 }
 
@@ -281,8 +280,7 @@ struct TeamLogo: View {
             }
         }
         .frame(width: size, height: size)
-        .onAppear { l.load(Img.url(url, w: 160)) }
-        .onChange(of: url) { _ in l.load(Img.url(url, w: 160)) }
+        .task(id: url) { l.load(Img.url(url, w: 160)) }
     }
 }
 
