@@ -11,6 +11,10 @@ struct HomeView: View {
     @State private var matches: [MatchCard] = Api.shared.peek(Api.pMatches()).map { MatchList($0).items } ?? []
     @State private var table: Standing?
     @State private var error: String?
+    /// Αλλάζει όταν ήρθαν ΝΕΑ δεδομένα → η αρχική ξαναφτιάχνεται ολόκληρη (αλλιώς κάρτες με δική τους
+    /// κατάσταση — αντίστροφη μέτρηση, εικόνες — κρατούσαν τα παλιά μέχρι να βγεις και να ξαναμπείς)
+    @State private var gen = 0
+    @State private var refreshing = false
 
     var wide: Bool { hsc == .regular }
 
@@ -24,7 +28,8 @@ struct HomeView: View {
                     } else {
                         LazyVStack(alignment: .leading, spacing: 12) {
                             header
-                            if let d = data { content(d) }
+                            if refreshing { ProgressView().tint(C.gold).frame(maxWidth: .infinity).padding(.vertical, 4) }
+                            if let d = data { content(d).id(gen) }
                             else if let error { EmptyState(icon: "wifi.exclamationmark", text: error) { Task { await load() } } }
                             else { SkeletonList() }
                         }
@@ -35,7 +40,7 @@ struct HomeView: View {
                 .onChange(of: app.reselectN) { _ in
                     guard app.reselectTab == .home else { return }
                     withAnimation(.easeOut(duration: 0.3)) { proxy.scrollTo("top", anchor: .top) }
-                    Task { await load() }
+                    Task { refreshing = true; await load(); gen += 1; refreshing = false; haptic(.soft) }
                 }
                 .onChange(of: data?.top.count ?? 0) { _ in
                     if UserDefaults.standard.bool(forKey: "scroll") { DispatchQueue.main.asyncAfter(deadline: .now() + 1) { proxy.scrollTo("latest", anchor: .top) } }
@@ -43,7 +48,7 @@ struct HomeView: View {
             }
         }
         .background(C.ink)
-        .refreshable { haptic(); await load() }
+        .refreshable { haptic(); await load(); gen += 1 }
         // Γυρνώντας στην εφαρμογή: φρέσκα αμέσως (αλλιώς το κύριο θέμα/φωτό έμενε παλιό έως 1′)
         .onChange(of: phase) { p in if p == .active { Task { await load() } } }
         .task {
@@ -82,10 +87,12 @@ struct HomeView: View {
     }
 
     func load() async {
+        let before = Api.shared.sig(Api.pHome) &+ Api.shared.sig(Api.pMatches())
         async let h = try? Api.shared.home()
         async let l = try? Api.shared.matches()
         async let s = HomeView.tables(wide)
         let (hh, ll, ss) = await (h, l, s)
+        if Api.shared.sig(Api.pHome) &+ Api.shared.sig(Api.pMatches()) != before { gen += 1 }
         if let hh { data = hh; error = nil } else if data == nil { error = "Δεν φόρτωσε. Έλεγξε τη σύνδεση." }
         if let ll {
             matches = ll.items; Notifier.shared.check(ll.items)
@@ -203,8 +210,8 @@ struct HomeView: View {
                     padMain(d, cols: rail ? 2 : 3)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     if rail { today(d).frame(width: 320) }
-                }
-                if !rail { today(d) }
+                }.id(gen)
+                if !rail { today(d).id(gen) }
                 if !d.socials.isEmpty { SocialSection(list: d.socials).padding(.top, 10).readable(760) }
             } else if let error {
                 EmptyState(icon: "wifi.exclamationmark", text: error) { Task { await load() } }

@@ -73,6 +73,9 @@ final class Api {
 
     private func remember(_ path: String, _ data: Data) { lock.lock(); mem[path] = data; lock.unlock() }
 
+    /// «Υπογραφή» της τελευταίας απάντησης: αλλάζει μόνο όταν άλλαξε κάτι στον server
+    func sig(_ path: String) -> Int { lock.lock(); defer { lock.unlock() }; return mem[path]?.hashValue ?? 0 }
+
     /// Η αποθηκευμένη απάντηση (χωρίς δίκτυο).
     func peek(_ path: String) -> J? {
         lock.lock(); let m = mem[path]; lock.unlock()
