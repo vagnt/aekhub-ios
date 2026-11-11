@@ -29,6 +29,7 @@
 
 ## Εικονίδιο ρολογιού (για την 1.1, ζήτησε ο χρήστης)
 - Το Apple Watch έχει δικό του εικονίδιο (`Watch/Assets.xcassets/AppIcon`): το favicon του site (κίτρινο «a» με «hub», `hub-21-aekhub.jpg`) σε μαύρο, μικρότερο ώστε να χωράει στον κύκλο. iPhone/iPad μένουν με το «ae hub k».
+- **Εικονίδιο iPhone/iPad (11/11/2026, ζήτησε ο χρήστης για τα stores)**: **κίτρινο φόντο (#F9CF1C) με μαύρο «ae hub k»**, λίγο πιο ζουμαρισμένο (το σχέδιο πιάνει ~86% του πλάτους)· ίδιο και στο Android (0.17.4) και στο `dist/icon.png`. Το ρολόι μένει με το δικό του.
 
 ## Live Activities με push (7/11/2026, ζήτησε ο χρήστης: «να ενημερώνεται και με κλειστή εφαρμογή»)
 - App: κάθε activity ζητιέται με `pushType: .token` (όταν υπάρχει push) → `pushTokenUpdates` → `POST /app/la-token` (kind update/end, + token FCM + `Device.id`)· iOS 17.2+ token «push-to-start» (kind start, με αθλήματα/αγώνες που ακολουθείς, `off=1` αν κλείσει η ρύθμιση). `LiveActivities.observe()` στο άνοιγμα (και όταν το iOS ξυπνά το app για activity που άνοιξε με push), `fcmReady()` ξαναστέλνει όταν έρθει το FCM token.
