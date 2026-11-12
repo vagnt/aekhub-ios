@@ -49,7 +49,7 @@ watch() {
   xcrun simctl shutdown "$UDID"; OUT="$OUT0"
 }
 watch
-WPAT="Apple Watch SE" watch   # η μικρότερη οθόνη (40/44mm)
+# (το SE κολλούσε στο CI — βγήκε 12/11)
 shoot "iPhone 17 Pro (" phone
 shoot "iPad Pro 13" ipad
 ls -la "$OUT"
