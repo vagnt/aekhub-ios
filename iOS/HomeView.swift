@@ -217,10 +217,9 @@ struct HomeView: View {
                         .padding(.horizontal, -28)
                     breaking(d)
                     HStack(alignment: .top, spacing: 28) {
-                        padMain(d, cols: rail ? 4 : 3).frame(maxWidth: .infinity, alignment: .leading)
+                        padMain(d, cols: rail ? 4 : 3, railInline: !rail).frame(maxWidth: .infinity, alignment: .leading)
                         if rail { padRail(d).frame(width: 320) }
                     }
-                    if !rail { padRail(d) }
                     if !d.socials.isEmpty { SocialSection(list: d.socials).padding(.top, 10).readable(760) }
                 }.id(gen)
             } else if let error {
@@ -240,7 +239,7 @@ struct HomeView: View {
         return live + Array(next) + Array(done)
     }
 
-    @ViewBuilder func padMain(_ d: HomeData, cols: Int) -> some View {
+    @ViewBuilder func padMain(_ d: HomeData, cols: Int, railInline: Bool = false) -> some View {
         let grid = Array(repeating: GridItem(.flexible(), spacing: 18, alignment: .top), count: cols)
         VStack(alignment: .leading, spacing: 22) {
             // live γεγονός/αγώνας-hero (αν υπάρχει) αντί για κύριο θέμα
@@ -259,11 +258,15 @@ struct HomeView: View {
                     }
                 }
             }
+            // κάθετο iPad: η ροή αμέσως κάτω από το κύριο θέμα (όχι στο τέλος)
+            if railInline { padRail(d) }
+            // οι ενότητες χωρίς τα άρθρα που φαίνονται ήδη πάνω
+            let shown = Set([d.featured?.id].compactMap { $0 } + d.top.prefix(2).map(\.id))
             let secs = d.sections.filter { !$0.items.isEmpty }
             ForEach(Array(secs.enumerated()), id: \.element.id) { i, s in
                 VStack(alignment: .leading, spacing: 14) {
                     GoldHeader(title: s.name, action: "Όλα", route: .category(s.slug, s.name))
-                    LazyVGrid(columns: grid, spacing: 20) { ForEach(s.items.prefix(cols)) { PostTile(p: $0, titleSize: 16) } }
+                    LazyVGrid(columns: grid, spacing: 20) { ForEach(s.items.filter { !shown.contains($0.id) }.prefix(cols)) { PostTile(p: $0, titleSize: 16) } }
                     if i % 2 == 1 { BannerAd(place: "home") }
                 }
             }
