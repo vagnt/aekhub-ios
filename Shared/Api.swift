@@ -86,7 +86,7 @@ final class Api {
     }
 
     func get(_ path: String) async throws -> J {
-        let url = URL(string: Api.base + path + (path.contains("?") ? "&" : "?") + "_=\(Int(Date().timeIntervalSince1970 * 1000))")!
+        let url = URL(string: Api.base + path + (path.contains("?") ? "&" : "?") + "_=\(Int64(Date().timeIntervalSince1970 * 1000))")!
         func req(_ post: Bool) -> URLRequest {
             var r = URLRequest(url: url)
             if post { r.httpMethod = "POST"; r.httpBody = Data() }

@@ -26,7 +26,8 @@ struct J {
     }
     var int: Int {
         if let n = v as? NSNumber { return n.intValue }
-        if let s = v as? String { return Int(s) ?? Int(Double(s) ?? 0) }
+        // ασφαλές και στα ρολόγια με 32-bit Int (SE / Series 4–8): ποτέ crash από μεγάλο αριθμό
+        if let s = v as? String { if let i = Int(s) { return i }; let d = Double(s) ?? 0; return d.isFinite && abs(d) < Double(Int.max) ? Int(d) : 0 }
         return 0
     }
     var double: Double {
