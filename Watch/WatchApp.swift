@@ -191,6 +191,9 @@ struct WatchHome: View {
     }
 }
 
+/// Κλίμακα ανά μέγεθος ρολογιού (SE 40mm ≈ 0,82 · 45mm = 1 · Ultra ≈ 1,04) ώστε να χωράνε όλα παντού
+let wk: CGFloat = min(1.08, max(0.78, WKInterfaceDevice.current().screenBounds.width / 198))
+
 /// Λογότυπο «aek hub» στη θέση του τίτλου
 struct WatchBrand: View {
     var body: some View {
@@ -267,28 +270,28 @@ struct WatchHero: View {
                     }
                 }
             } else {
-                Text(m.finished ? "ΤΕΛΙΚΟ" : "ΕΠΟΜΕΝΟΣ ΑΓΩΝΑΣ").font(.system(size: 11, weight: .heavy)).tracking(0.8).foregroundStyle(C.gold)
+                Text(m.finished ? "ΤΕΛΙΚΟ" : "ΕΠΟΜΕΝΟΣ ΑΓΩΝΑΣ").font(.system(size: 11 * wk, weight: .heavy)).tracking(0.5).foregroundStyle(C.gold).lineLimit(1).minimumScaleFactor(0.7)
             }
-            // σήματα + σκορ/ώρα
-            HStack(spacing: 4) {
+            // σήματα + σκορ/ώρα: η μέση έχει προτεραιότητα και μικραίνει αν δεν χωράει (ποτέ «17…»)
+            HStack(spacing: 2) {
                 team(m.homeLogo, m.home, m.aek == "home")
-                Spacer(minLength: 0)
-                if m.live || m.hasScore {
-                    HStack(spacing: 3) {
-                        Text(m.scoreHome).foregroundStyle(m.aek == "home" ? C.gold : C.text)
-                        Text("–").foregroundStyle(C.muted).font(.system(size: 22))
-                        Text(m.scoreAway).foregroundStyle(m.aek == "away" ? C.gold : C.text)
+                Group {
+                    if m.live || m.hasScore {
+                        HStack(spacing: 2) {
+                            Text(m.scoreHome).foregroundStyle(m.aek == "home" ? C.gold : C.text)
+                            Text("–").foregroundStyle(C.muted)
+                            Text(m.scoreAway).foregroundStyle(m.aek == "away" ? C.gold : C.text)
+                        }
+                        .font(.system(size: (big ? 42 : 34) * wk, weight: .heavy).width(.condensed)).monospacedDigit()
+                    } else {
+                        Text(m.time).font(.system(size: (big ? 32 : 26) * wk, weight: .heavy).width(.condensed)).monospacedDigit().foregroundStyle(C.gold)
                     }
-                    .font(.system(size: big ? 44 : 36, weight: .heavy).width(.condensed)).monospacedDigit()
-                    .minimumScaleFactor(0.6).lineLimit(1)
-                } else {
-                    Text(m.time).font(.system(size: big ? 34 : 28, weight: .heavy).width(.condensed)).foregroundStyle(C.gold)
                 }
-                Spacer(minLength: 0)
+                .lineLimit(1).minimumScaleFactor(0.45).frame(maxWidth: .infinity).layoutPriority(1)
                 team(m.awayLogo, m.away, m.aek == "away")
             }
             // κάτω: διοργάνωση + πρόοδος/αντίστροφη μέτρηση
-            Text(m.competition.isEmpty ? m.sportLabel : m.competition).font(.system(size: 11, weight: .medium)).foregroundStyle(C.text2).lineLimit(1)
+            Text(m.competition.isEmpty ? m.sportLabel : m.competition).font(.system(size: 11 * wk, weight: .medium)).foregroundStyle(C.text2).lineLimit(1).minimumScaleFactor(0.7)
             if m.live {
                 GeometryReader { g in
                     ZStack(alignment: .leading) {
@@ -303,18 +306,19 @@ struct WatchHero: View {
                 Text(Fmt.shortDay(m.date)).font(.system(size: 11, weight: .semibold)).foregroundStyle(C.muted)
             }
         }
-        .padding(.vertical, 6).padding(.horizontal, 2)
+        .padding(.vertical, 4).padding(.horizontal, 1)
         .frame(maxWidth: .infinity)
     }
 
     func team(_ logo: String, _ name: String, _ aek: Bool) -> some View {
         VStack(spacing: 3) {
-            TeamLogo(url: logo, size: big ? 38 : 30, name: name)
+            TeamLogo(url: logo, size: (big ? 36 : 28) * wk, name: name)
             if big {
-                Text(name.upperGr).font(.system(size: 10, weight: .heavy).width(.condensed))
-                    .foregroundStyle(aek ? C.gold : C.text2).lineLimit(1).minimumScaleFactor(0.7)
+                Text(name.upperGr).font(.system(size: 10 * wk, weight: .heavy).width(.condensed))
+                    .foregroundStyle(aek ? C.gold : C.text2).lineLimit(2).multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.6).fixedSize(horizontal: false, vertical: true)
             }
-        }.frame(width: big ? 50 : 34)
+        }.frame(width: (big ? 48 : 32) * wk)
     }
 
     var progress: CGFloat {
@@ -338,10 +342,10 @@ struct WatchCountdown: View {
     }
     func box(_ v: Int, _ l: String) -> some View {
         VStack(spacing: 0) {
-            Text(String(format: "%02d", v)).font(.system(size: 18, weight: .heavy).width(.condensed)).monospacedDigit().foregroundStyle(C.gold)
+            Text(String(format: "%02d", v)).font(.system(size: 18 * wk, weight: .heavy).width(.condensed)).monospacedDigit().foregroundStyle(C.gold)
             Text(l).font(.system(size: 8, weight: .bold)).foregroundStyle(C.muted)
         }
-        .frame(width: 36, height: 34)
+        .frame(width: 36 * wk, height: 34 * wk)
         .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.white.opacity(0.08)))
     }
 }
