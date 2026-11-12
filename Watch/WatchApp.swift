@@ -245,7 +245,7 @@ struct WatchTableRow: View {
         HStack(spacing: 6) {
             Text("\(r.pos)").font(.system(size: 13, weight: .bold)).foregroundStyle(r.aek ? C.ink : C.text2).frame(width: 18, alignment: .trailing)
             if !r.logo.isEmpty { TeamLogo(url: r.logo, size: 16, name: r.name) }
-            Text(r.name.upperGr).font(.system(size: 14, weight: .heavy).width(.condensed)).foregroundStyle(r.aek ? C.ink : C.text).lineLimit(1)
+            Text(r.name.upperGr).font(.system(size: 14 * wk, weight: .heavy).width(.condensed)).foregroundStyle(r.aek ? C.ink : C.text).lineLimit(1).minimumScaleFactor(0.65)
             Spacer(minLength: 2)
             Text(r.points).font(.system(size: 15, weight: .heavy).width(.condensed)).monospacedDigit().foregroundStyle(r.aek ? C.ink : C.text)
         }
