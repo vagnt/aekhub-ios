@@ -38,6 +38,13 @@ enum Fmt {
         if s < 86400 { let h = Int(s / 3600); return h == 1 ? "πριν 1 ώρα" : "πριν \(h) ώρες" }
         return postDate(iso, withYear: false)
     }
+    /// «13:08» για σήμερα, αλλιώς «12/11»
+    static func clockOrDay(_ iso: String) -> String {
+        guard let d = Fmt.iso(iso) else { return "" }
+        let c = cal.dateComponents([.day, .month, .hour, .minute], from: d)
+        if cal.isDateInToday(d) { return String(format: "%02d:%02d", c.hour!, c.minute!) }
+        return "\(c.day!)/\(c.month!)"
+    }
     /// «ΣΑΒΒΑΤΟ 8 ΝΟΕΜΒΡΙΟΥ»
     static func dayHeader(_ ymdS: String) -> String {
         guard let d = day(ymdS) else { return ymdS }
