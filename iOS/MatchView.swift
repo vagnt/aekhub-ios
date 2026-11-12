@@ -77,9 +77,9 @@ struct MatchView: View {
                     if split {
                         HStack(alignment: .top, spacing: 8) {
                             VStack(spacing: 14) { TimelineSection(d: d) }.frame(maxWidth: .infinity)
-                            VStack(spacing: 14) {
-                                if rTabs.count > 1 { TabBar(tabs: rTabs, sel: Binding(get: { cur }, set: { tab = $0 })) }
-                                section(cur, d)
+                            // iPad (νέο σχέδιο): δεξιά ΟΛΑ μαζί — στατιστικά, συνθέσεις, παίκτες — χωρίς καρτέλες
+                            VStack(spacing: 22) {
+                                ForEach(rTabs, id: \.self) { t in section(t, d) }
                             }.frame(maxWidth: .infinity)
                         }
                     } else {
