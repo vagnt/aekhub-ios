@@ -30,7 +30,8 @@ shoot() { # $1 = όνομα συσκευής, $2 = πρόθεμα
 # ⌚ Apple Watch
 watch() {
   WAPP="$(dirname "$APP")/../Debug-watchsimulator/AEKHubWatch.app"
-  UDID=$(xcrun simctl list devices available | grep -m1 -E "Apple Watch (Series 1[01]|Ultra).*\(" | grep -oE '[0-9A-F-]{36}')
+  UDID=$(xcrun simctl list devices available | grep -m1 -E "${WPAT:-Apple Watch (Series 1[01]|Ultra)}.*\(" | grep -oE '[0-9A-F-]{36}')
+  OUT0="$OUT"; [ -n "$WPAT" ] && { OUT="$OUT/se"; mkdir -p "$OUT"; }
   [ -z "$UDID" ] && { echo "δεν βρέθηκε ρολόι"; xcrun simctl list devices available | grep -i watch; return; }
   xcrun simctl boot "$UDID" || true
   xcrun simctl bootstatus "$UDID" -b
@@ -45,9 +46,10 @@ watch() {
     xcrun simctl terminate "$UDID" gr.aekhub.app.watchkitapp; xcrun simctl launch "$UDID" gr.aekhub.app.watchkitapp -open "$u"; sleep 12
     xcrun simctl io "$UDID" screenshot "$OUT/watch-$(echo $u | tr '/' '-').png"
   done
-  xcrun simctl shutdown "$UDID"
+  xcrun simctl shutdown "$UDID"; OUT="$OUT0"
 }
 watch
+WPAT="Apple Watch SE" watch   # η μικρότερη οθόνη (40/44mm)
 shoot "iPhone 17 Pro (" phone
 shoot "iPad Pro 13" ipad
 ls -la "$OUT"
