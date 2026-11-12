@@ -42,7 +42,7 @@ struct WatchHome: View {
     @State private var list: MatchList? = Api.shared.peek(Api.pMatches()).map(MatchList.init)
     @State private var table: [Standing] = Api.shared.peek(Api.pStandings)?["items"].list(Standing.init) ?? []
     @State private var error = false
-    @State private var page = 0
+    @State private var page = UserDefaults.standard.integer(forKey: "wpage") // για τα screenshots: -wpage 2
 
     var main: MatchCard? { home?.liveHero?.match ?? list?.items.first(where: { $0.live }) ?? home?.next }
 
