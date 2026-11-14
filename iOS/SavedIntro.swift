@@ -56,7 +56,12 @@ struct IntroSplash: View {
             .opacity(1 - out)
             .contentShape(Rectangle())
             .onTapGesture { finish() }
-            .onAppear { if Self.video(g.size) == nil { finish() } }
+            .onAppear {
+                if Self.video(g.size) == nil { finish(); return }
+                // δίχτυ ασφαλείας (ο χρήστης: «κολλάει στο βίντεο μερικές φορές» — π.χ. όταν στο 1ο άνοιγμα πετάγεται
+                // το παράθυρο άδειας ειδοποιήσεων ή το βίντεο δεν ξεκινά): ποτέ πάνω από τη διάρκεια + 1,5″
+                DispatchQueue.main.asyncAfter(deadline: .now() + (Self.long ? 5 : 3) - Self.startAt + 1.5) { finish() }
+            }
         }
         .ignoresSafeArea()
     }
@@ -187,6 +192,10 @@ struct SplashPlayer: UIViewRepresentable {
             if l.isReadyForDisplay { DispatchQueue.main.async { v?.go() } }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak v] in v?.go() } // ασφάλεια
+        // αν το iOS το πάγωσε (παράθυρο άδειας κ.λπ.), συνέχισε μόλις η εφαρμογή ξαναγίνει ενεργή
+        v.obs.append(NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak v] _ in
+            if let p = v?.pl.player, p.rate == 0 { p.play() }
+        })
         return v
     }
 
