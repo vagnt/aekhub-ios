@@ -149,8 +149,11 @@ struct Post: Identifiable {
 }
 
 /// Ρολόι αγώνα: b = λεπτά που είχαν περάσει στο s (ms epoch), l = διάρκεια περιόδου.
-struct Clock: Hashable { let b, s, l: Double
-    init(_ j: J) { b = j["b"].double; s = j["s"].double; l = j["l"].exists ? j["l"].double : 45 }
+struct Clock: Hashable { let b, s, l: Double; let cd: Bool; let p: Double?
+    init(_ j: J) {
+        b = j["b"].double; s = j["s"].double; cd = j["cd"].bool
+        l = j["l"].exists ? j["l"].double : (j["cd"].bool ? 10 : 45); p = j["p"].exists ? j["p"].double : nil
+    }
 }
 
 /// Κοινά πεδία κάρτας αγώνα και σελίδας αγώνα.

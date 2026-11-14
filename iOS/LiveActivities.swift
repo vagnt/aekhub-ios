@@ -150,6 +150,7 @@ final class LiveActivities {
             status: m.status, minute: m.live ? liveMinute(m.clock, fallback: m.minute.isEmpty ? m.statusLabel : m.minute) : (m.finished ? "ΤΕΛΙΚΟ" : m.time),
             phase: m.statusLabel, last: last.isEmpty ? (existing?.content.state.last ?? "") : last, progress: progress(m), periods: [], goal: goal)
         st.clk = clockZero(m)
+        timedBar(&st, m)
         st.periods = periods ?? existing?.content.state.periods ?? []
         // 🏐 Βόλεϊ live: μεγάλο = πόντοι του σετ («2ο Σετ · 12–8» από την πηγή), μικρά = σετ — όπως ο server
         if m.sport == "volleyball" && m.live {
@@ -181,6 +182,25 @@ final class LiveActivities {
                 ?? (try? Activity.request(attributes: attrs, content: content, pushType: nil))
             if let a { watch(a) }
         }
+    }
+
+    /// Μπάρα που κυλάει μέσα στην περίοδο — ίδιο με τον server (aekhub-app 1.6.8: seg/qs/qe)
+    func timedBar(_ st: inout LiveMatchAttributes.ContentState, _ m: MatchCard) {
+        guard m.live, let c = m.clock, c.l > 0 else { return }
+        let run = c.s > 0, el = run ? max(0, Date().timeIntervalSince1970 * 1000 - c.s) / 60000 : 0
+        guard el < 180 else { return }
+        let n: Double = c.cd ? 4 : 2
+        var seg = -1, done = 0.0
+        if c.cd, m.status.count == 2, m.status.hasPrefix("q"), let q = Int(m.status.dropFirst()) { seg = q - 1; done = min(c.l, c.b + el) }
+        else if !c.cd, m.status == "live" || m.status == "live2" {
+            seg = m.status == "live2" ? 1 : 0
+            done = min(c.l, max(0, c.b + el - (c.p ?? Double(seg) * c.l)))
+        }
+        guard seg >= 0 else { return }
+        st.progress = (Double(seg) + done / c.l) / n
+        st.seg = seg
+        if run && done < c.l { let now = Date().timeIntervalSince1970; st.qs = (now - done * 60).rounded(); st.qe = (now + (c.l - done) * 60).rounded() }
+        if c.cd && !run && done >= c.l - 0.01 { st.per = seg == 1 ? "ΗΜΙΧΡΟΝΟ" : (seg == 3 ? "ΤΕΛΟΣ 4ου" : "ΔΙΑΛΕΙΜΜΑ"); st.minute = st.per ?? st.minute }
     }
 
     /// Στιγμή του 0′ για ρολόι που μετράει προς τα πάνω (ποδόσφαιρο/χάντμπολ/futsal) — όπως ο server

@@ -33,7 +33,7 @@ struct LiveMatchWidget: Widget {
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(spacing: 6) {
-                        if s.status != "finished" && hasClock(a) { bar(s.progress, segments(a)) }
+                        if s.status != "finished" && hasClock(a) { bar(s.progress, segments(a), s) }
                         HStack {
                             Text(footLine(a, s).isEmpty ? (a.venue.isEmpty ? " " : a.venue) : footLine(a, s)).font(.system(size: 13)).foregroundStyle(.white.opacity(0.8)).lineLimit(1)
                             Spacer()
@@ -226,7 +226,8 @@ func stage(_ a: LiveMatchAttributes, _ s: LiveMatchAttributes.ContentState) -> S
         let n = s.status.dropFirst()
         return wp ? "\(n)η ΠΕΡΙΟΔΟΣ" : "\(n)ο ΔΕΚΑΛΕΠΤΟ"
     case "ot": return "ΠΑΡΑΤΑΣΗ"
-    case "halftime", "ht", "break": return ["basketball", "waterpolo"].contains(a.sport) ? "ΔΙΑΛΕΙΜΜΑ" : "ΗΜΙΧΡΟΝΟ"
+    case "halftime", "ht": return "ΗΜΙΧΡΟΝΟ"
+    case "break": return s.periods.count == 2 ? "ΗΜΙΧΡΟΝΟ" : "ΔΙΑΛΕΙΜΜΑ"
     case "live": return ["basketball", "waterpolo"].contains(a.sport) ? nil : "1ο ΗΜΙΧΡΟΝΟ"
     case "live2": return "2ο ΗΜΙΧΡΟΝΟ"
     case "et1": return "1η ΠΑΡΑΤΑΣΗ"
@@ -250,7 +251,9 @@ func shortStage(_ a: LiveMatchAttributes, _ s: LiveMatchAttributes.ContentState)
 }
 
 /// Διάλειμμα: δεν δείχνουμε λεπτό πάνω δεξιά (η φάση φαίνεται πάνω από το σκορ)
-func isBreak(_ s: LiveMatchAttributes.ContentState) -> Bool { ["halftime", "ht", "break", "eth", "penalties", "prematch"].contains(s.status) }
+func isBreak(_ s: LiveMatchAttributes.ContentState) -> Bool {
+    ["halftime", "ht", "break", "eth", "penalties", "prematch"].contains(s.status) || ["ΗΜΙΧΡΟΝΟ", "ΔΙΑΛΕΙΜΜΑ", "ΤΕΛΟΣ 4ου"].contains(s.per ?? "")
+}
 
 /// Μπάρα χρόνου μόνο σε αθλήματα με ρολόι (όχι βόλεϊ)
 func hasClock(_ a: LiveMatchAttributes) -> Bool { a.sport != "volleyball" }
@@ -266,8 +269,14 @@ func segments(_ a: LiveMatchAttributes) -> Int { ["basketball", "waterpolo"].con
 
 /// Μπάρα χρόνου χωρισμένη ανά περίοδο/ημίχρονο: σήμα (ρόμβος) στο τέλος κάθε περιόδου,
 /// χρυσό όταν έχει περάσει, και φωτεινή «κεφαλή» στο σημείο που βρίσκεται ο αγώνας.
-func bar(_ p: Double, _ n: Int = 2) -> some View {
+func bar(_ p: Double, _ n: Int = 2, _ st: LiveMatchAttributes.ContentState? = nil) -> some View {
     let p = max(0, min(1, p)), gap: CGFloat = 4
+    // τμήμα που «κυλάει» μόνο του (ρολόι σε εξέλιξη): ProgressView με χρονόμετρο — ενημερώνεται χωρίς push
+    let live: (Int, ClosedRange<Date>)? = {
+        guard let st, let i = st.seg, let qs = st.qs, let qe = st.qe, qe > qs, i >= 0, i < n else { return nil }
+        let r = Date(timeIntervalSince1970: qs)...Date(timeIntervalSince1970: qe)
+        return Date() < r.upperBound ? (i, r) : nil
+    }()
     return GeometryReader { g in
         let w = g.size.width, seg = (w - gap * CGFloat(n - 1)) / CGFloat(n)
         ZStack(alignment: .leading) {
@@ -275,7 +284,13 @@ func bar(_ p: Double, _ n: Int = 2) -> some View {
                 let f = max(0, min(1, p * Double(n) - Double(i)))
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.white.opacity(0.13))
-                    Capsule().fill(C.goldGrad).frame(width: seg * CGFloat(f)).opacity(f > 0 ? 1 : 0)
+                    if let live, live.0 == i {
+                        ProgressView(timerInterval: live.1, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }
+                            .progressViewStyle(.linear).tint(C.gold).labelsHidden()
+                            .frame(width: seg).clipShape(Capsule())
+                    } else {
+                        Capsule().fill(C.goldGrad).frame(width: seg * CGFloat(f)).opacity(f > 0 ? 1 : 0)
+                    }
                 }
                 .frame(width: seg, height: 4)
                 .offset(x: CGFloat(i) * (seg + gap))
@@ -290,8 +305,8 @@ func bar(_ p: Double, _ n: Int = 2) -> some View {
                     .shadow(color: done ? C.gold.opacity(0.7) : .clear, radius: 3)
                     .offset(x: CGFloat(i) * (seg + gap) - gap / 2 - 3.5)
             }
-            // κεφαλή προόδου
-            if p > 0 && p < 1 && abs(p * Double(n) - (p * Double(n)).rounded()) > 0.01 {
+            // κεφαλή προόδου (όχι όταν κυλάει μόνο του — τότε τη «δείχνει» το ίδιο το γέμισμα)
+            if live == nil && p > 0 && p < 1 && abs(p * Double(n) - (p * Double(n)).rounded()) > 0.01 {
                 let i = min(n - 1, Int(p * Double(n))), f = p * Double(n) - Double(i)
                 Circle().fill(Color.white).frame(width: 6, height: 6)
                     .shadow(color: C.gold, radius: 4)
@@ -326,7 +341,7 @@ struct LockView: View {
                 Spacer(minLength: 4)
                 VStack(spacing: 4) { crest(a.away, a.alogo, a.aek == "away", 42); name(a.away, a.aek == "away") }.frame(minWidth: 60, maxWidth: 90)
             }
-            if s.status != "finished" && hasClock(a) { bar(s.progress, segments(a)) }
+            if s.status != "finished" && hasClock(a) { bar(s.progress, segments(a), s) }
             HStack {
                 Text(footLine(a, s).isEmpty ? (a.venue.isEmpty ? " " : a.venue) : footLine(a, s)).font(.system(size: 13)).foregroundStyle(.white.opacity(0.75)).lineLimit(1)
                 Spacer()

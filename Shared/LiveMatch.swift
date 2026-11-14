@@ -18,7 +18,10 @@ struct LiveMatchAttributes: ActivityAttributes {
         var clk: Double? = nil  // χρονική στιγμή (epoch, δευτ.) του 0′ → το λεπτό «τρέχει» μόνο του χωρίς push
         var ph: String? = nil   // 🏐 βόλεϊ live: πόντοι του τρέχοντος σετ (μεγάλα)· τότε sh/sa = σετ (μικρά)
         var pa: String? = nil
-        var per: String? = nil  // «ΣΕΤ 2» / «TIE-BREAK»
+        var per: String? = nil  // «ΣΕΤ 2» / «TIE-BREAK» / «ΗΜΙΧΡΟΝΟ»
+        var seg: Int? = nil     // τρέχουσα περίοδος/ημίχρονο (0…) — aekhub-app 1.6.8
+        var qs: Double? = nil   // πότε ξεκίνησε / τελειώνει (epoch δευτ.) όσο τρέχει το ρολόι →
+        var qe: Double? = nil   // το τμήμα της μπάρας γεμίζει μόνο του (χωρίς push)
     }
     var matchId: Int
     var home: String
