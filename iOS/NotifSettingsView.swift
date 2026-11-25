@@ -68,7 +68,8 @@ struct NotifSettingsView: View {
                     .padding(16).frame(maxWidth: .infinity, alignment: .leading)
                     .background(RoundedRectangle(cornerRadius: 16).fill(C.panel2))
                 } else {
-                    SectionLabel(text: "Ανά άθλημα")
+                    presetCard
+                    SectionLabel(text: "Ανά τμήμα")
                     let allOn = sportList.allSatisfy { sp in p.sports.contains(sp.0) && kindRows(sp.0).allSatisfy { p.kinds.contains("\(sp.0):\($0.kind)") } }
                     chip(allOn ? "✓ Όλα επιλεγμένα — πάτα για να τα ξεχωρίσεις" : "Επιλογή όλων", allOn) {
                         if allOn { p.sports = [] } else {
@@ -117,7 +118,7 @@ struct NotifSettingsView: View {
                         .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(C.line, lineWidth: 1))
                     }.buttonStyle(.plain)
 
-                    Text("Η υπενθύμιση 30′ πριν έρχεται πάντα. Σέντρα, γκολ, ημίχρονο και τελικό έρχονται αμέσως όσο το app είναι ανοιχτό· με κλειστό app όποτε επιτρέψει το iOS (μπορεί να αργήσουν).")
+                    Text("Θέλεις τα πάντα από έναν συγκεκριμένο αγώνα; Πάτα το 🔔 μέσα στον αγώνα — έρχονται όλα του τα γεγονότα, ό,τι κι αν έχεις διαλέξει εδώ.")
                         .font(F.body(12)).foregroundStyle(C.muted)
                 }
             }
@@ -135,15 +136,116 @@ struct NotifSettingsView: View {
 
     struct KindRow { let kind, title, sub, icon: String }
     func kindRows(_ sp: String) -> [KindRow] {
-        var r: [KindRow] = []
-        if sp.hasPrefix("volleyball") { r.append(KindRow(kind: Kinds.goals, title: "Κάθε σετ", sub: "Μόλις τελειώνει σετ — για όποιον κι αν το κερδίσει.", icon: "trophy.fill")) }
-        else if !Kinds.noGoals.contains(sp) { r.append(KindRow(kind: Kinds.goals, title: "Γκολ", sub: "Τη στιγμή που μπαίνει — για την ΑΕΚ και για τον αντίπαλο (και αν ακυρωθεί).", icon: "trophy.fill")) }
-        let se: String
-        switch sp { case "basketball": se = "Τζάμπολ, δεκάλεπτα, τελικό"; case _ where sp.hasPrefix("volleyball"): se = "Έναρξη, κάθε σετ, τελικό"; case "waterpolo": se = "Έναρξη, περίοδοι, τελικό"; default: se = "Σέντρα, ημίχρονο, τελικό" }
-        r.append(KindRow(kind: Kinds.startend, title: se, sub: "Το τελικό έρχεται με το σκορ.", icon: "flag.fill"))
-        r.append(KindRow(kind: Kinds.reminder, title: "Υπενθύμιση 30′ πριν", sub: "Με την ώρα, το γήπεδο και πού μεταδίδεται.", icon: "alarm.fill"))
-        return r
+        Kinds.kinds(for: sp).map { k in
+            switch k {
+            case Kinds.goals:
+                return sp.hasPrefix("volleyball")
+                    ? KindRow(kind: k, title: "Κάθε σετ", sub: "Μόλις τελειώνει σετ — για όποιον κι αν το κερδίσει.", icon: "trophy.fill")
+                    : KindRow(kind: k, title: "Γκολ", sub: "Τη στιγμή που μπαίνει — για την ΑΕΚ και τον αντίπαλο (και αν ακυρωθεί).", icon: "soccerball")
+            case Kinds.startend:
+                let se: String
+                switch sp { case "basketball": se = "Τζάμπολ, δεκάλεπτα, τελικό"; case _ where sp.hasPrefix("volleyball"): se = "Έναρξη, κάθε σετ, τελικό"; case "waterpolo": se = "Έναρξη, περίοδοι, τελικό"; default: se = "Σέντρα, ημίχρονα, τελικό" }
+                return KindRow(kind: k, title: se, sub: "Οι φάσεις του αγώνα· το τελικό έρχεται με το σκορ.", icon: "flag.checkered")
+            case Kinds.reminder:
+                return KindRow(kind: k, title: "Υπενθύμιση 30′ πριν", sub: "Με την ώρα, το γήπεδο και πού μεταδίδεται.", icon: "alarm.fill")
+            case Kinds.cards:
+                switch sp {
+                case "handball": return KindRow(kind: k, title: "Αποβολές & κάρτες", sub: "2λεπτες αποβολές, κόκκινες.", icon: "rectangle.portrait.fill")
+                case "waterpolo": return KindRow(kind: k, title: "Αποβολές", sub: "Αποβολές 20″ και μέχρι τέλους.", icon: "rectangle.portrait.fill")
+                case "basketball": return KindRow(kind: k, title: "Τεχνικές & αντιαθλητικές", sub: "Τεχνικές ποινές και αντιαθλητικά φάουλ.", icon: "rectangle.portrait.fill")
+                default: return KindRow(kind: k, title: "Κάρτες", sub: "Κίτρινες, δεύτερες κίτρινες, κόκκινες.", icon: "rectangle.portrait.fill")
+                }
+            default:
+                return KindRow(kind: k, title: "Αλλαγές", sub: "Ποιος βγαίνει, ποιος μπαίνει.", icon: "arrow.left.arrow.right")
+            }
+        }
     }
+
+    // MARK: Πακέτα + δείγμα
+
+    @ViewBuilder var presetCard: some View {
+        let list = sportList.map(\.0)
+        let cur = p.currentPreset(list)
+        VStack(alignment: .leading, spacing: 12) {
+            SectionLabel(text: "Τι θέλεις να μαθαίνεις")
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                presetTile(.basic, "checkmark.seal.fill", "Βασικό", "Γκολ, έναρξη, ημίχρονα, λήξη, υπενθύμιση", cur)
+                presetTile(.all, "bolt.fill", "Όλα", "Το βασικό + κάρτες και αλλαγές", cur)
+                presetTile(.goals, "soccerball", "Μόνο γκολ", "Χωρίς τίποτε άλλο (στο μπάσκετ μόνο φάσεις)", cur)
+                presetTile(.custom, "slider.horizontal.3", "Δικό μου", "Διαλέγεις ανά τμήμα παρακάτω", cur)
+            }
+            preview
+        }
+    }
+
+    func presetTile(_ pr: Kinds.Preset, _ icon: String, _ t: String, _ sub: String, _ cur: Kinds.Preset) -> some View {
+        let on = pr == cur
+        return Button {
+            haptic(.medium)
+            withAnimation(.easeInOut(duration: 0.2)) {
+                if pr == .custom {
+                    if let first = sportList.map(\.0).first(where: { p.sports.contains($0) }) { open.insert(first) }
+                } else {
+                    if p.sports.isEmpty { p.sports = Set(Kinds.hot) }
+                    p.apply(pr, sports: sportList.map(\.0))
+                }
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Image(systemName: icon).font(.system(size: 17, weight: .semibold)).foregroundStyle(on ? C.ink : C.gold)
+                        .frame(width: 34, height: 34).background(Circle().fill(on ? C.gold : C.gold.opacity(0.14)))
+                    Spacer()
+                    Image(systemName: on ? "checkmark.circle.fill" : "circle").font(.system(size: 19, weight: .semibold)).foregroundStyle(on ? C.gold : C.muted)
+                }
+                Text(t).font(F.body(15, .heavy)).foregroundStyle(C.text)
+                Text(sub).font(F.body(11.5)).foregroundStyle(C.muted).fixedSize(horizontal: false, vertical: true).lineLimit(3)
+                Spacer(minLength: 0)
+            }
+            .padding(12).frame(maxWidth: .infinity, minHeight: 128, alignment: .topLeading)
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(on ? C.gold.opacity(0.10) : C.panel))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(on ? C.gold : C.line, lineWidth: on ? 1.5 : 1))
+        }.buttonStyle(.plain)
+    }
+
+    /// «Έτσι θα έρχονται»: δείγματα από τα είδη που είναι ανοιχτά (ποδόσφαιρο, αλλιώς το πρώτο τμήμα που ακολουθείς)
+    @ViewBuilder var preview: some View {
+        let sp = p.sports.contains("football") ? "football" : (sportList.map(\.0).first { p.sports.contains($0) } ?? "football")
+        let ex: [(String, String, String)] = [
+            (Kinds.goals, "Γκολ · ΑΕΚ [1]–0 Ολυμπιακός", "Πινέδα 23′"),
+            (Kinds.startend, "Ημίχρονο · ΑΕΚ 1–0 Ολυμπιακός", "Πινέδα 23′"),
+            (Kinds.cards, "Κίτρινη κάρτα · Μάνταλος (ΑΕΚ) 34′", "ΑΕΚ 1–0 Ολυμπιακός"),
+            (Kinds.subs, "Αλλαγή · ↓ Γιόβιτς / ↑ Ζίνι (ΑΕΚ) 74′", "ΑΕΚ 1–0 Ολυμπιακός"),
+            (Kinds.reminder, "Σε 30′ · ΑΕΚ – Ολυμπιακός", "21:00 · OPAP Arena"),
+        ].filter { p.kinds.contains("\(sp):\($0.0)") }
+        if !ex.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("ΕΤΣΙ ΘΑ ΕΡΧΟΝΤΑΙ").font(F.body(10.5, .heavy)).tracking(1).foregroundStyle(C.muted)
+                ForEach(Array(ex.prefix(3).enumerated()), id: \.offset) { _, e in
+                    HStack(alignment: .top, spacing: 10) {
+                        Text("a").font(F.body(17, .heavy)).foregroundStyle(C.ink).frame(width: 34, height: 34)
+                            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(C.gold))
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack {
+                                Text("AEK HUB").font(F.body(10.5, .heavy)).foregroundStyle(C.muted)
+                                Spacer()
+                                Text("τώρα").font(F.body(10.5)).foregroundStyle(C.muted)
+                            }
+                            Text(e.1).font(F.body(13, .heavy)).foregroundStyle(C.text).lineLimit(1).minimumScaleFactor(0.8)
+                            Text(e.2).font(F.body(12)).foregroundStyle(C.text2).lineLimit(1)
+                        }
+                    }
+                    .padding(10)
+                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(C.panel2))
+                }
+                if ex.count > 3 { Text("+ \(ex.count - 3) ακόμα είδη").font(F.body(11.5)).foregroundStyle(C.muted) }
+            }
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(C.panel))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(C.line, lineWidth: 1))
+        }
+    }
+
     func sportIcon(_ k: String) -> String {
         switch k {
         case "basketball": return "basketball.fill"

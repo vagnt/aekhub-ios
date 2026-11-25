@@ -13,18 +13,40 @@ enum Device {
     static var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
 }
 
-/// Ρυθμίσεις ειδοποιήσεων (ίδια είδη με το Android: goals · startend · reminder · cards)
+/// Ρυθμίσεις ειδοποιήσεων: goals · startend · reminder · cards (κάρτες/αποβολές) · subs (αλλαγές).
+/// Κάρτες και αλλαγές είναι ΞΕΧΩΡΙΣΤΕΣ επιλογές στο iPhone (ζήτησε ο χρήστης 26/11) — βλ. `Push.topics()`.
 enum Kinds {
-    static let goals = "goals", startend = "startend", reminder = "reminder", cards = "cards"
+    static let goals = "goals", startend = "startend", reminder = "reminder", cards = "cards", subs = "subs"
     static let sports = ["football", "basketball", "volleyball", "handball", "women_football", "futsal", "waterpolo"]
     /// Ενεργά από την αρχή
     static let hot = ["football", "women_football", "basketball", "volleyball", "handball"]
     /// Αθλήματα χωρίς ειδοποίηση σε κάθε σκορ (μόνο φάσεις και τελικό)
     static let noGoals: Set<String> = ["basketball", "handball", "futsal", "waterpolo"]
+    /// Βασικό πακέτο: γκολ + έναρξη/ημίχρονα/λήξη + υπενθύμιση 30′
+    static let basic = [goals, startend, reminder]
     static func defaults() -> Set<String> {
         var s = Set<String>()
-        for sp in sports { s.insert("\(sp):\(reminder)"); s.insert("\(sp):\(goals)"); s.insert("\(sp):\(startend)") }
+        for sp in sports { for k in basic { s.insert("\(sp):\(k)") } }
         return s
+    }
+    /// Ποια είδη έχουν νόημα σε κάθε άθλημα (βόλεϊ χωρίς κάρτες· αλλαγές μόνο όπου τις δίνουν οι πηγές)
+    static func kinds(for sp: String) -> [String] {
+        var r = [String]()
+        if !noGoals.contains(sp) { r.append(goals) }
+        r += [startend, reminder]
+        if !sp.hasPrefix("volleyball") { r.append(cards) }
+        if ["football", "women_football", "futsal"].contains(sp) { r.append(subs) }
+        return r
+    }
+    /// Έτοιμα πακέτα
+    enum Preset: String, CaseIterable { case basic, all, goals, custom }
+    static func preset(_ pr: Preset, sp: String) -> [String] {
+        let k = kinds(for: sp)
+        switch pr {
+        case .basic, .custom: return k.filter { basic.contains($0) }
+        case .all: return k
+        case .goals: return noGoals.contains(sp) ? [startend] : [goals] // στα αθλήματα χωρίς γκολ: μόνο το τελικό/φάσεις
+        }
     }
 }
 
@@ -92,6 +114,24 @@ final class Prefs: ObservableObject {
         if match > 0 && matchAlerts.contains(match) { return true }
         if match > 0 && mutedMatches.contains(match) { return false }
         return sports.contains(sport) && kinds.contains("\(sport):\(kind)")
+    }
+
+    /// Βάζει ένα έτοιμο πακέτο σε όλα τα αθλήματα
+    func apply(_ pr: Kinds.Preset, sports list: [String]) {
+        var k = kinds
+        for sp in list {
+            for x in Kinds.kinds(for: sp) { k.remove("\(sp):\(x)") }
+            for x in Kinds.preset(pr, sp: sp) { k.insert("\(sp):\(x)") }
+        }
+        kinds = k
+    }
+    /// Ποιο πακέτο ισχύει τώρα στα αθλήματα που ακολουθείς (αλλιώς «Δικό μου»)
+    func currentPreset(_ list: [String]) -> Kinds.Preset {
+        let f = list.filter { sports.contains($0) }
+        guard !f.isEmpty else { return .custom }
+        for pr in [Kinds.Preset.basic, .all, .goals] where f.allSatisfy({ sp in
+            Set(Kinds.kinds(for: sp).filter { kinds.contains("\(sp):\($0)") }) == Set(Kinds.preset(pr, sp: sp)) }) { return pr }
+        return .custom
     }
 
     func toggleKind(_ sport: String, _ kind: String) {
