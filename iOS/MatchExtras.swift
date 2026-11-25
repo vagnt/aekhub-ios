@@ -333,7 +333,7 @@ struct MiniScoreRow: View {
 }
 
 /// Μικρή βαθμολογία: ΑΕΚ κίτρινη, αντίπαλος ανοιχτό γκρι
-struct MiniTable: View {
+struct MatchMiniTable: View {
     let s: Standing
     let m: MatchCard
     var body: some View {
@@ -439,7 +439,7 @@ struct PreMatchSection: View {
                 ExtraBox(title: "Τελευταίες αναμετρήσεις") { VStack(spacing: 0) { ForEach(a.h2h, id: \.id) { x in MiniScoreRow(m: x) } } }
             }
             if let t = a.table {
-                ExtraBox(title: "Βαθμολογία", sub: t.title) { MiniTable(s: t, m: m) }
+                ExtraBox(title: "Βαθμολογία", sub: t.title) { MatchMiniTable(s: t, m: m) }
             }
         }
         .padding(.horizontal, screenPad)
@@ -509,7 +509,7 @@ struct PostMatchSection: View {
                     Text("Δεν έχει οριστεί ακόμα ο επόμενος αγώνας.").font(F.body(12.5)).foregroundStyle(C.muted)
                 }
             }
-            if let t = a.table { ExtraBox(title: "Βαθμολογία", sub: t.title) { MiniTable(s: t, m: m) } }
+            if let t = a.table { ExtraBox(title: "Βαθμολογία", sub: t.title) { MatchMiniTable(s: t, m: m) } }
         }
         .padding(.horizontal, screenPad)
         .task(id: m.id) { await a.load(m, wantNext: true) }
