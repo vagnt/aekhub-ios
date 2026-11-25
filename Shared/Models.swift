@@ -67,7 +67,10 @@ struct AppConfig {
     let socials: [Social]
     let calendar: CalConfig?
     let ads: AdsConfig
+    /// Έκδοση του API (≥ 4 = ο server στέλνει κάρτες και αλλαγές σε ξεχωριστά θέματα)
+    let api: Int
     init(_ j: J) {
+        api = j["api"].int
         site = j["site"].str; categories = j["categories"].list(Category.init); sports = j["sports"].list(SportItem.init)
         socials = j["socials"].list(Social.init); calendar = j["calendar"].opt(CalConfig.init)
         ads = AdsConfig(j["ads"])

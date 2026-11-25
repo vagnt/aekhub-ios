@@ -528,6 +528,24 @@ enum ArticleHTML {
         table{width:100%;border-collapse:collapse;font-size:.9em}td,th{border-bottom:1px solid #2C2C29;padding:6px}
         hr{border:0;border-top:1px dashed #3A3935;margin:24px 0}
         ul,ol{padding-left:1.2em}
+        td img,th img,img[class*=logo],[class*=logo] img{width:22px!important;height:22px!important;max-width:none;object-fit:contain;display:inline-block!important;margin:0!important;border-radius:0!important;vertical-align:middle}
+        .aekstd-table-wrap{margin:18px 0;padding:10px 6px 6px;border:1px solid #2C2C29;border-radius:18px;background:#141412;overflow-x:auto}
+        .aekstd-title{display:flex;align-items:center;gap:10px;font-weight:800;font-size:15px;line-height:1.25;padding:2px 8px 8px}
+        .aekstd-title img.aekstd-title-logo{width:30px!important;height:30px!important}
+        .aekstd-table{font-size:13px;line-height:1.2;font-variant-numeric:tabular-nums}
+        .aekstd-table th,.aekstd-table td{padding:8px 3px;text-align:center;white-space:nowrap}
+        .aekstd-table th{color:#9A968A;font-size:11px;font-weight:800}
+        .aekstd-table .aekstd-th-team{text-align:left;width:100%}
+        .aekstd-team-cell{display:flex;align-items:center;gap:8px}
+        .aekstd-team-name{white-space:normal}
+        .aekstd-logo-fb{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;font-size:11px;font-weight:800;color:#9A968A}
+        .aekstd-table td.aekstd-th-pos{border-left:3px solid var(--z,transparent);color:#9A968A}
+        .aekstd-table .aekstd-th-pts{font-weight:800}
+        .aekstd-highlight td,.aekstd-highlight td.aekstd-th-pos{color:#F9CF1C;font-weight:800}
+        .aekstd-th-gd.is-pos{color:#5BD67A}.aekstd-th-gd.is-neg{color:#F07167}
+        .aekstd-legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;line-height:1.4;color:#9A968A;padding:8px 8px 2px}
+        .aekstd-legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+        @media(max-width:420px){.aekstd-th-wide{display:none}}
         </style></head><body><div id="c">
         \(html)
         </div></body></html>

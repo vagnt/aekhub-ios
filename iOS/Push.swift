@@ -6,7 +6,7 @@ import FirebaseMessaging
 
 /// 🔔 Κανονικές ειδοποιήσεις push (λογαριασμός Apple Developer): ίδια «θέματα» (FCM topics) με το Android,
 /// οπότε ο server (aekhub-app → `aekhub_app_push`) στέλνει ένα μήνυμα και φτάνει σε Android και iPhone.
-///   m_<άθλημα>_goals | _startend | _cards | _reminder · match_<id> · news_breaking
+///   m_<άθλημα>_goals | _startend | _reminder | _cards (κάρτες+αλλαγές) | _card | _subs · match_<id> · news_breaking
 /// Μόλις το iPhone πάρει token (υπογραφή με push), οι τοπικές ειδοποιήσεις του Notifier σταματούν (όχι διπλές).
 /// Χωρίς push (sideload με δωρεάν λογαριασμό) δεν έρχεται token → συνεχίζει το τοπικό σύστημα.
 @MainActor
@@ -61,9 +61,15 @@ final class Push: NSObject, MessagingDelegate {
         var s = Set<String>()
         guard p.all else { return s }
         for sp in p.sports {
-            for k in [Kinds.goals, Kinds.startend, Kinds.cards, Kinds.reminder] where p.kinds.contains("\(sp):\(k)") {
+            for k in [Kinds.goals, Kinds.startend, Kinds.reminder] where p.kinds.contains("\(sp):\(k)") {
                 s.insert("m_\(sp)_\(k)")
             }
+            // 🟨/🔁 Κάρτες και αλλαγές ξεχωριστά: και τα δύο → το κοινό θέμα του Android (m_x_cards = κάρτες + αλλαγές)·
+            // μόνο το ένα → δικό του θέμα (m_x_card / m_x_subs), ώστε να μην έρχεται το άλλο
+            let c = p.kinds.contains("\(sp):\(Kinds.cards)"), sb = p.kinds.contains("\(sp):\(Kinds.subs)") && Kinds.kinds(for: sp).contains(Kinds.subs)
+            // (πριν ο server τα χωρίσει — `api` < 4 — μένουμε στο κοινό θέμα για να μη χαθεί τίποτα)
+            let split = (AppState.shared.config?.api ?? 0) >= 4
+            if (c && sb) || ((c || sb) && !split) { s.insert("m_\(sp)_cards") } else if c { s.insert("m_\(sp)_card") } else if sb { s.insert("m_\(sp)_subs") }
         }
         if p.news {
             // Φίλτρο κατηγοριών: ios_news_<slug> (ο server στέλνει εκεί κάθε άρθρο της κύριας κατηγορίας του)

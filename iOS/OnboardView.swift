@@ -116,6 +116,8 @@ struct OnboardView: View {
                 kindRow("alarm", "Υπενθύμιση", "30′ πριν από την έναρξη.", Kinds.reminder)
                 Rectangle().fill(C.line).frame(height: 1).padding(.leading, 68)
                 kindRow("rectangle.portrait.fill", "Κάρτες", "Κίτρινες και κόκκινες κάρτες.", Kinds.cards)
+                Rectangle().fill(C.line).frame(height: 1).padding(.leading, 68)
+                kindRow("arrow.left.arrow.right", "Αλλαγές", "Ποιος βγαίνει, ποιος μπαίνει.", Kinds.subs)
             }
             .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(C.panel))
             Toggle(isOn: $p.liveActivities) {

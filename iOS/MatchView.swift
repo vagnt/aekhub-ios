@@ -74,6 +74,8 @@ struct MatchView: View {
                     if let s = d.sponsor, !s.logo.isEmpty || !s.name.isEmpty { SponsorBlock(s: s) } else { PresentedBy(place: "match") }
                     if let s = d.stream { StreamCard(s: s) { openURL = URL(string: s.url) } }
                     if !d.highlights.isEmpty { highlights(d) }
+                    // 📋 «Πριν τη σέντρα» (όπως το Match Center του site)
+                    if d.card.upcoming || d.card.status == "prematch" { PreMatchSection(d: d).readable(820) }
                     if split {
                         HStack(alignment: .top, spacing: 8) {
                             VStack(spacing: 14) { TimelineSection(d: d) }.frame(maxWidth: .infinity)
@@ -87,6 +89,8 @@ struct MatchView: View {
                         section(cur, d).readable(820)
                     }
                     noCoverage(d)
+                    // 🏁 «Μετά τον αγώνα»: αγώνες «Μόνο αποτέλεσμα» → επόμενος αγώνας του τμήματος + βαθμολογία
+                    if d.resultOnly && d.card.finished { PostMatchSection(d: d).readable(820) }
                 }
             }
             .padding(.bottom, 28)
@@ -239,6 +243,8 @@ struct MatchHero: View {
             .padding(.horizontal, 12)
 
             let comp = [c.competition, c.matchday].filter { !$0.isEmpty }.joined(separator: " · ")
+            let compLogo = CompLogo.url(c.competition, sport: c.sport)
+            if !compLogo.isEmpty { PlainLogo(url: compLogo, h: 34, maxW: 120) }
             if !comp.isEmpty {
                 Text(comp.upperGr).font(F.disp(17)).foregroundStyle(C.ink).lineLimit(1).minimumScaleFactor(0.6)
                     .padding(.horizontal, 18).padding(.vertical, 6)
@@ -293,9 +299,27 @@ struct MatchHero: View {
 
             HStack(spacing: 8) {
                 if !c.venue.isEmpty { chip("mappin.and.ellipse", c.venue) }
-                if !c.broadcast.isEmpty { chip("tv", c.broadcast) }
             }
             .padding(.horizontal, screenPad)
+            // 📺 κανάλια με λογότυπα· όσο παίζει ο αγώνας → πάτημα = «▶ Δες το» (Match Center 1.150)
+            let chans = Channels.parse(c.broadcast)
+            if !chans.isEmpty {
+                HStack(spacing: 8) {
+                    ForEach(chans.prefix(3), id: \.self) { ch in
+                        let go = c.live && !ch.url.isEmpty
+                        Button { if go, let u = URL(string: ch.url) { haptic(); UIApplication.shared.open(u) } } label: {
+                            HStack(spacing: 6) {
+                                ChannelBadge(c: ch, h: 18)
+                                if go { Text("▶ Δες το").font(F.body(11.5, .heavy)).foregroundStyle(C.ink).padding(.horizontal, 7).padding(.vertical, 3).background(Capsule().fill(C.gold)) }
+                            }
+                            .padding(.horizontal, 10).padding(.vertical, 6)
+                            .background(Capsule().fill(C.ink.opacity(0.5)))
+                            .overlay(Capsule().stroke(go ? C.gold : C.line2, lineWidth: 1))
+                        }.buttonStyle(.plain).disabled(!go)
+                    }
+                }
+                .padding(.horizontal, screenPad)
+            }
             if !d.referee.isEmpty { Text("Διαιτητής: " + d.referee).font(F.body(12)).foregroundStyle(C.muted) }
         }
         .padding(.bottom, 18)
