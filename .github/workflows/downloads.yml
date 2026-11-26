@@ -1,0 +1,26 @@
+name: Λήψεις App Store
+
+# Κάθε μέρα: επίσημα νούμερα λήψεων από την Apple → aekhub.gr (wp-admin → 📱 AEK Hub App → 📥 Λήψεις).
+# Τρέχει σε Linux (φθηνό, ~20″), όχι macOS. Θέλει secrets: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (ήδη υπάρχουν
+# για το TestFlight) + ASC_VENDOR (Vendor Number, App Store Connect → Payments and Financial Reports)
+# + AEKHUB_DL_TOKEN (από τη σελίδα 📥 Λήψεις του wp-admin).
+on:
+  schedule:
+    - cron: '37 14 * * *'   # 14:37 UTC — η Apple βγάζει την αναφορά της προηγούμενης μέρας το πρωί (ώρα Καλιφόρνιας)
+  workflow_dispatch:
+
+jobs:
+  downloads:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install -q pyjwt cryptography
+      - name: Αναφορά λήψεων
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          ASC_VENDOR: ${{ secrets.ASC_VENDOR }}
+          AEKHUB_DL_TOKEN: ${{ secrets.AEKHUB_DL_TOKEN }}
+        run: python3 ci/downloads.py

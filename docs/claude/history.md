@@ -2,6 +2,9 @@
 
 > Το διαβάζεις όταν δουλεύεις στο αντίστοιχο κομμάτι. Οι γενικοί κανόνες είναι στο `CLAUDE.md`.
 
+## 📥 Λήψεις App Store στο wp-admin (26/11, ζήτησε ο χρήστης)
+`.github/workflows/downloads.yml` (Linux, καθημερινά 14:37 UTC + χειροκίνητα) → `ci/downloads.py`: App Store Connect API `salesReports` (DAILY/SALES/SUMMARY, 10 τελευταίες μέρες, μόνο Apple ID 6831797578· τύποι 1*=νέα, 3*=ξανά, 7*=ενημέρωση) → POST στο site (`/app/dl-report`, AEK Hub App 1.9.0). Secrets: τα ASC_* του TestFlight + **ASC_VENDOR** (Vendor Number) + **AEKHUB_DL_TOKEN** (από wp-admin → 📥 Λήψεις). Χωρίς secrets → απλή προειδοποίηση. ⚠ Τα scheduled workflows τρέχουν ΜΟΝΟ από το main.
+
 ## 1.4 (26/11) — 🎛 Έλεγχος app από το wp-admin (ζήτησε ο χρήστης: «να μην περνάω συνέχεια updates»)
 Όλα από `/app/config` (AEK Hub App 1.8.0, wp-admin → 📱 AEK Hub App → **🎛 Έλεγχος app**), φορτώνει ξανά σε κάθε άνοιγμα (`RootView` phase active → `app.load()`). Κώδικας: `iOS/Remote.swift`.
 - **⬆️ Υπάρχει νέα έκδοση** (`ios`: `latest`/`min`/`url`/`text`, `UpdatePrompt`): παλιότερη από `latest` → μία φορά ανά έκδοση με «Αργότερα» (`update_seen`)· παλιότερη από `min` → δεν κλείνει. Σύγκριση αριθμητική (`AppUpdate.older`, 1.3.1 < 1.4).
