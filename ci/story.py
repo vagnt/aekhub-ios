@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """📱 Story (1080×1920) με τις 3 συσκευές μαζί — ίδιο ύφος με το ci/promo.py (μαύρο/κίτρινο, γραμματοσειρές του site).
 
-python3 ci/story.py <φάκελος screenshots του ci/appstore.sh> <badge.png App Store> <έξοδος.png>
+python3 ci/story.py <φάκελος screenshots του ci/appstore.sh> <badge.png App Store> <έξοδος.png> [watch-mockup.png]
 Αποδίδεται σε 2× (2160×3840) και μικραίνει στο τέλος → πεντακάθαρο. Τα σημαντικά μένουν έξω από
 το πάνω ~250px και το κάτω ~250px (εκεί είναι τα κουμπιά του Instagram/Facebook story).
 """
@@ -16,7 +16,7 @@ P.W, P.H = W, H
 GOLD, INK, WHITE = P.GOLD, P.INK, P.WHITE
 
 
-def main(src, badge, out):
+def main(src, badge, out, watch_mock=None):
     L = lambda f: Image.open(os.path.join(src, f)).convert('RGB')
     phone_scr, ipad_scr, watch_scr = L('iphone69-2.png'), L('ipad13-1.png'), L('watch-1.png')
     film = P.Film.__new__(P.Film)  # μόνο για watch_img
@@ -45,7 +45,11 @@ def main(src, badge, out):
     pad.draw(dev, ipad_scr, 350 * S, 1150 * S, .74, ry=.30, rx=.05, rz=-.02, shadow=.6)
     ph = P.Device(1300 * S, 1320 / 2868, .017, .17, True)
     ph.draw(dev, phone_scr, 600 * S, 1205 * S, .58, ry=-.16, rx=.05, rz=.01, shadow=.65)
-    w = film.watch_img(watch_scr, 270 * S)
+    if watch_mock:  # φωτορεαλιστικό mockup (μαύρο, με την οθόνη μας ήδη μέσα — βλ. history.md)
+        wmk = Image.open(watch_mock).convert('RGBA'); ww = 330 * S
+        w = wmk.resize((ww, int(wmk.size[1] * ww / wmk.size[0])), Image.LANCZOS)
+    else:
+        w = film.watch_img(watch_scr, 270 * S)
     sh = w.split()[3].resize((w.size[0] // 6, w.size[1] // 6)).filter(ImageFilter.GaussianBlur(8)).resize(w.size)
     wx, wy = 920 * S, 1330 * S
     dev.paste((0, 0, 0, 255), (int(wx - w.size[0] / 2 + 24 * S), int(wy - w.size[1] / 2 + 40 * S)), sh.point(lambda v: int(v * .6)))
@@ -99,4 +103,4 @@ def main(src, badge, out):
 
 if __name__ == '__main__':
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    main(*sys.argv[1:4])
+    main(*sys.argv[1:5])
