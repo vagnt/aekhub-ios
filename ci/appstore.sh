@@ -10,7 +10,7 @@ shoot() { # $1 = συσκευή, $2 = πρόθεμα
   xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
   xcrun simctl install "$UDID" "$APP"
   n=1
-  for u in news "match/$MATCH" "match/$MATCH|Πορεία" "match/$MATCH|Συνθέσεις" matches standings "post/$POST" "match/$MATCH2|Πορεία"; do
+  for u in news "match/$MATCH" "match/$MATCH|Πορεία" "match/$MATCH|Συνθέσεις" "match/$MATCH3" matches standings "post/$POST" "match/$MATCH2|Πορεία"; do
     o="${u%%|*}"; t=""; [[ "$u" == *"|"* ]] && t="${u##*|}"
     xcrun simctl terminate "$UDID" gr.aekhub.app 2>/dev/null
     if [ -n "$t" ]; then xcrun simctl launch "$UDID" gr.aekhub.app -shots YES -noads YES -open "$o" -mtab "$t" -scroll 1
