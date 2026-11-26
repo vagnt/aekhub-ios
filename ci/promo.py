@@ -189,9 +189,11 @@ class Device:
         bw, bh = x1_ - x0, y1_ - y0
         if bw <= 2 or bh <= 2: return
         warped = im.transform((bw, bh), Image.PERSPECTIVE, find_coeffs([(p[0] - x0, p[1] - y0) for p in pts], [(0, 0), (self.W, 0), (self.W, self.H), (0, self.H)]), Image.BICUBIC)
-        if shadow:
-            a = warped.split()[3].resize((max(1, bw // 6), max(1, bh // 6))).filter(ImageFilter.GaussianBlur(10)).resize((bw, bh))
-            fr.paste((0, 0, 0), (x0 + int(30 * scale), y0 + int(60 * scale)), a.point(lambda v: int(v * shadow)))
+        if shadow:  # σκιά σε καμβά με περιθώριο (αλλιώς το θόλωμα «κόβεται» σε ορθογώνιο)
+            pd = int(max(bw, bh) * .12)
+            can = Image.new('L', (bw + 2 * pd, bh + 2 * pd), 0); can.paste(warped.split()[3], (pd, pd))
+            a = can.resize((max(1, can.size[0] // 6), max(1, can.size[1] // 6))).filter(ImageFilter.GaussianBlur(10)).resize(can.size)
+            fr.paste((0, 0, 0), (x0 - pd + int(30 * scale), y0 - pd + int(60 * scale)), a.point(lambda v: int(v * shadow)))
         fr.paste(warped, (x0, y0), warped)
 
 

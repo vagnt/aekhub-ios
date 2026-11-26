@@ -45,33 +45,31 @@ def main(src, badge, out, watch_mock=None, bg_photo=None):
         return np.asarray(g.filter(ImageFilter.GaussianBlur(r)).resize((W, H), Image.BICUBIC), np.float32)[..., None] / 255
     gold = np.array(GOLD, np.float32); warm = np.array([255, 236, 190], np.float32)
     a += soft([W / 2 - 520 * S, 760 * S, W / 2 + 520 * S, 1500 * S], 120, 22) * gold * .55
-    a += soft([W / 2 - 620 * S, 1500 * S, W / 2 + 620 * S, 1700 * S], 200, 10) * warm * .38
+    a += soft([W / 2 - 560 * S, 1430 * S, W / 2 + 560 * S, 1590 * S], 170, 12) * warm * .22
+    # σκούρο σβήσιμο στο κάτω μέρος: η γραμμή «AEK HUB / App Store» κάθεται καθαρά
+    yy = np.arange(H, dtype=np.float32)[:, None, None] / S
+    a *= 1 - .72 * np.clip((yy - 1480) / 200, 0, 1)
     fr = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8))
 
     # ── συσκευές σε δικό τους layer (για να φτιάξουμε και αντανάκλαση) ──
     dev = Image.new('RGBA', (W, H), (0, 0, 0, 0))
     pad = P.Device(1000 * S, 2064 / 2752, .03, .06, False); pad.gloss = pad.gloss.point(lambda v: v // 3)
-    pad.draw(dev, ipad_scr, 350 * S, 1150 * S, .74, ry=.30, rx=.05, rz=-.02, shadow=.6)
+    pad.draw(dev, ipad_scr, 345 * S, 1095 * S, .70, ry=.30, rx=.05, rz=-.02, shadow=.6)
     ph = P.Device(1300 * S, 1320 / 2868, .017, .17, True); ph.gloss = ph.gloss.point(lambda v: v // 3)
-    ph.draw(dev, phone_scr, 600 * S, 1205 * S, .58, ry=-.16, rx=.05, rz=.01, shadow=.65)
+    ph.draw(dev, phone_scr, 595 * S, 1145 * S, .55, ry=-.16, rx=.05, rz=.01, shadow=.65)
     if watch_mock:  # φωτορεαλιστικό mockup (μαύρο, με την οθόνη μας ήδη μέσα — βλ. history.md)
-        wmk = Image.open(watch_mock).convert('RGBA'); ww = 330 * S
+        wmk = Image.open(watch_mock).convert('RGBA'); ww = 305 * S
         w = wmk.resize((ww, int(wmk.size[1] * ww / wmk.size[0])), Image.LANCZOS)
         al = w.split()[3]; w = pop(w.convert('RGB'), 1.25, 1.08, 1.06).convert('RGBA'); w.putalpha(al)
     else:
         w = film.watch_img(watch_scr, 270 * S)
-    sh = w.split()[3].resize((w.size[0] // 6, w.size[1] // 6)).filter(ImageFilter.GaussianBlur(8)).resize(w.size)
-    wx, wy = 920 * S, 1330 * S
-    dev.paste((0, 0, 0, 255), (int(wx - w.size[0] / 2 + 24 * S), int(wy - w.size[1] / 2 + 40 * S)), sh.point(lambda v: int(v * .6)))
+    pdw = int(w.size[1] * .15); can = Image.new('L', (w.size[0] + 2 * pdw, w.size[1] + 2 * pdw), 0); can.paste(w.split()[3], (pdw, pdw))
+    sh = can.resize((can.size[0] // 6, can.size[1] // 6)).filter(ImageFilter.GaussianBlur(8)).resize(can.size)
+    wx, wy = 915 * S, 1265 * S
+    dev.paste((0, 0, 0, 255), (int(wx - w.size[0] / 2 - pdw + 24 * S), int(wy - w.size[1] / 2 - pdw + 40 * S)), sh.point(lambda v: int(v * .6)))
     P.put(dev, w, wx, wy)
 
-    # αντανάκλαση στο «πάτωμα»
-    bottom = 1580 * S
-    refl = dev.crop((0, bottom - 420 * S, W, bottom)).transpose(Image.FLIP_TOP_BOTTOM)
-    fade = Image.linear_gradient('L').resize((W, 420 * S)).point(lambda v: int((255 - v) * .22))
-    refl.putalpha(Image.fromarray(np.minimum(np.asarray(refl.split()[3]), np.asarray(fade)).astype(np.uint8)))
-    refl = refl.filter(ImageFilter.GaussianBlur(3 * S))
-    fr.paste(refl, (0, bottom), refl)
+    # (χωρίς αντανάκλαση: πάνω σε φωτογραφία έβγαζε σκούρα «κουτιά»)
     fr.paste(dev, (0, 0), dev)
 
     # ── κείμενα ──
