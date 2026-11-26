@@ -7,7 +7,7 @@ python3 ci/story.py <φάκελος screenshots του ci/appstore.sh> <badge.pn
 """
 import os, sys, math
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter, ImageEnhance
 import promo as P
 
 S = 2  # υπερδειγματοληψία
@@ -18,7 +18,10 @@ GOLD, INK, WHITE = P.GOLD, P.INK, P.WHITE
 
 def main(src, badge, out, watch_mock=None):
     L = lambda f: Image.open(os.path.join(src, f)).convert('RGB')
-    phone_scr, ipad_scr, watch_scr = L('iphone69-2.png'), L('ipad13-1.png'), L('watch-1.png')
+    # οθόνες πιο ζωντανές: λίγο περισσότερο χρώμα/αντίθεση/φως (να «σκάνε» πάνω στο μαύρο)
+    def pop(im, c=1.22, k=1.08, b=1.05):
+        return ImageEnhance.Brightness(ImageEnhance.Contrast(ImageEnhance.Color(im).enhance(c)).enhance(k)).enhance(b)
+    phone_scr, ipad_scr, watch_scr = pop(L('iphone69-2.png')), pop(L('ipad13-1.png')), pop(L('watch-1.png'))
     film = P.Film.__new__(P.Film)  # μόνο για watch_img
     icon = Image.open(os.path.join(P.ASSETS, 'AppIcon.appiconset', 'icon-1024.png')).convert('RGB')
     bdg = Image.open(badge).convert('RGBA')
@@ -39,15 +42,21 @@ def main(src, badge, out, watch_mock=None):
         base = 0 if dy < 0 else sk
         ld.line([(-200 * S, y1 + 260 * S + base + dy * S), (W + 200 * S, y0 - 260 * S + base + dy * S)], fill=c, width=3 * S)
 
+    # βινιέτα ΜΟΝΟ στο φόντο (όχι πάνω στις οθόνες)
+    a = np.asarray(fr, np.float32)
+    yy, xx = np.mgrid[0:H, 0:W]; dd = np.sqrt(((xx - W / 2) / (W * .75)) ** 2 + ((yy - H / 2) / (H * .7)) ** 2)
+    fr = Image.fromarray(np.clip(a * np.clip(1.08 - .4 * dd ** 2, .6, 1)[..., None], 0, 255).astype(np.uint8))
+
     # ── συσκευές σε δικό τους layer (για να φτιάξουμε και αντανάκλαση) ──
     dev = Image.new('RGBA', (W, H), (0, 0, 0, 0))
-    pad = P.Device(1000 * S, 2064 / 2752, .03, .06, False)
+    pad = P.Device(1000 * S, 2064 / 2752, .03, .06, False); pad.gloss = pad.gloss.point(lambda v: v // 3)
     pad.draw(dev, ipad_scr, 350 * S, 1150 * S, .74, ry=.30, rx=.05, rz=-.02, shadow=.6)
-    ph = P.Device(1300 * S, 1320 / 2868, .017, .17, True)
+    ph = P.Device(1300 * S, 1320 / 2868, .017, .17, True); ph.gloss = ph.gloss.point(lambda v: v // 3)
     ph.draw(dev, phone_scr, 600 * S, 1205 * S, .58, ry=-.16, rx=.05, rz=.01, shadow=.65)
     if watch_mock:  # φωτορεαλιστικό mockup (μαύρο, με την οθόνη μας ήδη μέσα — βλ. history.md)
         wmk = Image.open(watch_mock).convert('RGBA'); ww = 330 * S
         w = wmk.resize((ww, int(wmk.size[1] * ww / wmk.size[0])), Image.LANCZOS)
+        al = w.split()[3]; w = pop(w.convert('RGB'), 1.25, 1.08, 1.06).convert('RGBA'); w.putalpha(al)
     else:
         w = film.watch_img(watch_scr, 270 * S)
     sh = w.split()[3].resize((w.size[0] // 6, w.size[1] // 6)).filter(ImageFilter.GaussianBlur(8)).resize(w.size)
@@ -91,12 +100,9 @@ def main(src, badge, out, watch_mock=None):
     bw = 330 * S; b = bdg.resize((bw, int(bw * bdg.size[1] / bdg.size[0])), Image.LANCZOS)
     P.put(fr, b, W - 72 * S, yb, 'rm')
 
-    # κόκκος + βινιέτα, μετά μικραίνει σε 1080×1920
-    a = np.asarray(fr, np.float32)
-    yy, xx = np.mgrid[0:H, 0:W]; dd = np.sqrt(((xx - W / 2) / (W * .75)) ** 2 + ((yy - H / 2) / (H * .7)) ** 2)
-    a = a * np.clip(1.08 - .4 * dd ** 2, .6, 1)[..., None]
-    out_im = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8)).resize((1080, 1920), Image.LANCZOS)
-    n = (np.random.default_rng(3).standard_normal((1920, 1080, 1)) * 3.5)
+    # μικραίνει σε 1080×1920 + ελαφρύ «ξεθόλωμα» + πολύ λίγος κόκκος
+    out_im = fr.resize((1080, 1920), Image.LANCZOS).filter(ImageFilter.UnsharpMask(radius=1.2, percent=70, threshold=2))
+    n = (np.random.default_rng(3).standard_normal((1920, 1080, 1)) * 1.6)
     out_im = Image.fromarray(np.clip(np.asarray(out_im, np.float32) + n, 0, 255).astype(np.uint8))
     out_im.save(out, optimize=True); print('✓', out, out_im.size)
 
