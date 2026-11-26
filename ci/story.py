@@ -26,26 +26,21 @@ def main(src, badge, out, watch_mock=None):
     icon = Image.open(os.path.join(P.ASSETS, 'AppIcon.appiconset', 'icon-1024.png')).convert('RGB')
     bdg = Image.open(badge).convert('RGBA')
 
-    fr = Image.new('RGB', (W, H), INK)
-    # ── φόντο: απαλή κίτρινη λάμψη + η «λεπίδα» (λοξή κίτρινη λωρίδα) πίσω από τις συσκευές ──
-    g = Image.new('L', (W // 8, H // 8), 0)
-    ImageDraw.Draw(g).ellipse([W / 16 - 120, 1150 * S / 8 - 110, W / 16 + 120, 1150 * S / 8 + 110], fill=95)
-    fr.paste(GOLD, (0, 0), g.filter(ImageFilter.GaussianBlur(26)).resize((W, H), Image.BICUBIC))
-    blade = Image.new('L', (W, H), 0); bd = ImageDraw.Draw(blade)
-    y0, y1, sk = 900 * S, 1400 * S, 360 * S  # λωρίδα από κάτω-αριστερά προς πάνω-δεξιά
-    bd.polygon([(-200 * S, y1 + 260 * S), (W + 200 * S, y0 - 260 * S), (W + 200 * S, y0 - 260 * S + sk), (-200 * S, y1 + 260 * S + sk)], fill=255)
-    fr.paste(GOLD, (0, 0), blade)
-    # λεπτές παράλληλες γραμμές (ρυθμός) πάνω και κάτω από τη λωρίδα
-    ld = ImageDraw.Draw(fr)
-    for dy, a in ((-40, 80), (-80, 40), (40, 80), (80, 40)):
-        c = tuple(int(INK[i] + (GOLD[i] - INK[i]) * a / 255) for i in range(3))
-        base = 0 if dy < 0 else sk
-        ld.line([(-200 * S, y1 + 260 * S + base + dy * S), (W + 200 * S, y0 - 260 * S + base + dy * S)], fill=c, width=3 * S)
+    # ── φόντο: νυχτερινό γήπεδο (προβολείς, ακτίνες, καπνός, bokeh — stadium_bg.py, χωρίς φωτογραφίες τρίτων) ──
+    from stadium_bg import stadium
+    fr = stadium(W, H, seed=4, horizon=.64, tower_y=.075)
 
-    # βινιέτα ΜΟΝΟ στο φόντο (όχι πάνω στις οθόνες)
-    a = np.asarray(fr, np.float32)
-    yy, xx = np.mgrid[0:H, 0:W]; dd = np.sqrt(((xx - W / 2) / (W * .75)) ** 2 + ((yy - H / 2) / (H * .7)) ** 2)
-    fr = Image.fromarray(np.clip(a * np.clip(1.08 - .4 * dd ** 2, .6, 1)[..., None], 0, 255).astype(np.uint8))
+    # σκούρο «σκέπασμα» πίσω από τα κείμενα (πάνω) για να διαβάζονται πάνω στις ακτίνες
+    a = np.asarray(fr, np.float32); yy = np.arange(H)[:, None, None] / H
+    a *= np.clip(.72 + (yy - .12) / .30 * .28, .72, 1)
+    # «σκηνή»: χρυσή λάμψη πίσω από τις συσκευές + λίμνη φωτός στο γήπεδο κάτω τους
+    def soft(box, val, r):
+        g = Image.new('L', (W // 8, H // 8), 0); ImageDraw.Draw(g).ellipse([v / 8 for v in box], fill=val)
+        return np.asarray(g.filter(ImageFilter.GaussianBlur(r)).resize((W, H), Image.BICUBIC), np.float32)[..., None] / 255
+    gold = np.array(GOLD, np.float32); warm = np.array([255, 236, 190], np.float32)
+    a += soft([W / 2 - 520 * S, 760 * S, W / 2 + 520 * S, 1500 * S], 120, 22) * gold * .55
+    a += soft([W / 2 - 620 * S, 1500 * S, W / 2 + 620 * S, 1700 * S], 200, 10) * warm * .38
+    fr = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8))
 
     # ── συσκευές σε δικό τους layer (για να φτιάξουμε και αντανάκλαση) ──
     dev = Image.new('RGBA', (W, H), (0, 0, 0, 0))
