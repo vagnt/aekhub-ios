@@ -116,9 +116,10 @@ struct HomeView: View {
         let pad = screenPad
         Group {
             // ⏱ Αντίστροφη μέτρηση (ίδιος αγώνας με την αρχική του site)
-            if let n = d.next, !n.live, !n.finished { NextMatchCountdown(m: n).padding(.top, 4) }
+            if let n = d.next, !n.live, !n.finished, app.on("countdown") { NextMatchCountdown(m: n).padding(.top, 4) }
             breaking(d)
-            if !d.socials.isEmpty { SocialStrip(list: d.socials) }
+            if let n = app.config?.notice { NoticeCard(n: n) }
+            if !d.socials.isEmpty, app.on("socials") { SocialStrip(list: d.socials) }
         }
         .padding(.horizontal, pad)
 
@@ -134,7 +135,7 @@ struct HomeView: View {
             }
 
             // Επόμενοι αγώνες: της αρχικής + το ποδόσφαιρο από τη λίστα αγώνων (όπως στο Android)
-            if !nextMatches(d).isEmpty {
+            if !nextMatches(d).isEmpty, app.on("upcoming") {
                 GoldHeader(title: "Επόμενοι αγώνες", action: "Όλοι", route: nil).padding(.top, 10)
                     .overlay(alignment: .trailing) {
                         Button { app.tab = .matches } label: { Text("Όλοι ›").font(F.body(13, .heavy)).foregroundStyle(C.gold) }.buttonStyle(.plain)
@@ -143,7 +144,7 @@ struct HomeView: View {
         }
         .padding(.horizontal, pad)
 
-        let upcoming = nextMatches(d)
+        let upcoming = app.on("upcoming") ? nextMatches(d) : []
         if !upcoming.isEmpty {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) { ForEach(upcoming) { MatchMini(m: $0) } }.padding(.horizontal, pad)
@@ -151,7 +152,7 @@ struct HomeView: View {
         }
 
         // Ενότητες: τίτλος + μεσαία κάρτα + 3 γραμμές · διαφήμιση μετά από κάθε ενότητα (κάρτα χορηγού/native ↔ banner)
-        let secs = d.sections.filter { !$0.items.isEmpty }
+        let secs = app.on("sections") ? d.sections.filter { !$0.items.isEmpty } : []
         ForEach(Array(secs.enumerated()), id: \.element.id) { i, s in
             VStack(alignment: .leading, spacing: 12) {
                 GoldHeader(title: s.name, action: "Όλα", route: .category(s.slug, s.name))
@@ -163,7 +164,7 @@ struct HomeView: View {
             .padding(.horizontal, pad)
         }
 
-        if !d.socials.isEmpty { SocialSection(list: d.socials).padding(.horizontal, pad).padding(.top, 16) }
+        if !d.socials.isEmpty, app.on("socials") { SocialSection(list: d.socials).padding(.horizontal, pad).padding(.top, 16) }
     }
 
     @ViewBuilder func breaking(_ d: HomeData) -> some View {
@@ -216,11 +217,12 @@ struct HomeView: View {
                     PadMatchStrip(items: stripMatches(d)) { app.tab = .matches }
                         .padding(.horizontal, -28)
                     breaking(d)
+                    if let n = app.config?.notice { NoticeCard(n: n).readable(760) }
                     HStack(alignment: .top, spacing: 28) {
                         padMain(d, cols: rail ? 4 : 3, railInline: !rail).frame(maxWidth: .infinity, alignment: .leading)
                         if rail { padRail(d).frame(width: 320) }
                     }
-                    if !d.socials.isEmpty { SocialSection(list: d.socials).padding(.top, 10).readable(760) }
+                    if !d.socials.isEmpty, app.on("socials") { SocialSection(list: d.socials).padding(.top, 10).readable(760) }
                 }.id(gen)
             } else if let error {
                 EmptyState(icon: "wifi.exclamationmark", text: error) { Task { await load() } }
@@ -262,7 +264,7 @@ struct HomeView: View {
             if railInline { padRail(d) }
             // οι ενότητες χωρίς τα άρθρα που φαίνονται ήδη πάνω
             let shown = Set([d.featured?.id].compactMap { $0 } + d.top.prefix(2).map(\.id))
-            let secs = d.sections.filter { !$0.items.isEmpty }
+            let secs = app.on("sections") ? d.sections.filter { !$0.items.isEmpty } : []
             ForEach(Array(secs.enumerated()), id: \.element.id) { i, s in
                 VStack(alignment: .leading, spacing: 14) {
                     GoldHeader(title: s.name, action: "Όλα", route: .category(s.slug, s.name))

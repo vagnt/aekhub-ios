@@ -75,7 +75,7 @@ struct MatchView: View {
                     if let s = d.stream { StreamCard(s: s) { openURL = URL(string: s.url) } }
                     if !d.highlights.isEmpty { highlights(d) }
                     // 📋 «Πριν τη σέντρα» (όπως το Match Center του site)
-                    if d.card.upcoming || d.card.status == "prematch" { PreMatchSection(d: d).readable(820) }
+                    if (d.card.upcoming || d.card.status == "prematch") && AppState.shared.on("prematch") { PreMatchSection(d: d).readable(820) }
                     if split {
                         HStack(alignment: .top, spacing: 8) {
                             VStack(spacing: 14) { TimelineSection(d: d) }.frame(maxWidth: .infinity)
@@ -90,7 +90,7 @@ struct MatchView: View {
                     }
                     noCoverage(d)
                     // 🏁 «Μετά τον αγώνα»: αγώνες «Μόνο αποτέλεσμα» → επόμενος αγώνας του τμήματος + βαθμολογία
-                    if d.resultOnly && d.card.finished { PostMatchSection(d: d).readable(820) }
+                    if d.resultOnly && d.card.finished && AppState.shared.on("postmatch") { PostMatchSection(d: d).readable(820) }
                 }
             }
             .padding(.bottom, 28)
@@ -243,7 +243,7 @@ struct MatchHero: View {
             .padding(.horizontal, 12)
 
             let comp = [c.competition, c.matchday].filter { !$0.isEmpty }.joined(separator: " · ")
-            let compLogo = CompLogo.url(c.competition, sport: c.sport)
+            let compLogo = CompLogo.of(c)
             if !compLogo.isEmpty { PlainLogo(url: compLogo, h: 34, maxW: 120) }
             if !comp.isEmpty {
                 Text(comp.upperGr).font(F.disp(17)).foregroundStyle(C.ink).lineLimit(1).minimumScaleFactor(0.6)

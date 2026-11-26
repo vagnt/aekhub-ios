@@ -69,6 +69,10 @@ final class AppState: ObservableObject {
     func load() async {
         if let c = try? await Api.shared.config() { config = c; Push.shared.sync() } // κατηγορίες → topics ειδήσεων
     }
+    /// 🎛 Ενότητα ανοιχτή; (wp-admin → 📱 AEK Hub App → 🎛 Έλεγχος app → Ενότητες)
+    func on(_ key: String) -> Bool { !(config?.off.contains(key) ?? false) }
+    /// ⬆️ Έκδοση της εφαρμογής (CFBundleShortVersionString)
+    static let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
 
     /// aekhub://match/123 · aekhub://post/123 · aekhub://event/123 · aekhub://matches · aekhub://standings
     func open(_ url: URL) {
@@ -237,6 +241,7 @@ struct RootView: View {
         .onChange(of: phase) { p in
             if p == .active {
                 app.activeN += 1
+                Task { await app.load() } // 🎛 ανακοίνωση / διακόπτες / νέα έκδοση χωρίς update
                 Analytics.ping()
                 pinger?.cancel()
                 pinger = Task { while !Task.isCancelled { try? await Task.sleep(nanoseconds: 60_000_000_000); Analytics.ping() } }
@@ -278,6 +283,7 @@ struct RootView: View {
                 .transition(.opacity)
             }
         }
+        .overlay { if !splash, let u = app.config?.update { UpdatePrompt(u: u) } }
         .fullScreenCover(isPresented: $onboard) {
             OnboardView { onboard = false; Push.shared.sync(); LiveActivities.shared.syncStart(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { ads.start() } }
         }

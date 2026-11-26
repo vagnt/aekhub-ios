@@ -69,12 +69,40 @@ struct AppConfig {
     let ads: AdsConfig
     /// Έκδοση του API (≥ 4 = ο server στέλνει κάρτες και αλλαγές σε ξεχωριστά θέματα)
     let api: Int
+    /// 🎛 Έλεγχος app (wp-admin → 📱 AEK Hub App → 🎛 Έλεγχος app, AEK Hub App 1.8.0)
+    let update: AppUpdate?
+    let notice: AppNotice?
+    /// κλειδιά ενοτήτων που έκλεισε ο χρήστης στο wp-admin (`AppState.on`)
+    let off: Set<String>
     init(_ j: J) {
         api = j["api"].int
+        update = j["ios"].opt(AppUpdate.init); notice = j["notice"].opt(AppNotice.init)
+        off = Set(j["off"].arr.map(\.str).filter { !$0.isEmpty })
         site = j["site"].str; categories = j["categories"].list(Category.init); sports = j["sports"].list(SportItem.init)
         socials = j["socials"].list(Social.init); calendar = j["calendar"].opt(CalConfig.init)
         ads = AdsConfig(j["ads"])
     }
+}
+
+/// ⬆️ «Υπάρχει νέα έκδοση»
+struct AppUpdate {
+    let latest, min, url, text: String
+    init(_ j: J) { latest = j["latest"].str; min = j["min"].str; url = j["url"].str; text = j["text"].str }
+    /// «1.3.1» < «1.4» (αριθμητικά, ανά κομμάτι)
+    static func older(_ a: String, than b: String) -> Bool {
+        let x = a.split(separator: ".").map { Int($0) ?? 0 }, y = b.split(separator: ".").map { Int($0) ?? 0 }
+        for i in 0..<max(x.count, y.count) {
+            let p = i < x.count ? x[i] : 0, q = i < y.count ? y[i] : 0
+            if p != q { return p < q }
+        }
+        return false
+    }
+}
+
+/// 📣 Ανακοίνωση στην αρχική
+struct AppNotice: Hashable {
+    let id, title, text, image, link, cta: String
+    init(_ j: J) { id = j["id"].str; title = j["title"].str; text = j["text"].str; image = j["image"].str; link = j["link"].str; cta = j["cta"].str }
 }
 
 /// Καμπάνια χορηγού (wp-admin → 📱 AEK Hub App → 📢 Διαφημίσεις)
@@ -178,6 +206,8 @@ struct MatchCard: Identifiable, Hashable {
     let competition, matchday, venue, broadcast, aek, link, kickoff: String
     /// 📺 κανάλια έτοιμα από τον server (AEK Hub App 1.7.3)· κενό = παλιός server → `Channels.parse(broadcast)`
     let tv: [TVChannel]
+    /// 🏆 λογότυπο διοργάνωσης από τον server (Match Center → Διοργανώσεις)· κενό = κατάλογος του app
+    let compLogo: String
 
     init(_ j: J) {
         id = j["id"].int; sport = j["sport"].str.isEmpty ? "football" : j["sport"].str; sportLabel = j["sportLabel"].str
@@ -189,6 +219,7 @@ struct MatchCard: Identifiable, Hashable {
         competition = j["competition"].str; matchday = j["matchday"].str; venue = j["venue"].str; broadcast = j["broadcast"].str
         aek = j["aek"].str; link = j["link"].str; kickoff = j["kickoff"].str
         tv = j["tv"].arr.map { TVChannel(name: $0["name"].str, label: $0["label"].str, logo: $0["logo"].str, url: $0["url"].str) }.filter { !$0.name.isEmpty }
+        compLogo = j["compLogo"].str
     }
 
     var finished: Bool { status == "finished" }

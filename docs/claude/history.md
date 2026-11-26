@@ -2,6 +2,13 @@
 
 > Το διαβάζεις όταν δουλεύεις στο αντίστοιχο κομμάτι. Οι γενικοί κανόνες είναι στο `CLAUDE.md`.
 
+## 1.4 (26/11) — 🎛 Έλεγχος app από το wp-admin (ζήτησε ο χρήστης: «να μην περνάω συνέχεια updates»)
+Όλα από `/app/config` (AEK Hub App 1.8.0, wp-admin → 📱 AEK Hub App → **🎛 Έλεγχος app**), φορτώνει ξανά σε κάθε άνοιγμα (`RootView` phase active → `app.load()`). Κώδικας: `iOS/Remote.swift`.
+- **⬆️ Υπάρχει νέα έκδοση** (`ios`: `latest`/`min`/`url`/`text`, `UpdatePrompt`): παλιότερη από `latest` → μία φορά ανά έκδοση με «Αργότερα» (`update_seen`)· παλιότερη από `min` → δεν κλείνει. Σύγκριση αριθμητική (`AppUpdate.older`, 1.3.1 < 1.4).
+- **📣 Ανακοίνωση** (`notice`: id/title/text/image/link/cta, `NoticeCard`): πάνω στην αρχική (κινητό + iPad), ✕ → `notice_closed` = id· νέο κείμενο/εικόνα στο wp-admin = νέο id = ξαναφαίνεται. Link και `aekhub://…`.
+- **🔀 Διακόπτες** (`off`, `AppState.on(_:)`): `countdown`, `upcoming`, `sections`, `socials` (αρχική), `prematch`, `postmatch`, `tv`, `complogo` (σελίδα αγώνα). Νέος διακόπτης = κλειδί και στα δύο (`amc_app_remote_switches()` στον server).
+- **🏆 Λογότυπο διοργάνωσης από τον server** (`compLogo` σε κάθε αγώνα = `amc_comp_logo`, Match Center → 🏆 Διοργανώσεις)· κενό → `CompLogo.url` του app (`CompLogo.of(m)`).
+
 ## 1.3.1 (26/11)
 - **📺 Δικά σου λογότυπα καναλιών** (ο χρήστης: «έχω βάλει όλα τα logo καναλιών, δεν τα δείχνει»): το app είχε ΜΟΝΟ τον σταθερό κατάλογο (`Channels.catalog`) → κανάλια που πρόσθεσε ο χρήστης στο Match Center → 📺 Κανάλια (π.χ. «Sport FMTV» με δικό του λογότυπο/link) έβγαιναν σκέτο όνομα. Τώρα ο server (AEK Hub App 1.7.3) στέλνει σε κάθε αγώνα `tv: [{name,label,logo,url}]` (ίδια λογική με τη σελίδα αγώνα: δικά λογότυπα, κρυμμένα, «▶ Δες το», ίδιο κανάλι 2 φορές = 1) και το app τα προτιμά (`Channels.of(m)`)· παλιός server → `Channels.parse(broadcast)`. **Νέα λογότυπα στο μέλλον δεν θέλουν νέα έκδοση.** Επίσης τα 5 δικά του (Magenta Sport, Novasports, Sport FMTV, YouTube, Mega News) μπήκαν στον έτοιμο κατάλογο site (`assets/channels/ch-magenta|novasports|sportfmtv|youtube|meganews.png`) + app (ζήτησε ο χρήστης).
 

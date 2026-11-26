@@ -57,7 +57,7 @@ enum Channels {
 
     /// Κανάλια αγώνα: έτοιμα από τον server (`tv`, με τα δικά σου λογότυπα του Match Center → 📺 Κανάλια)·
     /// αλλιώς (παλιός server) από το κείμενο με τον κατάλογο του app.
-    static func of(_ m: MatchCard) -> [TVChannel] { m.tv.isEmpty ? parse(m.broadcast) : m.tv }
+    @MainActor static func of(_ m: MatchCard) -> [TVChannel] { !AppState.shared.on("tv") ? [] : m.tv.isEmpty ? parse(m.broadcast) : m.tv }
 
     /// «Cosmote Sport 1 · YouTube: AEK AC TV https://…» → κανάλια
     static func parse(_ raw: String) -> [TVChannel] {
@@ -99,6 +99,11 @@ enum Channels {
 
 /// 🏆 Έτοιμα λογότυπα γνωστών διοργανώσεων (ίδια αρχεία με το Match Center 1.141)
 enum CompLogo {
+    /// από τον server (Match Center → 🏆 Διοργανώσεις, και όσα ανεβάζεις εσύ)· αλλιώς ο κατάλογος του app
+    @MainActor static func of(_ m: MatchCard) -> String {
+        guard AppState.shared.on("complogo") else { return "" }
+        return m.compLogo.isEmpty ? url(m.competition, sport: m.sport) : m.compLogo
+    }
     static func url(_ comp: String, sport: String) -> String {
         guard !comp.isEmpty else { return "" }
         let k = Channels.cmp(comp.components(separatedBy: " · ").first ?? comp)
@@ -398,7 +403,7 @@ struct PreMatchSection: View {
                     if !m.competition.isEmpty {
                         HStack(spacing: 10) {
                             Text("Διοργάνωση").font(F.body(12)).foregroundStyle(C.muted).frame(width: 96, alignment: .leading)
-                            let lg = CompLogo.url(m.competition, sport: m.sport)
+                            let lg = CompLogo.of(m)
                             if !lg.isEmpty { PlainLogo(url: lg, h: 22, maxW: 40) }
                             Text([m.competition, m.matchday].filter { !$0.isEmpty }.joined(separator: " · ")).font(F.body(13, .bold)).foregroundStyle(C.text)
                             Spacer(minLength: 0)
