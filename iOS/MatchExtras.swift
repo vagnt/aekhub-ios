@@ -7,13 +7,6 @@ import SwiftUI
 
 // MARK: - 📺 Κανάλια (ίδιος κατάλογος με το Match Center → 📺 Κανάλια)
 
-struct TVChannel: Hashable {
-    let name, label, logo, url: String
-    var youtube: Bool { name.lowercased().contains("youtube") }
-    /// Τι γράφεται δίπλα στο λογότυπο (με λογότυπο: μόνο το όνομα καναλιού YouTube, π.χ. «AEK AC TV»)
-    var text: String { !label.isEmpty ? label : (logo.isEmpty && !youtube ? name : "") }
-}
-
 enum Channels {
     static let site = "https://aekhub.gr/wp-content/plugins/aek-match-center/assets/"
     /// [όνομα, λέξεις (κόμμα), link, αρχείο λογοτύπου]
@@ -59,6 +52,10 @@ enum Channels {
         return (0..<m.numberOfRanges).map { i in Range(m.range(at: i), in: s).map { String(s[$0]) } ?? "" }
     }
 
+    /// Κανάλια αγώνα: έτοιμα από τον server (`tv`, με τα δικά σου λογότυπα του Match Center → 📺 Κανάλια)·
+    /// αλλιώς (παλιός server) από το κείμενο με τον κατάλογο του app.
+    static func of(_ m: MatchCard) -> [TVChannel] { m.tv.isEmpty ? parse(m.broadcast) : m.tv }
+
     /// «Cosmote Sport 1 · YouTube: AEK AC TV https://…» → κανάλια
     static func parse(_ raw: String) -> [TVChannel] {
         var urls: [String] = []
@@ -92,7 +89,8 @@ enum Channels {
             out.append(TVChannel(name: hit?.0 ?? p, label: lab, logo: (hit?.3 ?? "").isEmpty ? "" : site + "channels/ch-" + hit!.3 + ".png",
                                  url: !url.isEmpty ? url : (hit?.2 ?? "")))
         }
-        return out
+        var seen = Set<String>() // ίδιο κανάλι δύο φορές = μία
+        return out.filter { seen.insert(cmp($0.name + "|" + $0.label)).inserted }
     }
 }
 
@@ -379,7 +377,7 @@ struct PreMatchSection: View {
 
     var body: some View {
         let w = MatchWords.kick(m.sport)
-        let chans = Channels.parse(m.broadcast)
+        let chans = Channels.of(m)
         VStack(alignment: .leading, spacing: 12) {
             SectionTitle(text: w.0)
             if let ko = m.kickoffDate, ko > Date() {
@@ -499,7 +497,7 @@ struct PostMatchSection: View {
                             }
                             Text(Fmt.dayHeader(n.date) + (n.time.isEmpty ? "" : " · " + n.time)).font(F.body(11.5, .heavy)).foregroundStyle(C.text2)
                             if !n.venue.isEmpty { Text(n.venue).font(F.body(11.5)).foregroundStyle(C.muted) }
-                            let ch = Channels.parse(n.broadcast)
+                            let ch = Channels.of(n)
                             if !ch.isEmpty { HStack(spacing: 10) { ForEach(ch, id: \.self) { ChannelBadge(c: $0, h: 18) } } }
                             if let ko = n.kickoffDate, ko > Date() { KickCountdown(date: ko) }
                         }

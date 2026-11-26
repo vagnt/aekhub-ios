@@ -302,7 +302,7 @@ struct MatchHero: View {
             }
             .padding(.horizontal, screenPad)
             // 📺 κανάλια με λογότυπα· όσο παίζει ο αγώνας → πάτημα = «▶ Δες το» (Match Center 1.150)
-            let chans = Channels.parse(c.broadcast)
+            let chans = Channels.of(c)
             if !chans.isEmpty {
                 HStack(spacing: 8) {
                     ForEach(chans.prefix(3), id: \.self) { ch in

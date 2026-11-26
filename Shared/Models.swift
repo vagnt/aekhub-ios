@@ -159,6 +159,14 @@ struct Clock: Hashable { let b, s, l: Double; let cd: Bool; let p: Double?
     }
 }
 
+/// 📺 Ένα κανάλι μετάδοσης (λογότυπο ή όνομα + link «▶ Δες το»).
+struct TVChannel: Hashable {
+    let name, label, logo, url: String
+    var youtube: Bool { name.lowercased().contains("youtube") }
+    /// Τι γράφεται δίπλα στο λογότυπο (με λογότυπο: μόνο το όνομα καναλιού YouTube, π.χ. «AEK AC TV»)
+    var text: String { !label.isEmpty ? label : (logo.isEmpty && !youtube ? name : "") }
+}
+
 /// Κοινά πεδία κάρτας αγώνα και σελίδας αγώνα.
 struct MatchCard: Identifiable, Hashable {
     let id: Int
@@ -168,6 +176,8 @@ struct MatchCard: Identifiable, Hashable {
     let home, away, homeLogo, awayLogo, homeColor, awayColor, homeNum, awayNum: String
     let scoreHome, scoreAway, penHome, penAway: String
     let competition, matchday, venue, broadcast, aek, link, kickoff: String
+    /// 📺 κανάλια έτοιμα από τον server (AEK Hub App 1.7.3)· κενό = παλιός server → `Channels.parse(broadcast)`
+    let tv: [TVChannel]
 
     init(_ j: J) {
         id = j["id"].int; sport = j["sport"].str.isEmpty ? "football" : j["sport"].str; sportLabel = j["sportLabel"].str
@@ -178,6 +188,7 @@ struct MatchCard: Identifiable, Hashable {
         scoreHome = j["scoreHome"].str; scoreAway = j["scoreAway"].str; penHome = j["penHome"].str; penAway = j["penAway"].str
         competition = j["competition"].str; matchday = j["matchday"].str; venue = j["venue"].str; broadcast = j["broadcast"].str
         aek = j["aek"].str; link = j["link"].str; kickoff = j["kickoff"].str
+        tv = j["tv"].arr.map { TVChannel(name: $0["name"].str, label: $0["label"].str, logo: $0["logo"].str, url: $0["url"].str) }.filter { !$0.name.isEmpty }
     }
 
     var finished: Bool { status == "finished" }
