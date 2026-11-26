@@ -11,6 +11,10 @@ shoot() { # $1 = συσκευή, $2 = πρόθεμα
   t 300 xcrun simctl bootstatus "$UDID" -b
   t 30 xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
   t 180 xcrun simctl install "$UDID" "$APP" || return
+  # ζέσταμα: το πρώτο άνοιγμα σε φρέσκο προσομοιωτή (ειδικά iPad) αργεί — αλλιώς βγαίνει η αρχική του iPad ή «Δεν φόρτωσε»
+  t 90 xcrun simctl launch "$UDID" gr.aekhub.app -shots YES -noads YES; sleep 40
+  t 20 xcrun simctl terminate "$UDID" gr.aekhub.app 2>/dev/null
+  t 30 xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
   n=1
   for u in news "match/$MATCH" "match/$MATCH|Πορεία" "match/$MATCH|Συνθέσεις" "match/$MATCH3" matches standings "post/$POST" "match/$MATCH2|Πορεία"; do
     o="${u%%|*}"; t=""; [[ "$u" == *"|"* ]] && t="${u##*|}"
@@ -36,7 +40,8 @@ watch() {
   done
   t 60 xcrun simctl shutdown "$UDID"
 }
-shoot "iPhone 17 Pro Max" iphone69
-shoot "iPad Pro 13" ipad13
-watch
+# ONLY=ipad|iphone|watch → μόνο αυτή η συσκευή («[ipad]» κ.λπ. στο commit)
+[ -z "$ONLY" -o "$ONLY" = iphone ] && shoot "iPhone 17 Pro Max" iphone69
+[ -z "$ONLY" -o "$ONLY" = ipad ] && shoot "iPad Pro 13" ipad13
+[ -z "$ONLY" -o "$ONLY" = watch ] && watch
 ls -la "$OUT"
