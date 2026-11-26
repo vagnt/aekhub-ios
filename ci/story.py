@@ -45,27 +45,27 @@ def main(src, badge, out, watch_mock=None, bg_photo=None):
         return np.asarray(g.filter(ImageFilter.GaussianBlur(r)).resize((W, H), Image.BICUBIC), np.float32)[..., None] / 255
     gold = np.array(GOLD, np.float32); warm = np.array([255, 236, 190], np.float32)
     a += soft([W / 2 - 520 * S, 760 * S, W / 2 + 520 * S, 1500 * S], 120, 22) * gold * .55
-    a += soft([W / 2 - 560 * S, 1430 * S, W / 2 + 560 * S, 1590 * S], 170, 12) * warm * .22
+    a += soft([W / 2 - 560 * S, 1380 * S, W / 2 + 560 * S, 1520 * S], 170, 12) * warm * .22
     # σκούρο σβήσιμο στο κάτω μέρος: η γραμμή «AEK HUB / App Store» κάθεται καθαρά
     yy = np.arange(H, dtype=np.float32)[:, None, None] / S
-    a *= 1 - .72 * np.clip((yy - 1480) / 200, 0, 1)
+    a *= 1 - .78 * np.clip((yy - 1420) / 200, 0, 1)
     fr = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8))
 
     # ── συσκευές σε δικό τους layer (για να φτιάξουμε και αντανάκλαση) ──
     dev = Image.new('RGBA', (W, H), (0, 0, 0, 0))
     pad = P.Device(1000 * S, 2064 / 2752, .03, .06, False); pad.gloss = pad.gloss.point(lambda v: v // 3)
-    pad.draw(dev, ipad_scr, 345 * S, 1095 * S, .70, ry=.30, rx=.05, rz=-.02, shadow=.6)
+    pad.draw(dev, ipad_scr, 345 * S, 1040 * S, .68, ry=.30, rx=.05, rz=-.02, shadow=.6)
     ph = P.Device(1300 * S, 1320 / 2868, .017, .17, True); ph.gloss = ph.gloss.point(lambda v: v // 3)
-    ph.draw(dev, phone_scr, 595 * S, 1145 * S, .55, ry=-.16, rx=.05, rz=.01, shadow=.65)
+    ph.draw(dev, phone_scr, 595 * S, 1088 * S, .53, ry=-.16, rx=.05, rz=.01, shadow=.65)
     if watch_mock:  # φωτορεαλιστικό mockup (μαύρο, με την οθόνη μας ήδη μέσα — βλ. history.md)
-        wmk = Image.open(watch_mock).convert('RGBA'); ww = 305 * S
+        wmk = Image.open(watch_mock).convert('RGBA'); ww = 290 * S
         w = wmk.resize((ww, int(wmk.size[1] * ww / wmk.size[0])), Image.LANCZOS)
         al = w.split()[3]; w = pop(w.convert('RGB'), 1.25, 1.08, 1.06).convert('RGBA'); w.putalpha(al)
     else:
         w = film.watch_img(watch_scr, 270 * S)
     pdw = int(w.size[1] * .15); can = Image.new('L', (w.size[0] + 2 * pdw, w.size[1] + 2 * pdw), 0); can.paste(w.split()[3], (pdw, pdw))
     sh = can.resize((can.size[0] // 6, can.size[1] // 6)).filter(ImageFilter.GaussianBlur(8)).resize(can.size)
-    wx, wy = 915 * S, 1265 * S
+    wx, wy = 915 * S, 1205 * S
     dev.paste((0, 0, 0, 255), (int(wx - w.size[0] / 2 - pdw + 24 * S), int(wy - w.size[1] / 2 - pdw + 40 * S)), sh.point(lambda v: int(v * .6)))
     P.put(dev, w, wx, wy)
 
@@ -74,30 +74,24 @@ def main(src, badge, out, watch_mock=None, bg_photo=None):
 
     # ── κείμενα ──
     d = ImageDraw.Draw(fr)
-    d.ellipse([72 * S, 262 * S, 90 * S, 280 * S], fill=GOLD)
-    P.put(fr, P.TL('AEK HUB', P.XB, 30 * S, GOLD + (255,), 5 * S), 104 * S, 271 * S, 'lm')
+    si = 60 * S; ic0 = icon.resize((si, si), Image.LANCZOS).convert('RGBA'); ic0.putalpha(P.rounded_mask(si, si, int(si * .225)))
+    P.put(fr, ic0, 72 * S, 262 * S, 'lm')
+    P.put(fr, P.TL('AEK HUB', P.XB, 30 * S, GOLD + (255,), 5 * S), 72 * S + si + 18 * S, 262 * S, 'lm')
     t1 = P.TL('ΟΛΗ Η ΑΕΚ.', P.DISP, 150 * S, WHITE + (255,)); t2 = P.TL('ΣΕ ΚΑΘΕ ΣΥΣΚΕΥΗ.', P.DISP, 150 * S, GOLD + (255,))
     k = min(1, 936 * S / max(t1.size[0], t2.size[0]))
     if k < 1:
         t1 = t1.resize((int(t1.size[0] * k), int(t1.size[1] * k)), Image.LANCZOS); t2 = t2.resize((int(t2.size[0] * k), int(t2.size[1] * k)), Image.LANCZOS)
     P.put(fr, t1, 72 * S, 315 * S, 'lt'); P.put(fr, t2, 72 * S, 315 * S + t1.size[1] + 22 * S, 'lt')
     P.put(fr, P.TL('Live σκορ, ειδοποιήσεις και όλα τα τμήματα', P.BD, 36 * S, (200, 196, 185, 255)), 72 * S, 315 * S + t1.size[1] + t2.size[1] + 60 * S, 'lt')
-    # chips συσκευών
-    x = 72 * S; y = 315 * S + t1.size[1] + t2.size[1] + 125 * S
-    for c in ('iPhone', 'iPad', 'Apple Watch'):
-        tl = P.TL(c, P.XB, 28 * S, WHITE + (255,), 2 * S)
-        cw = tl.size[0] + 44 * S
-        d.rounded_rectangle([x, y, x + cw, y + 54 * S], 27 * S, outline=(90, 88, 82), width=2 * S)
-        P.put(fr, tl, x + cw / 2, y + 27 * S); x += cw + 14 * S
+    # (χωρίς chips iPhone/iPad/Watch: φαίνονται οι ίδιες οι συσκευές και έπεφταν πάνω στο iPad)
 
-    # ── κάτω: εικονίδιο + όνομα + App Store ──
-    yb = 1665 * S
-    s = 116 * S; ic = icon.resize((s, s), Image.LANCZOS).convert('RGBA'); ic.putalpha(P.rounded_mask(s, s, int(s * .225)))
-    P.put(fr, ic, 72 * S, yb, 'lm')
-    P.put(fr, P.TL('AEK HUB', P.DISP, 74 * S, WHITE + (255,)), 72 * S + s + 26 * S, yb - 22 * S, 'lm')
-    P.put(fr, P.TL('Δωρεάν στο App Store', P.BD, 30 * S, (190, 186, 175, 255)), 72 * S + s + 28 * S, yb + 34 * S, 'lm')
-    bw = 330 * S; b = bdg.resize((bw, int(bw * bdg.size[1] / bdg.size[0])), Image.LANCZOS)
-    P.put(fr, b, W - 72 * S, yb, 'rm')
+    # ── κάτω: App Store + «ΠΑΤΑ ΤΟ LINK» + ΑΔΕΙΟΣ χώρος για το αυτοκόλλητο Link του Instagram ──
+    bw = 300 * S; b = bdg.resize((bw, int(bw * bdg.size[1] / bdg.size[0])), Image.LANCZOS)
+    P.put(fr, b, W / 2, 1522 * S)
+    P.put(fr, P.TL('ΠΑΤΑ ΤΟ LINK ΚΑΙ ΚΑΤΕΒΑΣΕ ΤΟ ΔΩΡΕΑΝ', P.XB, 28 * S, GOLD + (255,), 3 * S), W / 2, 1606 * S)
+    cx, cy = W / 2, 1644 * S  # βελάκι προς τα κάτω
+    d.line([(cx - 16 * S, cy - 8 * S), (cx, cy + 8 * S), (cx + 16 * S, cy - 8 * S)], fill=GOLD, width=5 * S, joint='curve')
+    # ο χώρος 1670–1775 μένει άδειος: εκεί μπαίνει το αυτοκόλλητο Link (πάνω από τη γραμμή απάντησης του story)
 
     # μικραίνει σε 1080×1920 + ελαφρύ «ξεθόλωμα» + πολύ λίγος κόκκος
     out_im = fr.resize((1080, 1920), Image.LANCZOS).filter(ImageFilter.UnsharpMask(radius=1.2, percent=70, threshold=2))
