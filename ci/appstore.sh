@@ -20,7 +20,7 @@ shoot() { # $1 = συσκευή, $2 = πρόθεμα
     o="${u%%|*}"; t=""; [[ "$u" == *"|"* ]] && t="${u##*|}"
     t 20 xcrun simctl terminate "$UDID" gr.aekhub.app 2>/dev/null
     if [ -n "$t" ]; then t 60 xcrun simctl launch "$UDID" gr.aekhub.app -shots YES -noads YES -open "$o" -mtab "$t" -scroll 1
-    else t 60 xcrun simctl launch "$UDID" gr.aekhub.app -shots YES -noads YES -open "$o"; fi
+    else t 60 xcrun simctl launch "$UDID" gr.aekhub.app -shots YES -noads YES -open "$o" -mday "${MDAY:-}"; fi
     sleep 12
     t 60 xcrun simctl io "$UDID" screenshot "$OUT/$2-$n.png"; echo "📸 $2-$n"; n=$((n+1))
   done

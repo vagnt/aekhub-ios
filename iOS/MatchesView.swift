@@ -55,6 +55,11 @@ struct MatchesView: View {
         .onChange(of: app.reselectN) { _ in if app.reselectTab == .matches && page != MatchesView.back { go(MatchesView.back) } } // πάτημα στο «Αγώνες» → σήμερα
         .task {
             Analytics.screen(6, name: "matches")
+            // 📸 screenshots App Store: -mday 2026-12-05 → ανοίγει σε μέρα με πολλούς αγώνες
+            if Ads.shots, let ds = UserDefaults.standard.string(forKey: "mday"), let d = Fmt.day(ds),
+               let n = Fmt.cal.dateComponents([.day], from: today, to: Fmt.cal.startOfDay(for: d)).day, abs(n) <= MatchesView.fwd {
+                page = MatchesView.back + n
+            }
             list = Api.shared.peek(Api.pMatches(from: startS, to: endS, sport: nil)).map { MatchList($0).items }
             await load()
             while !Task.isCancelled {
