@@ -16,7 +16,7 @@ P.W, P.H = W, H
 GOLD, INK, WHITE = P.GOLD, P.INK, P.WHITE
 
 
-def main(src, badge, out, watch_mock=None):
+def main(src, badge, out, watch_mock=None, bg_photo=None):
     L = lambda f: Image.open(os.path.join(src, f)).convert('RGB')
     # οθόνες πιο ζωντανές: λίγο περισσότερο χρώμα/αντίθεση/φως (να «σκάνε» πάνω στο μαύρο)
     def pop(im, c=1.22, k=1.08, b=1.05):
@@ -27,8 +27,14 @@ def main(src, badge, out, watch_mock=None):
     bdg = Image.open(badge).convert('RGBA')
 
     # ── φόντο: νυχτερινό γήπεδο (προβολείς, ακτίνες, καπνός, bokeh — stadium_bg.py, χωρίς φωτογραφίες τρίτων) ──
-    from stadium_bg import stadium
-    fr = stadium(W, H, seed=4, horizon=.64, tower_y=.075)
+    if bg_photo:  # φωτογραφία του χρήστη (γήπεδο), θολή — για να ξεχωρίζουν κείμενα και συσκευές
+        ph_bg = Image.open(bg_photo).convert('RGB')
+        k = max(W / ph_bg.size[0], H / ph_bg.size[1]); ph_bg = ph_bg.resize((int(ph_bg.size[0] * k) + 1, int(ph_bg.size[1] * k) + 1), Image.LANCZOS)
+        ph_bg = ph_bg.crop(((ph_bg.size[0] - W) // 2, (ph_bg.size[1] - H) // 2, (ph_bg.size[0] - W) // 2 + W, (ph_bg.size[1] - H) // 2 + H))
+        fr = ImageEnhance.Brightness(ph_bg.filter(ImageFilter.GaussianBlur(5 * S))).enhance(.88)
+    else:
+        from stadium_bg import stadium
+        fr = stadium(W, H, seed=4, horizon=.64, tower_y=.075)
 
     # σκούρο «σκέπασμα» πίσω από τα κείμενα (πάνω) για να διαβάζονται πάνω στις ακτίνες
     a = np.asarray(fr, np.float32); yy = np.arange(H)[:, None, None] / H
@@ -104,4 +110,4 @@ def main(src, badge, out, watch_mock=None):
 
 if __name__ == '__main__':
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    main(*sys.argv[1:5])
+    main(*sys.argv[1:6])
