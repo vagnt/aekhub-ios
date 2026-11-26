@@ -228,6 +228,14 @@ class Film:
         self.badge = Image.open(badge).convert('RGBA')
         self.logos = [Image.open(p).convert('RGBA') for p in logos]
         self.eagle = Image.open(os.path.join(ASSETS, 'Eagle.imageset', 'Eagle.png')).convert('RGBA')
+        # WATCH_MOCK="μαύρο-ρολόι-με-watch-2.png,μαύρο-ρολόι-με-watch-1.png" (ci/watch_mock.py) → φωτορεαλιστικό ρολόι
+        wm = os.environ.get('WATCH_MOCK'); self.wmock = [Image.open(p).convert('RGBA') for p in wm.split(',')] if wm else None
+        # BG_PHOTO=γήπεδο.jpg → θολή φωτογραφία στο φόντο του τέλους
+        bp = os.environ.get('BG_PHOTO'); self.endbg = None
+        if bp:
+            ph = Image.open(bp).convert('RGB'); k = max(W * 1.06 / ph.size[0], H * 1.06 / ph.size[1])
+            ph = ph.resize((int(ph.size[0] * k) + 1, int(ph.size[1] * k) + 1), Image.LANCZOS)
+            self.endbg = ph.filter(ImageFilter.GaussianBlur(6)).point(lambda v: int(v * .8))
         self.P = Device(1300, 1320 / 2868, .017, .17, True)
         self.Pad = Device(1000, 2064 / 2752, .03, .06, False)
         hero = Image.open(os.path.join(ASSETS, 'HeroBg.imageset', 'HeroBg.jpg')).convert('RGB')
@@ -257,6 +265,9 @@ class Film:
         reveal(fr, b, 72, y + int(size * 1.0), prog(t, t0 + .1, t0 + .4), o)
 
     def watch_img(self, s, ww):
+        if self.wmock:  # φωτορεαλιστικό μαύρο ρολόι (η οθόνη είναι ήδη μέσα)
+            m = self.wmock[0 if s is self.s['watch'] else -1]; tw = int(ww * 1.17)
+            return m.resize((tw, int(m.size[1] * tw / m.size[0])), Image.LANCZOS)
         wh = int(ww * s.size[1] / s.size[0])
         case = Image.new('RGBA', (ww + 80, wh + 80), (0, 0, 0, 0)); cd = ImageDraw.Draw(case)
         cd.rounded_rectangle([0, 0, ww + 79, wh + 79], int(ww * .27), fill=(96, 94, 90, 255))
@@ -453,9 +464,14 @@ class Film:
         lt = t - T['end']
         fr = Image.new('RGB', (W, H), INK)
         p = back(prog(lt, .1, .6), 1.6)
+        if self.endbg is not None:  # φωτογραφία γηπέδου: σβήνει μέσα και «σπρώχνει» αργά
+            z = 1 - .04 * clamp(lt / 4.5); bw_, bh_ = int(self.endbg.size[0] * z), int(self.endbg.size[1] * z)
+            cx_, cy_ = self.endbg.size[0] // 2, self.endbg.size[1] // 2
+            bg = self.endbg.crop((cx_ - bw_ // 2, cy_ - bh_ // 2, cx_ - bw_ // 2 + bw_, cy_ - bh_ // 2 + bh_)).resize((W, H), Image.BILINEAR)
+            fr = Image.blend(fr, bg, eo(prog(lt, 0, .5)))
         eg = self.eagle.resize((900, int(900 * self.eagle.size[1] / self.eagle.size[0])), Image.LANCZOS)
         eg.putalpha(eg.split()[3].point(lambda v: int(v * .07 * clamp(p))))
-        put(fr, eg, W / 2, 760 - lt * 6)
+        if self.endbg is None: put(fr, eg, W / 2, 760 - lt * 6)
         g = Image.new('L', (W // 4, H // 4), 0)
         ImageDraw.Draw(g).ellipse([W / 8 - 110, 640 / 4 - 110, W / 8 + 110, 640 / 4 + 110], fill=int(110 * clamp(p)))
         fr.paste(GOLD, (0, 0), g.filter(ImageFilter.GaussianBlur(28)).resize((W, H)))
