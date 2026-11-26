@@ -15,11 +15,11 @@ GOLD, INK, TEXT2 = (249, 207, 28), (11, 11, 10), (207, 203, 190)
 
 # ίδια σειρά με το ci/appstore.sh: (κίτρινη γραμμή, λευκή γραμμή, υπότιτλος)
 CAPTIONS = [
-    ('ΟΛΗ Η ΑΕΚ', 'ΣΕ ΜΙΑ ΕΦΑΡΜΟΓΗ', 'Ειδήσεις, αγώνες και αποτελέσματα — όλα τα τμήματα'),
+    ('ΟΛΗ Η ΑΕΚ', 'ΣΕ ΜΙΑ ΕΦΑΡΜΟΓΗ', 'Ειδήσεις, αγώνες και αποτελέσματα'),
     ('LIVE', 'ΚΑΘΕ ΑΓΩΝΑΣ', 'Σκορ, λεπτό και γκολ τη στιγμή που γίνονται'),
     ('ΚΑΘΕ ΦΑΣΗ', 'ΛΕΠΤΟ ΠΡΟΣ ΛΕΠΤΟ', 'Γκολ, κάρτες και αλλαγές με όλες τις λεπτομέρειες'),
     ('ΟΙ ΣΥΝΘΕΣΕΙΣ', 'ΣΤΟ ΓΗΠΕΔΟ', 'Ενδεκάδες, αλλαγές και βαθμολογίες παικτών'),
-    ('ΠΡΙΝ', 'ΤΗ ΣΕΝΤΡΑ', 'Αντίστροφη μέτρηση και πού θα δεις τον αγώνα'),
+    ('ΠΡΙΝ', 'ΤΗ ΣΕΝΤΡΑ', 'Αντίστροφη μέτρηση και κανάλια μετάδοσης'),
     ('ΟΛΟ ΤΟ', 'ΠΡΟΓΡΑΜΜΑ', 'Ποδόσφαιρο, μπάσκετ, βόλεϊ και όλα τα τμήματα'),
     ('ΟΛΕΣ ΟΙ', 'ΒΑΘΜΟΛΟΓΙΕΣ', 'Πάντα ενημερωμένες, με την ΑΕΚ να ξεχωρίζει'),
     ('ΔΙΑΒΑΣΕ', 'ΑΝΕΤΑ', 'Άρθρα με φωτογραφίες, βίντεο και σχόλια'),
@@ -77,9 +77,13 @@ def compose(shot, cap, pad):
         w = d.textlength(t, font=big)
         d.text(((W - w) / 2, y), t, font=big, fill=col)
         y += int(big.size * 0.98)
-    y += int(H * 0.008)
+    # κίτρινη γραμμούλα ανάμεσα σε τίτλο και φράση
+    bw, bh = int(W * 0.07), max(6, int(W * 0.006))
+    y += int(H * 0.024); d.rounded_rectangle([(W - bw) // 2, y, (W + bw) // 2, y + bh], bh // 2, fill=GOLD); y += bh + int(H * 0.012)
+    while d.textlength(cap[2], font=sub) > W * 0.86 and sub.size > W * (0.031 if not pad else 0.022):  # χωράει σε μία γραμμή
+        sub = font('Manrope-Bold.ttf', sub.size - 2)
     w = d.textlength(cap[2], font=sub)
-    if w > W * 0.88:  # σε δύο γραμμές
+    if w > W * 0.86:  # σε δύο γραμμές
         words = cap[2].split(); half = len(words) // 2
         lines = [' '.join(words[:half + 1]), ' '.join(words[half + 1:])]
     else:
@@ -88,7 +92,7 @@ def compose(shot, cap, pad):
         w = d.textlength(ln, font=sub); d.text(((W - w) / 2, y), ln, font=sub, fill=TEXT2); y += int(sub.size * 1.35)
     y += int(H * 0.025)
     # το screenshot μικρότερο, με στρογγυλές γωνίες και λεπτό περίγραμμα, «βγαίνει» από κάτω
-    sw = int(W * (0.80 if not pad else 0.80)); sh = int(H * sw / W)
+    sw = int(W * (0.84 if not pad else 0.82)); sh = int(H * sw / W)
     s = shot.convert('RGB').resize((sw, sh), Image.LANCZOS)
     r = int(sw * (0.085 if not pad else 0.035))
     frame = Image.new('RGBA', (sw + 16, sh + 16), (0, 0, 0, 0))
