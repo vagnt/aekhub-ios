@@ -31,10 +31,13 @@ enum Channels {
             ("Magenta Sport 3 League", "magenta sport 3 league, magenta sport3 l, cosmote sport 3 league", mag, "278"), ("Magenta Sport 4 League", "magenta sport 4 league, magenta sport4 l, cosmote sport 4 league", mag, "275"),
             ("Magenta Sport 4K", "magenta sport 4k, cosmote sport 4k", mag, "252"),
             ("Eurosport 1", "eurosport 1, eurosport1", "", "29"), ("Eurosport 2", "eurosport 2, eurosport2", "", "31"),
+            // τα δικά του κανάλια του χρήστη, περασμένα στα έτοιμα (Match Center 1.151.3)
+            ("Magenta Sport", "magenta sport, magenta tv, magentatv, magenta, cosmote sport, cosmote tv, cosmote", "https://www.cosmotetv.gr/", "magenta"),
+            ("Novasports", "novasports, nova sports, nova", nova, "novasports"),
+            ("Sport FMTV", "sport fmtv, sportfmtv, sport fm tv, sport fm, sportfm, sport-fm, σπορ fm tv, σπορ fm", "https://www.sportfmtv.gr/el", "sportfmtv"),
+            ("YouTube", "youtube", "", "youtube"), ("Mega News", "mega news, meganews", "https://www.megatv.com/meganews/", "meganews"),
             // χωρίς λογότυπο (γράφεται το όνομα)
-            ("Cosmote Sport", "cosmote", mag, ""), ("Novasports", "nova", nova, ""), ("ΕΡΤ", "ερτ, ert, ertflix", ert, ""),
-            ("Sport FM", "sport fm, sportfm, sport-fm", "https://www.sport-fm.gr/", ""), ("AEK TV", "aek tv, αεκ tv, aektv", "", ""),
-            ("YouTube", "youtube", "", ""), ("Facebook", "facebook", "", ""), ("EuroLeague TV", "euroleague tv", "https://euroleague.tv/", ""), ("DAZN", "dazn", "https://www.dazn.com/", ""),
+            ("ΕΡΤ", "ερτ, ert, ertflix", ert, ""), ("AEK TV", "aek tv, αεκ tv, aektv", "", ""), ("Facebook", "facebook", "", ""), ("EuroLeague TV", "euroleague tv", "https://euroleague.tv/", ""), ("DAZN", "dazn", "https://www.dazn.com/", ""),
         ]
         let magIds = ["211", "212", "213", "214", "215", "216", "217", "218", "219"]
         for i in 1...9 { L.append(("Magenta Sport \(i)", "magenta sport \(i), cosmote sport \(i)", mag, magIds[i - 1])) }
