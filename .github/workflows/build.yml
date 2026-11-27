@@ -140,8 +140,9 @@ jobs:
         if: "!contains(github.event.head_commit.message, '[appstore]') && github.event_name != 'workflow_dispatch'"
         env:
           MATCH: "214093"
-          MATCH2: "215042"
-          POST: "218069"
+          MATCH2: "215045"
+          MATCH3: "218520"
+          POST: "218852"
           POST2: "218062"
         run: bash ci/screens.sh sim/Build/Products/Debug-iphonesimulator/AEKHub.app shots
       - uses: actions/upload-artifact@v4
@@ -154,11 +155,16 @@ jobs:
         if: contains(github.event.head_commit.message, '[appstore]') || github.event_name == 'workflow_dispatch'
         env:
           MATCH: "214093"
-          MATCH2: "215042"
-          POST: "218069"
+          MATCH2: "215045"
+          MATCH3: "218520"
+          POST: "218852"
+          MDAY: "2026-12-05"
+          ONLY: ${{ contains(github.event.head_commit.message, '[ipad]') && 'ipad' || (contains(github.event.head_commit.message, '[iphone]') && 'iphone' || '') }}
+        timeout-minutes: 40
         run: bash ci/appstore.sh sim/Build/Products/Debug-iphonesimulator/AEKHub.app appstore
       - uses: actions/upload-artifact@v4
-        if: contains(github.event.head_commit.message, '[appstore]') || github.event_name == 'workflow_dispatch'
+        # και αν κολλήσει/λήξει: ανεβαίνουν όσες βγήκαν
+        if: always() && (contains(github.event.head_commit.message, '[appstore]') || github.event_name == 'workflow_dispatch')
         with:
           name: appstore
           path: appstore/*.png

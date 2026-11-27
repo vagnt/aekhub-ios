@@ -7,13 +7,6 @@ import SwiftUI
 
 // MARK: - 📺 Κανάλια (ίδιος κατάλογος με το Match Center → 📺 Κανάλια)
 
-struct TVChannel: Hashable {
-    let name, label, logo, url: String
-    var youtube: Bool { name.lowercased().contains("youtube") }
-    /// Τι γράφεται δίπλα στο λογότυπο (με λογότυπο: μόνο το όνομα καναλιού YouTube, π.χ. «AEK AC TV»)
-    var text: String { !label.isEmpty ? label : (logo.isEmpty && !youtube ? name : "") }
-}
-
 enum Channels {
     static let site = "https://aekhub.gr/wp-content/plugins/aek-match-center/assets/"
     /// [όνομα, λέξεις (κόμμα), link, αρχείο λογοτύπου]
@@ -38,10 +31,13 @@ enum Channels {
             ("Magenta Sport 3 League", "magenta sport 3 league, magenta sport3 l, cosmote sport 3 league", mag, "278"), ("Magenta Sport 4 League", "magenta sport 4 league, magenta sport4 l, cosmote sport 4 league", mag, "275"),
             ("Magenta Sport 4K", "magenta sport 4k, cosmote sport 4k", mag, "252"),
             ("Eurosport 1", "eurosport 1, eurosport1", "", "29"), ("Eurosport 2", "eurosport 2, eurosport2", "", "31"),
+            // τα δικά του κανάλια του χρήστη, περασμένα στα έτοιμα (Match Center 1.151.3)
+            ("Magenta Sport", "magenta sport, magenta tv, magentatv, magenta, cosmote sport, cosmote tv, cosmote", "https://www.cosmotetv.gr/", "magenta"),
+            ("Novasports", "novasports, nova sports, nova", nova, "novasports"),
+            ("Sport FMTV", "sport fmtv, sportfmtv, sport fm tv, sport fm, sportfm, sport-fm, σπορ fm tv, σπορ fm", "https://www.sportfmtv.gr/el", "sportfmtv"),
+            ("YouTube", "youtube", "", "youtube"), ("Mega News", "mega news, meganews", "https://www.megatv.com/meganews/", "meganews"),
             // χωρίς λογότυπο (γράφεται το όνομα)
-            ("Cosmote Sport", "cosmote", mag, ""), ("Novasports", "nova", nova, ""), ("ΕΡΤ", "ερτ, ert, ertflix", ert, ""),
-            ("Sport FM", "sport fm, sportfm, sport-fm", "https://www.sport-fm.gr/", ""), ("AEK TV", "aek tv, αεκ tv, aektv", "", ""),
-            ("YouTube", "youtube", "", ""), ("Facebook", "facebook", "", ""), ("EuroLeague TV", "euroleague tv", "https://euroleague.tv/", ""), ("DAZN", "dazn", "https://www.dazn.com/", ""),
+            ("ΕΡΤ", "ερτ, ert, ertflix", ert, ""), ("AEK TV", "aek tv, αεκ tv, aektv", "", ""), ("Facebook", "facebook", "", ""), ("EuroLeague TV", "euroleague tv", "https://euroleague.tv/", ""), ("DAZN", "dazn", "https://www.dazn.com/", ""),
         ]
         let magIds = ["211", "212", "213", "214", "215", "216", "217", "218", "219"]
         for i in 1...9 { L.append(("Magenta Sport \(i)", "magenta sport \(i), cosmote sport \(i)", mag, magIds[i - 1])) }
@@ -58,6 +54,10 @@ enum Channels {
               let m = r.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)) else { return nil }
         return (0..<m.numberOfRanges).map { i in Range(m.range(at: i), in: s).map { String(s[$0]) } ?? "" }
     }
+
+    /// Κανάλια αγώνα: έτοιμα από τον server (`tv`, με τα δικά σου λογότυπα του Match Center → 📺 Κανάλια)·
+    /// αλλιώς (παλιός server) από το κείμενο με τον κατάλογο του app.
+    @MainActor static func of(_ m: MatchCard) -> [TVChannel] { !AppState.shared.on("tv") ? [] : m.tv.isEmpty ? parse(m.broadcast) : m.tv }
 
     /// «Cosmote Sport 1 · YouTube: AEK AC TV https://…» → κανάλια
     static func parse(_ raw: String) -> [TVChannel] {
@@ -92,12 +92,18 @@ enum Channels {
             out.append(TVChannel(name: hit?.0 ?? p, label: lab, logo: (hit?.3 ?? "").isEmpty ? "" : site + "channels/ch-" + hit!.3 + ".png",
                                  url: !url.isEmpty ? url : (hit?.2 ?? "")))
         }
-        return out
+        var seen = Set<String>() // ίδιο κανάλι δύο φορές = μία
+        return out.filter { seen.insert(cmp($0.name + "|" + $0.label)).inserted }
     }
 }
 
 /// 🏆 Έτοιμα λογότυπα γνωστών διοργανώσεων (ίδια αρχεία με το Match Center 1.141)
 enum CompLogo {
+    /// από τον server (Match Center → 🏆 Διοργανώσεις, και όσα ανεβάζεις εσύ)· αλλιώς ο κατάλογος του app
+    @MainActor static func of(_ m: MatchCard) -> String {
+        guard AppState.shared.on("complogo") else { return "" }
+        return m.compLogo.isEmpty ? url(m.competition, sport: m.sport) : m.compLogo
+    }
     static func url(_ comp: String, sport: String) -> String {
         guard !comp.isEmpty else { return "" }
         let k = Channels.cmp(comp.components(separatedBy: " · ").first ?? comp)
@@ -379,7 +385,7 @@ struct PreMatchSection: View {
 
     var body: some View {
         let w = MatchWords.kick(m.sport)
-        let chans = Channels.parse(m.broadcast)
+        let chans = Channels.of(m)
         VStack(alignment: .leading, spacing: 12) {
             SectionTitle(text: w.0)
             if let ko = m.kickoffDate, ko > Date() {
@@ -397,7 +403,7 @@ struct PreMatchSection: View {
                     if !m.competition.isEmpty {
                         HStack(spacing: 10) {
                             Text("Διοργάνωση").font(F.body(12)).foregroundStyle(C.muted).frame(width: 96, alignment: .leading)
-                            let lg = CompLogo.url(m.competition, sport: m.sport)
+                            let lg = CompLogo.of(m)
                             if !lg.isEmpty { PlainLogo(url: lg, h: 22, maxW: 40) }
                             Text([m.competition, m.matchday].filter { !$0.isEmpty }.joined(separator: " · ")).font(F.body(13, .bold)).foregroundStyle(C.text)
                             Spacer(minLength: 0)
@@ -499,7 +505,7 @@ struct PostMatchSection: View {
                             }
                             Text(Fmt.dayHeader(n.date) + (n.time.isEmpty ? "" : " · " + n.time)).font(F.body(11.5, .heavy)).foregroundStyle(C.text2)
                             if !n.venue.isEmpty { Text(n.venue).font(F.body(11.5)).foregroundStyle(C.muted) }
-                            let ch = Channels.parse(n.broadcast)
+                            let ch = Channels.of(n)
                             if !ch.isEmpty { HStack(spacing: 10) { ForEach(ch, id: \.self) { ChannelBadge(c: $0, h: 18) } } }
                             if let ko = n.kickoffDate, ko > Date() { KickCountdown(date: ko) }
                         }
